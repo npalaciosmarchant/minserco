@@ -2,10 +2,6 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { Usuario } from "./types"
-<parameter name="content">"use client"
-
-import { createContext, useContext, useEffect, useState, useCallback } from "react"
-import { Usuario } from "./types"
 import { getSupabase } from "./supabase"
 import { syncFromSupabase } from "./store"
 
