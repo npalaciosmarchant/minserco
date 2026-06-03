@@ -27,7 +27,7 @@ export async function generarPDFConImagenes(options: PDFOptions): Promise<string
 
   // Título
   doc.setFontSize(18)
-  doc.setFont(undefined, "bold")
+  doc.setFont("helvetica", "bold")
   doc.text(options.titulo, doc.internal.pageSize.getWidth() / 2, posicionY, {
     align: "center",
   })
@@ -36,7 +36,7 @@ export async function generarPDFConImagenes(options: PDFOptions): Promise<string
   // Subtítulo
   if (options.subtitulo) {
     doc.setFontSize(12)
-    doc.setFont(undefined, "normal")
+    doc.setFont("helvetica", "normal")
     doc.text(options.subtitulo, doc.internal.pageSize.getWidth() / 2, posicionY, {
       align: "center",
     })
@@ -57,9 +57,9 @@ export async function generarPDFConImagenes(options: PDFOptions): Promise<string
   doc.setFontSize(10)
   doc.setTextColor(0)
   Object.entries(options.datos).forEach(([clave, valor]) => {
-    doc.setFont(undefined, "bold")
+    doc.setFont("helvetica", "bold")
     doc.text(`${clave}:`, 20, posicionY)
-    doc.setFont(undefined, "normal")
+    doc.setFont("helvetica", "normal")
     doc.text(String(valor), 70, posicionY)
     posicionY += 7
   })
@@ -75,7 +75,7 @@ export async function generarPDFConImagenes(options: PDFOptions): Promise<string
       }
 
       doc.setFontSize(11)
-      doc.setFont(undefined, "bold")
+      doc.setFont("helvetica", "bold")
       doc.text(tabla.titulo, 20, posicionY)
       posicionY += 8
 
