@@ -29,7 +29,7 @@ export async function obtenerMetricas(): Promise<MetricasDashboard> {
     const reparacionesEnCurso = reparaciones?.filter(r => r.estado === "en_reparacion").length || 0
 
     // Gastos
-    const { data: gastos } = await supabase.from("gastos").select("monto,fecha")
+    const { data: gastos } = await supabase.from("gastos").select("monto,fecha,responsable")
 
     const ahora = new Date()
     const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1)
