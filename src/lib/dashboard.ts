@@ -20,7 +20,7 @@ export async function obtenerMetricas(): Promise<MetricasDashboard> {
     // Total y estado de reparaciones
     const { data: reparaciones } = await supabase
       .from("reparaciones")
-      .select("id,estado,fecha_estimada,costo_final")
+      .select("id,estado,fecha_estimada,costo_final,tecnico")
 
     const reparacionesVencidas = reparaciones?.filter(
       r => r.fecha_estimada && r.fecha_estimada < hoy && !["entregado", "listo"].includes(r.estado)
