@@ -58,7 +58,7 @@ export default function AdminUsuariosPage() {
     if (u) {
       setEditando(u)
       const { id, creadoEn, ...r } = u
-      setForm({ ...r, password: "" })
+      setForm({ ...r, password: "", forzarCambio: false })
     } else {
       setEditando(null)
       setForm(emptyForm())
