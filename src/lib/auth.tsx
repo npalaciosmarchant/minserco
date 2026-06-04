@@ -121,9 +121,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
-    const { error } = await getSupabase().auth.signInWithPassword({ email, password })
-    if (error) return { ok: false, error: error.message }
-    return { ok: true }
+    try {
+      const { error } = await getSupabase().auth.signInWithPassword({ email, password })
+      if (error) return { ok: false, error: error.message }
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: "Error de conexión con el servidor." }
+    }
   }, [])
 
   const logout = useCallback(async () => {

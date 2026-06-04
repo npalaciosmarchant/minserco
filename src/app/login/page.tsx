@@ -37,10 +37,15 @@ export default function LoginPage() {
     e.preventDefault()
     setError("")
     setLoading(true)
-    const { ok, error: err } = await login(email.trim(), password)
-    setLoading(false)
-    if (ok) router.push("/")
-    else setError(err ?? "Credenciales incorrectas o usuario inactivo.")
+    try {
+      const { ok, error: err } = await login(email.trim(), password)
+      if (ok) router.push("/")
+      else setError(err ?? "Credenciales incorrectas o usuario inactivo.")
+    } catch {
+      setError("Error inesperado. Intenta nuevamente.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleRecuperar(e: React.FormEvent) {
