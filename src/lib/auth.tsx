@@ -81,40 +81,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const sb = getSupabase()
+    let mounted = true
 
-    // Timeout de seguridad: si en 6s no resuelve, desbloquear UI
-    const timeout = setTimeout(() => setLoading(false), 6000)
+    // Timeout de seguridad: máximo 4s de pantalla de carga
+    const timeout = setTimeout(() => {
+      if (mounted) setLoading(false)
+    }, 4000)
 
-    // Sesión activa al cargar
-    sb.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const perfil = await fetchPerfil(session.user.id)
-        setUser(perfil)
-      }
-    }).catch(console.error).finally(() => {
-      clearTimeout(timeout)
-      setLoading(false)
-    })
-
-    // Escuchar cambios de sesión (login/logout desde otra pestaña, expiración)
-    const { data: { subscription } } = sb.auth.onAuthStateChange(async (_event, session) => {
+    // onAuthStateChange maneja INITIAL_SESSION (sesión al cargar),
+    // SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT, etc.
+    const { data: { subscription } } = sb.auth.onAuthStateChange(async (event, session) => {
       try {
         if (session?.user) {
           const perfil = await fetchPerfil(session.user.id)
+          if (!mounted) return
           setUser(perfil)
-          syncFromSupabase().catch(console.warn)
+          // Sincronizar datos en segundo plano solo al ingresar
+          if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+            syncFromSupabase().catch(console.warn)
+          }
         } else {
-          setUser(null)
+          if (mounted) setUser(null)
         }
       } catch (e) {
-        console.error(e)
+        console.error("[auth]", e)
+        if (mounted) setUser(null)
       } finally {
         clearTimeout(timeout)
-        setLoading(false)
+        if (mounted) setLoading(false)
       }
     })
 
     return () => {
+      mounted = false
       clearTimeout(timeout)
       subscription.unsubscribe()
     }
@@ -125,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await getSupabase().auth.signInWithPassword({ email, password })
       if (error) return { ok: false, error: error.message }
       return { ok: true }
-    } catch (e) {
+    } catch {
       return { ok: false, error: "Error de conexión con el servidor." }
     }
   }, [])
