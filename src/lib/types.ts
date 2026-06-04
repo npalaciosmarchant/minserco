@@ -261,6 +261,8 @@ export interface Usuario {
   rol: RolUsuario
   activo: boolean
   creadoEn: string
+  permisos?: string[] // módulos a los que tiene acceso (solo técnicos)
+  debeChangiarPassword?: boolean // forzar cambio en primer login
 }
 
 // Proveedores

@@ -19,21 +19,59 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
 })
 
+// Mapeo módulo → ruta(s)
+export const MODULO_A_RUTA: Record<string, string> = {
+  mantenciones:  "/mantencion",
+  reparaciones:  "/reparacion",
+  clientes:      "/clientes",
+  ordenes:       "/ordenes",
+  gastos:        "/gastos",
+  bodega:        "/bodega",
+  importaciones: "/importacion",
+  cotizaciones:  "/cotizaciones",
+  arriendo:      "/arriendo",
+  fabricacion:   "/fabricacion",
+  proveedores:   "/proveedores",
+  tecnicos:      "/tecnicos",
+  reportes:      "/reportes",
+  actividad:     "/actividad",
+  calendario:    "/calendario",
+  checklist:     "/checklist",
+  mapa:          "/mapa",
+  informes:      "/informes-entrega",
+}
+
 async function fetchPerfil(uid: string): Promise<Usuario | null> {
-  const { data } = await getSupabase()
+  const sb = getSupabase()
+  const { data } = await sb
     .from("usuarios")
     .select("*")
     .eq("id", uid)
     .maybeSingle()
   if (!data) return null
+
+  // Para técnicos, cargar permisos
+  let permisos: string[] | undefined
+  if (data.rol === "tecnico") {
+    const { data: pData } = await sb
+      .from("tecnico_permisos")
+      .select("modulo_id, puede_ver")
+      .eq("tecnico_id", uid)
+    if (pData) {
+      permisos = pData.filter(p => p.puede_ver).map(p => p.modulo_id)
+    }
+  }
+
   return {
-    id:       data.id,
-    nombre:   data.nombre,
-    email:    data.email,
-    password: "",
-    rol:      data.rol,
-    activo:   data.activo,
-    creadoEn: data.creado_en,
+    id:                   data.id,
+    nombre:               data.nombre,
+    email:                data.email,
+    password:             "",
+    rol:                  data.rol,
+    activo:               data.activo,
+    creadoEn:             data.creado_en,
+    permisos,
+    debeChangiarPassword: data.debe_cambiar_password ?? false,
   }
 }
 
@@ -104,13 +142,23 @@ export function useAuth() {
   return useContext(AuthContext)
 }
 
-export const TECNICO_ROUTES = [
-  "/mantencion", "/reparacion", "/clientes", "/ordenes",
-  "/gastos", "/informes-entrega",
-]
+// Rutas accesibles por técnicos sin permisos asignados (fallback)
+const TECNICO_RUTAS_DEFAULT = ["/mantencion", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega"]
 
 export function canAccess(user: Usuario | null, pathname: string): boolean {
   if (!user) return false
   if (user.rol === "admin") return true
-  return TECNICO_ROUTES.some(r => pathname === r || pathname.startsWith(r + "/"))
+
+  const base = "/" + pathname.split("/")[1]
+
+  // Si tiene permisos cargados, usarlos
+  if (user.permisos !== undefined) {
+    return user.permisos.some(modulo => {
+      const ruta = MODULO_A_RUTA[modulo]
+      return ruta && (base === ruta || pathname.startsWith(ruta + "/"))
+    })
+  }
+
+  // Fallback: rutas por defecto
+  return TECNICO_RUTAS_DEFAULT.some(r => pathname === r || pathname.startsWith(r + "/"))
 }

@@ -9,7 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
-import { Plus, Pencil, Trash2, ShieldCheck, HardHat, UserCheck, UserX, KeyRound } from "lucide-react"
+import { Plus, Pencil, Trash2, ShieldCheck, HardHat, UserCheck, UserX, KeyRound, Settings2, RefreshCw } from "lucide-react"
+import { getSupabase } from "@/lib/supabase"
+import { PermisosForm } from "@/components/PermisosForm"
 
 const roles: { value: RolUsuario; label: string; color: string; icon: React.ElementType; acceso: string }[] = [
   {
@@ -24,13 +26,13 @@ const roles: { value: RolUsuario; label: string; color: string; icon: React.Elem
     label: "Técnico",
     color: "#a78bfa",
     icon: HardHat,
-    acceso: "Mantención, Reparación, Equipos en Terreno, Órdenes de Trabajo",
+    acceso: "Acceso según permisos asignados",
   },
 ]
 const rolMap = Object.fromEntries(roles.map(r => [r.value, r]))
 
-function emptyForm(): Omit<Usuario, "id" | "creadoEn"> {
-  return { nombre: "", email: "", password: "", rol: "tecnico", activo: true }
+function emptyForm(): Omit<Usuario, "id" | "creadoEn"> & { forzarCambio: boolean } {
+  return { nombre: "", email: "", password: "", rol: "tecnico", activo: true, forzarCambio: true }
 }
 
 export default function AdminUsuariosPage() {
@@ -39,9 +41,10 @@ export default function AdminUsuariosPage() {
   const [lista, setLista] = useState<Usuario[]>([])
   const [open, setOpen] = useState(false)
   const [editando, setEditando] = useState<Usuario | null>(null)
-  const [form, setForm] = useState(emptyForm())
+  const [form, setForm] = useState<ReturnType<typeof emptyForm>>(emptyForm())
   const [showPass, setShowPass] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
+  const [permisosUsuario, setPermisosUsuario] = useState<Usuario | null>(null)
 
   useEffect(() => {
     if (user && user.rol !== "admin") { router.push("/"); return }
@@ -55,7 +58,7 @@ export default function AdminUsuariosPage() {
     if (u) {
       setEditando(u)
       const { id, creadoEn, ...r } = u
-      setForm({ ...r, password: "" }) // don't pre-fill password
+      setForm({ ...r, password: "" })
     } else {
       setEditando(null)
       setForm(emptyForm())
@@ -73,7 +76,6 @@ export default function AdminUsuariosPage() {
       setErrorMsg("La contraseña es obligatoria para nuevos usuarios.")
       return
     }
-    // Check email uniqueness
     const existing = usuarios.findByEmail(form.email.trim())
     if (existing && existing.id !== editando?.id) {
       setErrorMsg("Ya existe un usuario con ese email.")
@@ -84,14 +86,17 @@ export default function AdminUsuariosPage() {
       if (form.password.trim()) changes.password = form.password.trim()
       usuarios.update(editando.id, changes)
     } else {
-      usuarios.add({ ...form, email: form.email.trim(), password: form.password.trim() })
+      const nuevo = usuarios.add({ ...form, email: form.email.trim(), password: form.password.trim() })
+      // Si hay que forzar cambio de contraseña, marcarlo en Supabase
+      if (form.forzarCambio && nuevo?.id) {
+        getSupabase().from("usuarios").update({ debe_cambiar_password: true }).eq("id", nuevo.id).then(() => {})
+      }
     }
     cargar()
     setOpen(false)
   }
 
   function toggleActivo(u: Usuario) {
-    // Prevent deactivating self or last admin
     if (u.id === user?.id) return
     const admins = lista.filter(x => x.rol === "admin" && x.activo)
     if (u.rol === "admin" && admins.length === 1 && u.activo) return
@@ -107,9 +112,6 @@ export default function AdminUsuariosPage() {
   }
 
   const setS = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }))
-
-  const admins = lista.filter(u => u.rol === "admin")
-  const tecnicosLista = lista.filter(u => u.rol === "tecnico")
 
   return (
     <div className="p-6 h-full flex flex-col">
@@ -208,6 +210,20 @@ export default function AdminUsuariosPage() {
                   {u.activo ? <UserCheck size={11} /> : <UserX size={11} />}
                   {u.activo ? "Activo" : "Inactivo"}
                 </button>
+
+                {/* Botón permisos — solo para técnicos */}
+                {u.rol === "tecnico" && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    title="Gestionar permisos"
+                    onClick={() => setPermisosUsuario(u)}
+                  >
+                    <Settings2 size={13} />
+                  </Button>
+                )}
+
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => abrir(u)}>
                   <Pencil size={13} />
                 </Button>
@@ -222,7 +238,7 @@ export default function AdminUsuariosPage() {
         })}
       </div>
 
-      {/* Dialog */}
+      {/* Dialog crear/editar usuario */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -292,6 +308,27 @@ export default function AdminUsuariosPage() {
               </button>
             </div>
 
+            {/* Forzar cambio contraseña — solo para nuevos usuarios */}
+            {!editando && (
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+                style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.2)" }}>
+                <div className="flex items-center gap-2">
+                  <RefreshCw size={13} style={{ color: "#a78bfa" }} />
+                  <div>
+                    <div className="text-sm font-medium" style={{ color: "var(--foreground)" }}>Forzar cambio de contraseña</div>
+                    <div className="text-xs" style={{ color: "var(--muted-foreground)" }}>El usuario deberá cambiarla en su primer acceso</div>
+                  </div>
+                </div>
+                <button type="button"
+                  onClick={() => setForm(f => ({ ...f, forzarCambio: !f.forzarCambio }))}
+                  className="w-11 h-6 rounded-full transition-colors relative shrink-0"
+                  style={{ background: form.forzarCambio ? "#a78bfa" : "var(--border)" }}>
+                  <span className="absolute top-0.5 transition-all w-5 h-5 rounded-full"
+                    style={{ background: "white", left: form.forzarCambio ? "calc(100% - 22px)" : "2px" }} />
+                </button>
+              </div>
+            )}
+
             {errorMsg && (
               <div className="text-sm px-3 py-2 rounded-lg"
                 style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
@@ -303,6 +340,22 @@ export default function AdminUsuariosPage() {
               {editando ? "Guardar cambios" : "Crear usuario"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog permisos */}
+      <Dialog open={!!permisosUsuario} onOpenChange={v => { if (!v) setPermisosUsuario(null) }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings2 size={16} style={{ color: "#a78bfa" }} />
+              Permisos — {permisosUsuario?.nombre}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs mb-3" style={{ color: "var(--muted-foreground)" }}>
+            Activa o desactiva el acceso a cada módulo. Los cambios se guardan automáticamente en Supabase.
+          </p>
+          {permisosUsuario && <PermisosForm tecnicoId={permisosUsuario.id} />}
         </DialogContent>
       </Dialog>
     </div>
