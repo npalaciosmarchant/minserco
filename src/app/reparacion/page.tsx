@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Pencil, Trash2, LayoutGrid, List, Settings, User, AlertTriangle, CheckCircle2 } from "lucide-react"
+import { Plus, Pencil, Trash2, LayoutGrid, List, Settings, User, AlertTriangle, CheckCircle2, Camera } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
 import DateFilter, { filterByDate, DateRange } from "@/components/ui/DateFilter"
 import Pagination from "@/components/ui/Pagination"
+import { FotoGaleria } from "@/components/ui/FotoGaleria"
 import { usePagination } from "@/lib/usePagination"
 
 const estados: { value: EstadoReparacion; label: string; color: string; bg: string; border: string }[] = [
@@ -30,7 +31,7 @@ const empty = (): Omit<Reparacion, "id" | "creadoEn"> => ({
   diagnostico: "", repuestosUsados: "", tecnico: "",
   fechaRecepcion: new Date().toISOString().slice(0, 10),
   fechaEstimada: "", fechaEntrega: "", estado: "recibido",
-  costoEstimado: undefined, costoFinal: undefined,
+  costoEstimado: undefined, costoFinal: undefined, fotos: [],
 })
 
 function ReparacionCard({ r, onEdit, onDelete }: { r: Reparacion; onEdit: () => void; onDelete: () => void }) {
@@ -87,6 +88,20 @@ function ReparacionCard({ r, onEdit, onDelete }: { r: Reparacion; onEdit: () => 
             style={{ background: "var(--accent)", color: "var(--muted-foreground)", borderLeft: `2px solid ${est.color}60` }}>
             {r.diagnostico}
           </p>
+        )}
+
+        {r.fotos && r.fotos.length > 0 && (
+          <div className="flex gap-1.5 mb-2">
+            {r.fotos.slice(0, 4).map((foto, i) => (
+              <img key={i} src={`data:image/jpeg;base64,${foto}`} alt=""
+                className="w-10 h-10 rounded-lg object-cover border border-gray-200" />
+            ))}
+            {r.fotos.length > 4 && (
+              <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-xs font-medium text-gray-500">
+                +{r.fotos.length - 4}
+              </div>
+            )}
+          </div>
         )}
 
         <div className="flex items-center justify-between text-xs pt-1" style={{ borderTop: "1px solid var(--border)", color: "var(--muted-foreground)" }}>
@@ -203,6 +218,10 @@ export default function ReparacionPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>Costo estimado ($)</Label><Input type="number" value={form.costoEstimado ?? ""} onChange={e => setN("costoEstimado", Number(e.target.value))} /></div>
               <div className="space-y-1"><Label>Costo final ($)</Label><Input type="number" value={form.costoFinal ?? ""} onChange={e => setN("costoFinal", Number(e.target.value))} /></div>
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5"><Camera size={13} />Fotos del equipo ({(form.fotos ?? []).length}/6)</Label>
+              <FotoGaleria fotos={form.fotos ?? []} onChange={fotos => setS("fotos", fotos as any)} />
             </div>
             <Button className="w-full" onClick={guardar}>{editando ? "Guardar cambios" : "Registrar ingreso"}</Button>
           </div>

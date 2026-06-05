@@ -106,6 +106,17 @@ function CotizacionCard({ c, onEdit, onDelete, onConvertir, onImprimir }: {
             {diasHasta < 0 ? "Vencida" : `Vence: ${c.fechaVencimiento}`}
           </span>
         </div>
+
+        {c.estado === "aceptada" && (
+          <button
+            onClick={onConvertir}
+            className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all hover:brightness-95 active:scale-[0.98]"
+            style={{ background: "rgba(8,145,178,0.10)", color: "#0891b2", border: "1px solid rgba(8,145,178,0.20)" }}
+          >
+            <ClipboardList size={12} />
+            Crear Orden de Trabajo
+          </button>
+        )}
       </div>
     </div>
   )

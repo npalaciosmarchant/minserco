@@ -6,7 +6,7 @@ import Link from "next/link"
 import Image from "next/image"
 import {
   Menu, X, Bell, AlertTriangle, Package, Wrench,
-  KeyRound, ShieldAlert, Search, ChevronRight,
+  KeyRound, ShieldAlert, Search, ChevronRight, Mail,
 } from "lucide-react"
 import { mantenciones, bodega, reparaciones, contratos, clientesEquipos } from "@/lib/store"
 import { useAlertScheduler } from "@/lib/useAlertScheduler"
@@ -328,7 +328,7 @@ export default function Topbar({ onMenuToggle, menuOpen }: TopbarProps) {
             {/* Footer */}
             {alertas.length > 0 && (
               <div
-                className="px-4 py-2.5 text-center"
+                className="px-4 py-2.5 flex items-center justify-between gap-2"
                 style={{ borderTop: "1px solid var(--ds-border)" }}
               >
                 <span className="text-[11px]" style={{ color: "var(--ds-fg-subtle)", fontFamily: "Fira Code, monospace" }}>
@@ -337,6 +337,22 @@ export default function Topbar({ onMenuToggle, menuOpen }: TopbarProps) {
                   )}
                   {alertas.length} alerta{alertas.length !== 1 ? "s" : ""} en total
                 </span>
+                <button
+                  onClick={() => {
+                    const cuerpo = alertas.map(a =>
+                      `[${a.urgente ? "⚠ URGENTE" : "●"}] ${a.titulo}\n   ${a.detalle}`
+                    ).join("\n\n")
+                    const subject = encodeURIComponent(`Resumen de alertas Minserco — ${new Date().toLocaleDateString("es-CL")}`)
+                    const body = encodeURIComponent(`Alertas activas al ${new Date().toLocaleString("es-CL")}:\n\n${cuerpo}\n\n— Sistema Minserco`)
+                    window.open(`mailto:?subject=${subject}&body=${body}`)
+                  }}
+                  className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg font-medium"
+                  style={{ background: "var(--ds-accent)", color: "#fff", transition: "opacity 150ms" }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = "0.85"}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = "1"}
+                >
+                  <Mail size={11} /> Enviar resumen
+                </button>
               </div>
             )}
           </div>

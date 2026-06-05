@@ -12,6 +12,7 @@ export interface Mantencion {
   estado: EstadoMantencion
   observaciones?: string
   proximaMantencion?: string
+  fotos?: string[]          // base64 images
   creadoEn: string
 }
 
@@ -51,6 +52,7 @@ export interface Reparacion {
   estado: EstadoReparacion
   costoEstimado?: number
   costoFinal?: number
+  fotos?: string[]          // base64 images
   creadoEn: string
 }
 
@@ -351,4 +353,11 @@ export interface AlertaConfig {
   diasSemana: number[]
   mensaje: string
   ultimaDisparo?: string
+}
+
+export interface NotificacionEmailConfig {
+  emailDestinatario: string
+  habilitado: boolean
+  resumenDiario: boolean
+  urgentesInmediato: boolean
 }

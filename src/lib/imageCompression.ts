@@ -49,9 +49,27 @@ export async function compressImage(
     return compressedFile
   } catch (error) {
     console.error("Error comprimiendo imagen:", error)
-    // Si falla, devolver el archivo original
     return file
   }
+}
+
+/**
+ * Comprimir imagen y devolver base64
+ */
+export async function compressImageToBase64(
+  file: File,
+  options: CompressionOptions = {}
+): Promise<string> {
+  const compressed = await compressImage(file, options)
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const result = ev.target?.result as string
+      resolve(result.split(",")[1]) // return only base64 part
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(compressed)
+  })
 }
 
 /**

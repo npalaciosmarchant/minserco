@@ -11,11 +11,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Pencil, Trash2, Wrench, CalendarDays, User } from "lucide-react"
+import { Plus, Pencil, Trash2, Wrench, CalendarDays, User, Camera } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
 import DateFilter, { filterByDate, DateRange } from "@/components/ui/DateFilter"
 import Pagination from "@/components/ui/Pagination"
 import { usePagination } from "@/lib/usePagination"
+import { FotoGaleria } from "@/components/ui/FotoGaleria"
 
 const estadoCfg: Record<string, { label: string; color: string; bg: string }> = {
   pendiente:  { label: "Pendiente",  color: "#ea580c", bg: "#fff7ed" },
@@ -26,7 +27,7 @@ const estadoCfg: Record<string, { label: string; color: string; bg: string }> = 
 const empty = (): Omit<Mantencion, "id" | "creadoEn"> => ({
   equipo: "", numeroSerie: "", tipo: "preventivo", descripcion: "",
   tecnico: "", fecha: new Date().toISOString().slice(0, 10),
-  estado: "pendiente", observaciones: "", proximaMantencion: "",
+  estado: "pendiente", observaciones: "", proximaMantencion: "", fotos: [],
 })
 
 export default function MantencionPage() {
@@ -217,6 +218,10 @@ export default function MantencionPage() {
             </div>
             <div className="space-y-1"><Label>Próxima mantención</Label><Input type="date" value={form.proximaMantencion ?? ""} onChange={e => set("proximaMantencion", e.target.value)} /></div>
             <div className="space-y-1"><Label>Observaciones</Label><Textarea value={form.observaciones ?? ""} onChange={e => set("observaciones", e.target.value)} rows={2} /></div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5"><Camera size={13} />Fotos ({(form.fotos ?? []).length}/6)</Label>
+              <FotoGaleria fotos={form.fotos ?? []} onChange={fotos => set("fotos", fotos as any)} />
+            </div>
             <Button className="w-full" onClick={guardar}>{editando ? "Guardar cambios" : "Registrar mantención"}</Button>
           </div>
         </DialogContent>
