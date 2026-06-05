@@ -121,11 +121,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      const { error } = await getSupabase().auth.signInWithPassword({ email, password })
+      // Timeout de 12s — si Supabase no responde, mostrar error en vez de colgar
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 12000)
+      )
+      const request = getSupabase().auth.signInWithPassword({ email, password })
+      const { error } = await Promise.race([request, timeout]) as Awaited<typeof request>
       if (error) return { ok: false, error: error.message }
       return { ok: true }
-    } catch {
-      return { ok: false, error: "Error de conexión con el servidor." }
+    } catch (e: unknown) {
+      const isTimeout = e instanceof Error && e.message === "timeout"
+      return { ok: false, error: isTimeout
+        ? "El servidor no responde. Verifica tu conexión o desactiva extensiones del navegador."
+        : "Error de conexión con el servidor." }
     }
   }, [])
 
