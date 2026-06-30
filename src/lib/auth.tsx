@@ -43,11 +43,15 @@ export const MODULO_A_RUTA: Record<string, string> = {
 
 async function fetchPerfil(uid: string): Promise<Usuario | null> {
   const sb = getSupabase()
-  const { data } = await sb
-    .from("usuarios")
-    .select("*")
-    .eq("id", uid)
-    .maybeSingle()
+  // Timeout para que una consulta colgada no bloquee el arranque
+  const withTimeout = <T,>(p: PromiseLike<T>, ms = 8000): Promise<T> =>
+    Promise.race([
+      Promise.resolve(p),
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
+    ])
+  const { data } = await withTimeout(
+    sb.from("usuarios").select("*").eq("id", uid).maybeSingle()
+  )
   if (!data) return null
 
   // Para técnicos, cargar permisos
@@ -90,26 +94,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // onAuthStateChange maneja INITIAL_SESSION (sesión al cargar),
     // SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT, etc.
-    const { data: { subscription } } = sb.auth.onAuthStateChange(async (event, session) => {
-      try {
-        if (session?.user) {
-          const perfil = await fetchPerfil(session.user.id)
-          if (!mounted) return
-          setUser(perfil)
-          // Sincronizar datos en segundo plano solo al ingresar
-          if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
-            syncFromSupabase().catch(console.warn)
+    // IMPORTANTE: el callback de onAuthStateChange NO debe ejecutar llamadas
+    // a Supabase de forma awaited de manera síncrona — provoca un deadlock del
+    // cliente de auth durante el refresco de token (cuando hay una sesión
+    // guardada vencida/invalida), que CONGELA la app al cargar. Diferimos el
+    // trabajo con setTimeout(0) para que el callback retorne y libere el lock.
+    const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
+      setTimeout(async () => {
+        try {
+          if (session?.user) {
+            const perfil = await fetchPerfil(session.user.id)
+            if (!mounted) return
+            setUser(perfil)
+            // Sincronizar datos en segundo plano solo al ingresar
+            if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+              syncFromSupabase().catch(console.warn)
+            }
+          } else {
+            if (mounted) setUser(null)
           }
-        } else {
+        } catch (e) {
+          console.error("[auth]", e)
           if (mounted) setUser(null)
+        } finally {
+          clearTimeout(timeout)
+          if (mounted) setLoading(false)
         }
-      } catch (e) {
-        console.error("[auth]", e)
-        if (mounted) setUser(null)
-      } finally {
-        clearTimeout(timeout)
-        if (mounted) setLoading(false)
-      }
+      }, 0)
     })
 
     return () => {
