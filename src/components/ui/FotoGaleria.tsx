@@ -11,7 +11,7 @@ interface FotoGaleriaProps {
   readOnly?: boolean
 }
 
-export function FotoGaleria({ fotos = [], onChange, maxFotos = 6, readOnly = false }: FotoGaleriaProps) {
+export function FotoGaleria({ fotos = [], onChange, maxFotos = 20, readOnly = false }: FotoGaleriaProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [visor, setVisor] = useState<string | null>(null)
   const [cargando, setCargando] = useState(false)
