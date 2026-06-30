@@ -25,6 +25,7 @@ const nav: NavItem[] = [
   { href: "/",            label: "Panel General",     icon: LayoutDashboard, desc: "Resumen operacional" },
   { href: "/actividad",   label: "Actividad",          icon: Activity,        desc: "Historial de eventos" },
   { href: "/mantencion",  label: "Mantención",   icon: Wrench,        group: "Operaciones", desc: "Preventiva y correctiva" },
+  { href: "/equipos",     label: "Equipos",            icon: Package,       group: "Operaciones", desc: "Registro de equipos" },
   { href: "/fabricacion", label: "Fabricación",  icon: Factory,       group: "Operaciones", desc: "Proyectos de fabricación" },
   { href: "/reparacion",  label: "Reparación",   icon: Settings,      group: "Operaciones", desc: "Equipos en reparación" },
   { href: "/clientes",    label: "Equipos en Terreno", icon: Users,    group: "Terreno",    desc: "Equipos y garantías" },
@@ -41,7 +42,7 @@ const nav: NavItem[] = [
   { href: "/informes-entrega", label: "Informes de Entrega",  icon: ClipboardCheck,group: "Documentos", desc: "Entrega de equipos" },
 ]
 
-const TECNICO_ROUTES = ["/mantencion", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega"]
+const TECNICO_ROUTES = ["/mantencion", "/equipos", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega"]
 
 const groups = ["Operaciones", "Terreno", "Comercial", "Logística", "Documentos"]
 
