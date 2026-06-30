@@ -44,10 +44,28 @@ function buildAlertas(): Alerta[] {
       detalle: i.cantidad + " " + i.unidad + " (mín. " + i.cantidadMinima + ")",
       urgente: i.cantidad === 0 })
   })
-  mantenciones.getAll().filter(m => m.estado === "pendiente").forEach(m => {
-    out.push({ id: "mant-" + m.id, tipo: "mantencion",
-      titulo: "Mantención pendiente: " + m.equipo,
-      detalle: m.tecnico + " · " + m.fecha, urgente: false })
+  mantenciones.getAll().filter(m => m.estado !== "completado").forEach(m => {
+    const tecs = (m.tecnicos && m.tecnicos.length ? m.tecnicos.join(", ") : m.tecnico)
+    // Recordatorio por próxima mantención: 7 días antes y todos los días hasta cumplirse (y vencidas)
+    if (m.proximaMantencion) {
+      const dias = Math.ceil((new Date(m.proximaMantencion).getTime() - hoy.getTime()) / 86400000)
+      if (dias <= 7) {
+        const titulo = dias < 0 ? "Mantención vencida: " + m.equipo
+          : dias === 0 ? "Mantención HOY: " + m.equipo
+          : "Próxima mantención: " + m.equipo
+        const detalle = dias < 0 ? "Venció hace " + Math.abs(dias) + " día(s) · " + tecs
+          : dias === 0 ? "Programada para hoy · " + tecs
+          : "Faltan " + dias + " día(s) · " + m.proximaMantencion
+        out.push({ id: "mantprox-" + m.id, tipo: "mantencion", titulo, detalle, urgente: dias <= 1 })
+        return
+      }
+    }
+    // Si no está dentro de la ventana, mostrar las pendientes como recordatorio simple
+    if (m.estado === "pendiente") {
+      out.push({ id: "mant-" + m.id, tipo: "mantencion",
+        titulo: "Mantención pendiente: " + m.equipo,
+        detalle: tecs + " · " + m.fecha, urgente: false })
+    }
   })
   reparaciones.getAll().filter(r => r.estado === "listo").forEach(r => {
     out.push({ id: "rep-" + r.id, tipo: "reparacion",
