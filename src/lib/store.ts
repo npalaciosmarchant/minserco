@@ -17,6 +17,7 @@ import {
   Importacion, ContratoArriendo, PagoArriendo, ClienteEquipo,
   Cotizacion, OrdenTrabajo, Tecnico, AsignacionTecnico,
   Usuario, Proveedor, Gasto, InformeEntrega, AlertaConfig,
+  Equipo, Notificacion,
 } from "./types"
 
 // ── localStorage helpers (API pública sin cambios) ────────────────────────────
@@ -134,6 +135,8 @@ export async function syncFromSupabase() {
     { sbTable: "gastos",             lsKey: "gastos"          },
     { sbTable: "informes_entrega",   lsKey: "informesEntrega" },
     { sbTable: "alertas_config",     lsKey: "alertasConfig"   },
+    { sbTable: "equipos",            lsKey: "equipos"         },
+    { sbTable: "notificaciones",     lsKey: "notificaciones"  },
   ]
 
   await Promise.all(tables.map(async ({ sbTable, lsKey }) => {
@@ -534,3 +537,43 @@ export const alertasConfig = {
 
 // Exportar sbInsert/sbUpdate por si algún módulo futuro los necesita
 export { sbInsert, sbUpdate }
+
+
+// ── EQUIPOS ───────────────────────────────────────────────────────────────────
+
+export const equipos = {
+  getAll: (): Equipo[] => lsGet("equipos"),
+  add: (e: Omit<Equipo, "id" | "creadoEn">): Equipo => {
+    const item: Equipo = { ...e, id: getId(), creadoEn: new Date().toISOString() }
+    lsSet("equipos", [...equipos.getAll(), item])
+    syncUp("equipos", item as unknown as Record<string, unknown>, "upsert")
+    return item
+  },
+  update: (id: string, changes: Partial<Equipo>) => {
+    lsSet("equipos", equipos.getAll().map(e => e.id === id ? { ...e, ...changes } : e))
+    syncUp("equipos", { id, ...changes } as Record<string, unknown>, "upsert")
+  },
+  delete: (id: string) => {
+    lsSet("equipos", equipos.getAll().filter(e => e.id !== id))
+    syncUp("equipos", { id }, "delete")
+  },
+}
+
+// ── NOTIFICACIONES ────────────────────────────────────────────────────────────
+
+export const notificaciones = {
+  getAll: (): Notificacion[] => lsGet("notificaciones"),
+  add: (n: Omit<Notificacion, "id" | "creadoEn">): Notificacion => {
+    const item: Notificacion = { ...n, id: getId(), creadoEn: new Date().toISOString() }
+    lsSet("notificaciones", [...notificaciones.getAll(), item])
+    syncUp("notificaciones", item as unknown as Record<string, unknown>, "upsert")
+    return item
+  },
+  marcarLeida: (id: string) => {
+    lsSet("notificaciones", notificaciones.getAll().map(n => n.id === id ? { ...n, leida: true } : n))
+    syncUp("notificaciones", { id, leida: true } as Record<string, unknown>, "upsert")
+  },
+  marcarTodasLeidas: () => {
+    notificaciones.getAll().filter(n => !n.leida).forEach(n => notificaciones.marcarLeida(n.id))
+  },
+}

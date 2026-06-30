@@ -1,5 +1,6 @@
 // Mantencion
 export type EstadoMantencion = "pendiente" | "en_proceso" | "completado"
+export type FrecuenciaMantencion = "ninguna" | "mensual" | "trimestral" | "semestral" | "anual"
 
 export interface Mantencion {
   id: string
@@ -7,12 +8,45 @@ export interface Mantencion {
   numeroSerie: string
   tipo: "preventivo" | "correctivo"
   descripcion: string
-  tecnico: string
+  tecnico: string             // compat: nombres unidos por coma
+  tecnicos?: string[]         // varios tecnicos (nombres)
+  frecuencia?: FrecuenciaMantencion
   fecha: string
   estado: EstadoMantencion
   observaciones?: string
   proximaMantencion?: string
-  fotos?: string[]          // base64 images
+  completadoEn?: string
+  informeId?: string          // informe generado al completar
+  fotos?: string[]            // base64 images
+  creadoEn: string
+}
+
+// Equipos (registro propio de equipos del usuario)
+export interface Equipo {
+  id: string
+  nombre: string
+  numeroSerie?: string
+  tipo?: string
+  marca?: string
+  modelo?: string
+  ubicacion?: string
+  frecuencia?: FrecuenciaMantencion
+  ultimaMantencion?: string
+  proximaMantencion?: string
+  activo: boolean
+  notas?: string
+  creadoEn: string
+}
+
+// Notificaciones in-app
+export interface Notificacion {
+  id: string
+  usuarioId?: string
+  tipo: string
+  titulo: string
+  mensaje?: string
+  mantencionId?: string
+  leida: boolean
   creadoEn: string
 }
 

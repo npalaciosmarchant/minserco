@@ -22,6 +22,7 @@ const AuthContext = createContext<AuthContextType>({
 // Mapeo módulo → ruta(s)
 export const MODULO_A_RUTA: Record<string, string> = {
   mantenciones:  "/mantencion",
+  equipos:       "/equipos",
   reparaciones:  "/reparacion",
   clientes:      "/clientes",
   ordenes:       "/ordenes",
@@ -165,7 +166,7 @@ export function useAuth() {
 }
 
 // Rutas accesibles por técnicos sin permisos asignados (fallback)
-const TECNICO_RUTAS_DEFAULT = ["/mantencion", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega"]
+const TECNICO_RUTAS_DEFAULT = ["/mantencion", "/equipos", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega"]
 
 export function canAccess(user: Usuario | null, pathname: string): boolean {
   if (!user) return false
