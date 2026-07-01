@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth"
+import { StorageMeter } from "@/components/StorageMeter"
 
 /* ── Bar Chart SVG ── */
 function BarChartSVG({ data }: { data: { label: string; value: number; color: string }[] }) {
@@ -332,6 +333,9 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* ── Almacenamiento ── */}
+      <StorageMeter />
 
       {/* ── Alertas ── */}
       {alertasBanner.length > 0 && (
