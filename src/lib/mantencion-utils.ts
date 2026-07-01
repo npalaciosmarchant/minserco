@@ -39,6 +39,7 @@ export function informeDesdeMantencion(m: Mantencion): Omit<InformeEntrega, "id"
     descripcionEntrega: `Mantención ${m.tipo} realizada. ${m.descripcion}`,
     itemsEntregados: [],
     observaciones: m.observaciones || "",
+    fotos: m.fotos ?? [],
     estado: "emitido",
   }
 }

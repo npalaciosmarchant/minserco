@@ -368,6 +368,7 @@ export interface InformeEntrega {
   descripcionEntrega: string
   itemsEntregados: string[]
   observaciones?: string
+  fotos?: string[]
   estado: EstadoInformeEntrega
   creadoEn: string
 }
