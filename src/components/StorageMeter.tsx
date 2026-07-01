@@ -64,7 +64,7 @@ export function StorageMeter() {
         <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "#eef2ff" }}>
           <HardDrive size={13} style={{ color: "#1a3673" }} />
         </div>
-        <span className="text-[13px] font-semibold" style={{ color: "var(--ds-fg)" }}>Almacenamiento (plan gratis)</span>
+        <span className="text-[13px] font-semibold" style={{ color: "var(--ds-fg)" }}>Almacenamiento</span>
       </div>
       <div className="flex flex-col sm:flex-row gap-6">
         <Barra label="Fotos" Icon={ImageIcon} used={uso.fotos_bytes} limit={LIMITE_FOTOS} extra={uso.fotos_count + " fotos"} />
