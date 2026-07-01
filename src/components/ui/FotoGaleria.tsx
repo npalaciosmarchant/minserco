@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react"
 import { Camera, X, ZoomIn, Plus } from "lucide-react"
-import { compressImageToBase64 } from "@/lib/imageCompression"
+import { subirFoto, fotoSrc } from "@/lib/upload-foto"
 
 interface FotoGaleriaProps {
   fotos: string[]
@@ -23,8 +23,8 @@ export function FotoGaleria({ fotos = [], onChange, maxFotos = 20, readOnly = fa
     try {
       const nuevas: string[] = []
       for (const file of files.slice(0, maxFotos - fotos.length)) {
-        const base64 = await compressImageToBase64(file)
-        nuevas.push(base64)
+        const url = await subirFoto(file)
+        nuevas.push(url)
       }
       onChange([...fotos, ...nuevas])
     } finally {
@@ -45,7 +45,7 @@ export function FotoGaleria({ fotos = [], onChange, maxFotos = 20, readOnly = fa
         {fotos.map((foto, idx) => (
           <div key={idx} className="relative group w-20 h-20 rounded-xl overflow-hidden border border-gray-200 bg-gray-50 shrink-0">
             <img
-              src={`data:image/jpeg;base64,${foto}`}
+              src={fotoSrc(foto)}
               alt={`Foto ${idx + 1}`}
               className="w-full h-full object-cover cursor-pointer"
               onClick={() => setVisor(foto)}
@@ -114,7 +114,7 @@ export function FotoGaleria({ fotos = [], onChange, maxFotos = 20, readOnly = fa
             <X size={20} className="text-white" />
           </button>
           <img
-            src={`data:image/jpeg;base64,${visor}`}
+            src={fotoSrc(visor)}
             alt="Foto ampliada"
             className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl"
             onClick={e => e.stopPropagation()}
