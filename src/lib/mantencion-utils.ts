@@ -57,7 +57,7 @@ export function generarInformePDF(inf: InformeEntrega, fotos: string[] = []) {
   const items = (inf.itemsEntregados || []).filter(Boolean)
   const imgs = (fotos || []).filter(Boolean)
   const fotosHtml = imgs.length > 0
-    ? `<div class="section" style="margin-bottom:20px;"><h3>Fotos (${imgs.length})</h3><div style="display:flex;flex-wrap:wrap;gap:8px">${imgs.map(f => `<img src="data:image/jpeg;base64,${f}" style="width:150px;height:150px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0" />`).join("")}</div></div>`
+    ? `<div class="section" style="margin-bottom:20px;"><h3>Fotos (${imgs.length})</h3><div style="display:flex;flex-wrap:wrap;gap:8px">${imgs.map(f => `<img src="${f.startsWith("http") || f.startsWith("data:") ? f : "data:image/jpeg;base64," + f}" style="width:150px;height:150px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0" />`).join("")}</div></div>`
     : ""
   const html = `
 <!DOCTYPE html>
