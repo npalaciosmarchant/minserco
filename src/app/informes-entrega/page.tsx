@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Pencil, Trash2, ClipboardCheck, Download, CheckCircle2, FileText, X } from "lucide-react"
+import { Plus, Pencil, Trash2, ClipboardCheck, Download, CheckCircle2, FileText, X, Camera } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
+import { FotoGaleria } from "@/components/ui/FotoGaleria"
 
 const estadoEquipoCfg: Record<EstadoEquipoEntrega, { label: string; color: string; bg: string }> = {
   excelente:   { label: "Excelente",   color: "#059669", bg: "#f0fdf4" },
@@ -39,6 +40,7 @@ function emptyForm(): Omit<InformeEntrega, "id" | "creadoEn"> {
     itemsEntregados: [""],
     observaciones: "",
     estado: "borrador",
+    fotos: [],
   }
 }
 
@@ -118,6 +120,14 @@ ${inf.observaciones ? `
 <div class="section" style="margin-bottom:20px;">
   <h3>Observaciones</h3>
   <p style="margin:0;line-height:1.6;">${inf.observaciones}</p>
+</div>` : ""}
+
+${(inf.fotos && inf.fotos.length > 0) ? `
+<div class="section" style="margin-bottom:20px;">
+  <h3>Fotos (${inf.fotos.length})</h3>
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
+    ${inf.fotos.map(f => `<img src="${f.startsWith("http") || f.startsWith("data:") ? f : "data:image/jpeg;base64," + f}" style="width:150px;height:150px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0" />`).join("")}
+  </div>
 </div>` : ""}
 
 <div class="firma-section">
@@ -343,6 +353,10 @@ export default function InformesEntregaPage() {
             </div>
             <div className="space-y-1"><Label>Observaciones</Label>
               <Textarea value={form.observaciones ?? ""} onChange={e => setS("observaciones", e.target.value)} rows={2} /></div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5"><Camera size={13} />Fotos ({(form.fotos ?? []).length}/20)</Label>
+              <FotoGaleria fotos={form.fotos ?? []} maxFotos={20} onChange={fotos => setForm(f => ({ ...f, fotos }))} />
+            </div>
             <div className="space-y-1"><Label>Estado del informe</Label>
               <Select value={form.estado} onValueChange={v => setS("estado", v ?? "")}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
