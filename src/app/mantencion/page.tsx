@@ -121,7 +121,7 @@ export default function MantencionPage() {
     let inf: InformeEntrega | undefined
     if (m.informeId) inf = informesEntrega.getAll().find(i => i.id === m.informeId)
     if (!inf) inf = { ...informeDesdeMantencion(m), id: "tmp", creadoEn: "" }
-    generarInformePDF(inf)
+    generarInformePDF(inf, m.fotos ?? [])
   }
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
