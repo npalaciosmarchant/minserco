@@ -48,9 +48,12 @@ export function StorageMeter() {
   const [uso, setUso] = useState<Uso | null>(null)
 
   useEffect(() => {
-    getSupabase().rpc("uso_almacenamiento")
-      .then(({ data }) => { if (data) setUso(data as Uso) })
-      .catch(() => {})
+    (async () => {
+      try {
+        const { data } = await getSupabase().rpc("uso_almacenamiento")
+        if (data) setUso(data as Uso)
+      } catch { /* silencioso: no bloquear el panel */ }
+    })()
   }, [])
 
   if (!uso) return null
