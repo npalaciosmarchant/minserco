@@ -84,7 +84,8 @@ function toSnake(obj: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(obj)) {
     if (k === "creadoEn" || k === "actualizadoEn") continue // DB maneja timestamps
-    out[CAMEL_TO_SNAKE[k] ?? k] = v
+    // Cadenas vacías -> null: evita errores en columnas date/uuid (ej. proxima_mantencion "")
+    out[CAMEL_TO_SNAKE[k] ?? k] = v === "" ? null : v
   }
   return out
 }

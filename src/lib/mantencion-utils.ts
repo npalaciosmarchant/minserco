@@ -51,10 +51,14 @@ const estadoEquipoCfg: Record<EstadoEquipoEntrega, { label: string; color: strin
 }
 
 // Genera el PDF del informe (misma plantilla que Informes de Entrega)
-export function generarInformePDF(inf: InformeEntrega) {
+export function generarInformePDF(inf: InformeEntrega, fotos: string[] = []) {
   const eq = estadoEquipoCfg[inf.estadoEquipo]
   const logoUrl = window.location.origin + "/logo_minserco.png?v=2"
   const items = (inf.itemsEntregados || []).filter(Boolean)
+  const imgs = (fotos || []).filter(Boolean)
+  const fotosHtml = imgs.length > 0
+    ? `<div class="section" style="margin-bottom:20px;"><h3>Fotos (${imgs.length})</h3><div style="display:flex;flex-wrap:wrap;gap:8px">${imgs.map(f => `<img src="data:image/jpeg;base64,${f}" style="width:150px;height:150px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0" />`).join("")}</div></div>`
+    : ""
   const html = `
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8"/>
@@ -105,6 +109,7 @@ export function generarInformePDF(inf: InformeEntrega) {
   <p style="margin:0;line-height:1.6;">${inf.descripcionEntrega}</p>
 </div>
 ${items.length > 0 ? `<div class="section" style="margin-bottom:20px;"><h3>Ítems</h3><ul class="items-list">${items.map(i => `<li>${i}</li>`).join("")}</ul></div>` : ""}
+${fotosHtml}
 ${inf.observaciones ? `<div class="section" style="margin-bottom:20px;"><h3>Observaciones</h3><p style="margin:0;line-height:1.6;">${inf.observaciones}</p></div>` : ""}
 <div class="firma-section">
   <div class="firma-box"><div style="height:60px;"></div><div class="firma-label">Firma Técnico Minserco</div><div style="font-size:12px;color:#334155;margin-top:4px;">${inf.tecnico}</div></div>
