@@ -107,8 +107,13 @@ export default function MantencionPage() {
       }
     }
 
-    if (editando) mantenciones.update(editando.id, datos)
-    else mantenciones.add(datos)
+    try {
+      if (editando) mantenciones.update(editando.id, datos)
+      else mantenciones.add(datos)
+    } catch (err) {
+      alert("Error al guardar: " + String(err))
+      return
+    }
     cargar(); setOpen(false)
   }
 
@@ -258,12 +263,11 @@ export default function MantencionPage() {
               <div className="space-y-1">
                 <Label>Equipo *</Label>
                 {equipos.length > 0 ? (
-                  <Select value={form.equipo} onValueChange={v => elegirEquipo(v ?? "")}>
-                    <SelectTrigger><SelectValue placeholder="Selecciona equipo" /></SelectTrigger>
-                    <SelectContent>
-                      {equipos.map(e => <SelectItem key={e.id} value={e.nombre}>{e.nombre}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <select value={form.equipo} onChange={e => elegirEquipo(e.target.value)}
+                    className="w-full h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none">
+                    <option value="">Selecciona equipo</option>
+                    {equipos.map(e => <option key={e.id} value={e.nombre}>{e.nombre}</option>)}
+                  </select>
                 ) : (
                   <Input value={form.equipo} onChange={e => set("equipo", e.target.value)} placeholder="Registra equipos en el menú Equipos" />
                 )}
@@ -310,14 +314,13 @@ export default function MantencionPage() {
                 </div>
               )}
               {tecnicosUsuarios.length > 0 ? (
-                <Select value="" onValueChange={v => { if (v) toggleTecnico(v) }}>
-                  <SelectTrigger><SelectValue placeholder="Agregar técnico…" /></SelectTrigger>
-                  <SelectContent>
-                    {tecnicosUsuarios.filter(u => !(form.tecnicos ?? []).includes(u.nombre)).map(u => (
-                      <SelectItem key={u.id} value={u.nombre}>{u.nombre}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select value="" onChange={e => { if (e.target.value) toggleTecnico(e.target.value) }}
+                  className="w-full h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none">
+                  <option value="">Agregar técnico…</option>
+                  {tecnicosUsuarios.filter(u => !(form.tecnicos ?? []).includes(u.nombre)).map(u => (
+                    <option key={u.id} value={u.nombre}>{u.nombre}</option>
+                  ))}
+                </select>
               ) : (
                 <Input placeholder="Nombre del técnico y Enter" onKeyDown={e => {
                   if (e.key === "Enter") { e.preventDefault(); const v = (e.target as HTMLInputElement).value.trim(); if (v) { toggleTecnico(v); (e.target as HTMLInputElement).value = "" } }
