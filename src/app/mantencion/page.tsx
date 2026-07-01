@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { mantenciones, equipos as equiposStore, informesEntrega } from "@/lib/store"
+import { mantenciones, equipos as equiposStore, informesEntrega, usuarios } from "@/lib/store"
 import { getSupabase } from "@/lib/supabase"
 import { Mantencion, Equipo, InformeEntrega } from "@/lib/types"
 import { FRECUENCIAS, calcularProxima, informeDesdeMantencion, generarInformePDF } from "@/lib/mantencion-utils"
@@ -49,19 +49,19 @@ export default function MantencionPage() {
   }
   useEffect(() => { cargar() }, [])
 
-  // Cargar usuarios con rol técnico para el selector de técnicos
+  // Lista de técnicos = mismos usuarios que en Gestión de Usuarios
   useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await getSupabase().from("usuarios").select("id,nombre,rol")
-        if (data) {
-          setTecnicosUsuarios(
-            data.filter((u: { rol?: string }) => u.rol === "tecnico" || u.rol === "admin")
-              .map((u: { id: string; nombre: string }) => ({ id: u.id, nombre: u.nombre }))
-          )
-        }
-      } catch { /* offline: sin lista, se permite texto libre */ }
-    })()
+    const local = usuarios.getAll()
+    if (local.length > 0) {
+      setTecnicosUsuarios(local.map(u => ({ id: u.id, nombre: u.nombre })))
+    } else {
+      (async () => {
+        try {
+          const { data } = await getSupabase().from("usuarios").select("id,nombre")
+          if (data) setTecnicosUsuarios(data.map((u: { id: string; nombre: string }) => ({ id: u.id, nombre: u.nombre })))
+        } catch { /* offline: se permite texto libre */ }
+      })()
+    }
   }, [])
 
   function abrir(m?: Mantencion) {
