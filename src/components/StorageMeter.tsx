@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, type ElementType } from "react"
 import { getSupabase } from "@/lib/supabase"
 import { HardDrive, Image as ImageIcon, Database } from "lucide-react"
 
@@ -22,7 +22,7 @@ function colorPct(pct: number): string {
   return "#059669"
 }
 
-function Barra({ label, Icon, used, limit, extra }: { label: string; Icon: React.ElementType; used: number; limit: number; extra?: string }) {
+function Barra({ label, Icon, used, limit, extra }: { label: string; Icon: ElementType; used: number; limit: number; extra?: string }) {
   const pct = Math.min(100, (used / limit) * 100)
   const c = colorPct(pct)
   return (
