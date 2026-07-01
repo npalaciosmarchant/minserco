@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { usuarios } from "@/lib/store"
 import { useAuth } from "@/lib/auth"
 import { Usuario, RolUsuario } from "@/lib/types"
 import { Button } from "@/components/ui/button"
@@ -51,7 +50,21 @@ export default function AdminUsuariosPage() {
     cargar()
   }, [user])
 
-  const cargar = () => setLista(usuarios.getAll())
+  const cargar = async () => {
+    const { data } = await getSupabase().from("usuarios").select("*").order("creado_en", { ascending: true })
+    if (data) {
+      setLista((data as Record<string, unknown>[]).map(u => ({
+        id: u.id as string,
+        nombre: (u.nombre as string) ?? "",
+        email: (u.email as string) ?? "",
+        password: "",
+        rol: (u.rol as RolUsuario) ?? "tecnico",
+        activo: (u.activo as boolean) ?? true,
+        creadoEn: (u.creado_en as string) ?? "",
+        debeChangiarPassword: (u.debe_cambiar_password as boolean) ?? false,
+      })))
+    }
+  }
 
   function abrir(u?: Usuario) {
     setErrorMsg("")
@@ -66,7 +79,7 @@ export default function AdminUsuariosPage() {
     setOpen(true)
   }
 
-  function guardar() {
+  async function guardar() {
     setErrorMsg("")
     if (!form.nombre.trim() || !form.email.trim()) {
       setErrorMsg("Nombre y email son obligatorios.")
@@ -76,39 +89,39 @@ export default function AdminUsuariosPage() {
       setErrorMsg("La contraseña es obligatoria para nuevos usuarios.")
       return
     }
-    const existing = usuarios.findByEmail(form.email.trim())
+    const existing = lista.find(u => u.email.toLowerCase() === form.email.trim().toLowerCase())
     if (existing && existing.id !== editando?.id) {
       setErrorMsg("Ya existe un usuario con ese email.")
       return
     }
-    if (editando) {
-      const changes: Partial<Usuario> = { nombre: form.nombre, email: form.email, rol: form.rol, activo: form.activo }
-      if (form.password.trim()) changes.password = form.password.trim()
-      usuarios.update(editando.id, changes)
-    } else {
-      const nuevo = usuarios.add({ ...form, email: form.email.trim(), password: form.password.trim() })
-      // Si hay que forzar cambio de contraseña, marcarlo en Supabase
-      if (form.forzarCambio && nuevo?.id) {
-        getSupabase().from("usuarios").update({ debe_cambiar_password: true }).eq("id", nuevo.id).then(() => {})
-      }
+    try {
+      const sb = getSupabase()
+      const payload = editando
+        ? { action: "update", id: editando.id, nombre: form.nombre, email: form.email, rol: form.rol, activo: form.activo, password: form.password.trim() || undefined }
+        : { action: "create", nombre: form.nombre.trim(), email: form.email.trim(), password: form.password.trim(), rol: form.rol, activo: form.activo, debeChangiar: form.forzarCambio }
+      const { data, error } = await sb.functions.invoke("admin-usuarios", { body: payload })
+      const err = (data && (data as { error?: string }).error) || error?.message
+      if (err) { setErrorMsg(err); return }
+      await cargar()
+      setOpen(false)
+    } catch (e) {
+      setErrorMsg("Error de conexión: " + String(e))
     }
-    cargar()
-    setOpen(false)
   }
 
-  function toggleActivo(u: Usuario) {
+  async function toggleActivo(u: Usuario) {
     if (u.id === user?.id) return
     const admins = lista.filter(x => x.rol === "admin" && x.activo)
     if (u.rol === "admin" && admins.length === 1 && u.activo) return
-    usuarios.update(u.id, { activo: !u.activo })
-    cargar()
+    await getSupabase().functions.invoke("admin-usuarios", { body: { action: "update", id: u.id, activo: !u.activo } })
+    await cargar()
   }
 
-  function eliminar(u: Usuario) {
+  async function eliminar(u: Usuario) {
     if (u.id === user?.id) return
     if (!confirm(`Eliminar usuario "${u.nombre}"?`)) return
-    usuarios.delete(u.id)
-    cargar()
+    await getSupabase().functions.invoke("admin-usuarios", { body: { action: "delete", id: u.id } })
+    await cargar()
   }
 
   const setS = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }))
