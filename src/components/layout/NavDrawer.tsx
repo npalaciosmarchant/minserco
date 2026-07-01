@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import {
   Wrench, Factory, Settings, Package, Ship,
   LayoutDashboard, KeyRound, Activity, Users,
-  FileText, ClipboardList, CalendarDays, Calendar,
+  FileText, ClipboardList, Calendar,
   BarChart3, ShieldCheck, LogOut, HardHat,
   Building2, ChevronRight, Receipt, ClipboardCheck,
 } from "lucide-react"
@@ -30,7 +30,6 @@ const nav: NavItem[] = [
   { href: "/reparacion",  label: "Reparación",   icon: Settings,      group: "Operaciones", desc: "Equipos en reparación" },
   { href: "/clientes",    label: "Equipos en Terreno", icon: Users,    group: "Terreno",    desc: "Equipos y garantías" },
   { href: "/ordenes",     label: "Órdenes de Trabajo", icon: ClipboardList, group: "Terreno", desc: "OTs y seguimiento" },
-  { href: "/tecnicos",    label: "Técnicos",     icon: CalendarDays,  group: "Terreno",    desc: "Agenda y asignaciones" },
   { href: "/cotizaciones",label: "Cotizaciones",      icon: FileText,  group: "Comercial",  desc: "Presupuestos y propuestas" },
   { href: "/arriendo",    label: "Arriendo",           icon: KeyRound,  group: "Comercial",  desc: "Contratos y vencimientos" },
   { href: "/bodega",      label: "Control Bodega",     icon: Package,   group: "Logística",  desc: "Inventario y stock" },
