@@ -23,7 +23,17 @@ import {
 // ── localStorage helpers (API pública sin cambios) ────────────────────────────
 
 function getId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2)
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID()
+    }
+  } catch { /* fallback abajo */ }
+  // Fallback UUID v4
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0
+    const v = c === "x" ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
 }
 
 function lsGet<T>(key: string): T[] {
@@ -137,6 +147,7 @@ export async function syncFromSupabase() {
     { sbTable: "alertas_config",     lsKey: "alertasConfig"   },
     { sbTable: "equipos",            lsKey: "equipos"         },
     { sbTable: "notificaciones",     lsKey: "notificaciones"  },
+    { sbTable: "usuarios",           lsKey: "usuarios"        },
   ]
 
   await Promise.all(tables.map(async ({ sbTable, lsKey }) => {
