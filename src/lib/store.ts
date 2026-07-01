@@ -74,6 +74,8 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   contratoId:"contrato_id", itemId:"item_id", nombreItem:"nombre_item",
   tecnicoId:"tecnico_id", horaInicio:"hora_inicio", horaFin:"hora_fin",
   diasSemana:"dias_semana", ultimaDisparo:"ultima_disparo",
+  informeId:"informe_id", completadoEn:"completado_en",
+  usuarioId:"usuario_id", mantencionId:"mantencion_id",
 }
 
 const SNAKE_TO_CAMEL = Object.fromEntries(
