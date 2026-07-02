@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
-import { Plus, Pencil, Trash2, ShieldCheck, HardHat, UserCheck, UserX, KeyRound, Settings2, RefreshCw } from "lucide-react"
+import { Plus, Pencil, Trash2, ShieldCheck, HardHat, Eye, UserCheck, UserX, KeyRound, Settings2, RefreshCw } from "lucide-react"
 import { getSupabase } from "@/lib/supabase"
 import { PermisosForm } from "@/components/PermisosForm"
 
@@ -27,11 +27,18 @@ const roles: { value: RolUsuario; label: string; color: string; icon: React.Elem
     icon: HardHat,
     acceso: "Acceso según permisos asignados",
   },
+  {
+    value: "supervisor",
+    label: "Supervisor",
+    color: "#22c55e",
+    icon: Eye,
+    acceso: "Supervisa actividades y recibe alertas",
+  },
 ]
 const rolMap = Object.fromEntries(roles.map(r => [r.value, r]))
 
 function emptyForm(): Omit<Usuario, "id" | "creadoEn"> & { forzarCambio: boolean } {
-  return { nombre: "", email: "", password: "", rol: "tecnico", activo: true, forzarCambio: true }
+  return { nombre: "", email: "", telefono: "", password: "", rol: "tecnico", activo: true, forzarCambio: true }
 }
 
 export default function AdminUsuariosPage() {
@@ -57,6 +64,7 @@ export default function AdminUsuariosPage() {
         id: u.id as string,
         nombre: (u.nombre as string) ?? "",
         email: (u.email as string) ?? "",
+        telefono: (u.telefono as string) ?? "",
         password: "",
         rol: (u.rol as RolUsuario) ?? "tecnico",
         activo: (u.activo as boolean) ?? true,
@@ -97,8 +105,8 @@ export default function AdminUsuariosPage() {
     try {
       const sb = getSupabase()
       const payload = editando
-        ? { action: "update", id: editando.id, nombre: form.nombre, email: form.email, rol: form.rol, activo: form.activo, password: form.password.trim() || undefined }
-        : { action: "create", nombre: form.nombre.trim(), email: form.email.trim(), password: form.password.trim(), rol: form.rol, activo: form.activo, debeChangiar: form.forzarCambio }
+        ? { action: "update", id: editando.id, nombre: form.nombre, email: form.email, telefono: form.telefono, rol: form.rol, activo: form.activo, password: form.password.trim() || undefined }
+        : { action: "create", nombre: form.nombre.trim(), email: form.email.trim(), telefono: (form.telefono ?? "").trim(), password: form.password.trim(), rol: form.rol, activo: form.activo, debeChangiar: form.forzarCambio }
       const { data, error } = await sb.functions.invoke("admin-usuarios", { body: payload })
       const err = (data && (data as { error?: string }).error) || error?.message
       if (err) { setErrorMsg(err); return }
@@ -267,6 +275,10 @@ export default function AdminUsuariosPage() {
               <Input type="email" value={form.email} onChange={e => setS("email", e.target.value)} placeholder="usuario@minserco.cl" />
             </div>
             <div className="space-y-1">
+              <Label>Teléfono (WhatsApp)</Label>
+              <Input type="tel" value={form.telefono ?? ""} onChange={e => setS("telefono", e.target.value)} placeholder="+56912345678" />
+            </div>
+            <div className="space-y-1">
               <Label>{editando ? "Nueva contraseña (dejar en blanco para no cambiar)" : "Contraseña *"}</Label>
               <div className="relative">
                 <Input
@@ -285,7 +297,7 @@ export default function AdminUsuariosPage() {
             </div>
             <div className="space-y-1">
               <Label>Rol</Label>
-              <div className="grid grid-cols-2 gap-2 mt-1">
+              <div className="grid grid-cols-3 gap-2 mt-1">
                 {roles.map(r => {
                   const Icon = r.icon
                   const sel = form.rol === r.value
