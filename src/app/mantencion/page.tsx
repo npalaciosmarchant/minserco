@@ -26,12 +26,12 @@ const estadoCfg: Record<string, { label: string; color: string; bg: string }> = 
 
 const empty = (): Omit<Mantencion, "id" | "creadoEn"> => ({
   equipo: "", numeroSerie: "", tipo: "preventivo", descripcion: "",
-  tecnico: "", tecnicos: [], frecuencia: "ninguna",
+  tecnico: "", tecnicos: [], supervisor: "", frecuencia: "ninguna",
   fecha: new Date().toISOString().slice(0, 10),
   estado: "pendiente", observaciones: "", proximaMantencion: "", fotos: [],
 })
 
-type UsuarioTecnico = { id: string; nombre: string }
+type UsuarioTecnico = { id: string; nombre: string; rol?: string }
 
 export default function MantencionPage() {
   const [lista, setLista] = useState<Mantencion[]>([])
@@ -53,12 +53,12 @@ export default function MantencionPage() {
   useEffect(() => {
     const local = usuarios.getAll()
     if (local.length > 0) {
-      setTecnicosUsuarios(local.map(u => ({ id: u.id, nombre: u.nombre })))
+      setTecnicosUsuarios(local.map(u => ({ id: u.id, nombre: u.nombre, rol: u.rol })))
     } else {
       (async () => {
         try {
-          const { data } = await getSupabase().from("usuarios").select("id,nombre")
-          if (data) setTecnicosUsuarios(data.map((u: { id: string; nombre: string }) => ({ id: u.id, nombre: u.nombre })))
+          const { data } = await getSupabase().from("usuarios").select("id,nombre,rol")
+          if (data) setTecnicosUsuarios(data.map((u: { id: string; nombre: string; rol?: string }) => ({ id: u.id, nombre: u.nombre, rol: u.rol })))
         } catch { /* offline: se permite texto libre */ }
       })()
     }
@@ -326,6 +326,21 @@ export default function MantencionPage() {
                   if (e.key === "Enter") { e.preventDefault(); const v = (e.target as HTMLInputElement).value.trim(); if (v) { toggleTecnico(v); (e.target as HTMLInputElement).value = "" } }
                 }} />
               )}
+            </div>
+
+            {/* Supervisor asignado */}
+            <div className="space-y-1">
+              <Label>Supervisor</Label>
+              <select value={form.supervisor ?? ""} onChange={e => set("supervisor", e.target.value)}
+                className="w-full h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none">
+                <option value="">Sin supervisor</option>
+                {tecnicosUsuarios.filter(u => u.rol === "supervisor").map(u => (
+                  <option key={u.id} value={u.nombre}>{u.nombre}</option>
+                ))}
+                {form.supervisor && !tecnicosUsuarios.some(u => u.nombre === form.supervisor) && (
+                  <option value={form.supervisor}>{form.supervisor}</option>
+                )}
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
