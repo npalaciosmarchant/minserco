@@ -10,6 +10,7 @@ export interface Mantencion {
   descripcion: string
   tecnico: string             // compat: nombres unidos por coma
   tecnicos?: string[]         // varios tecnicos (nombres)
+  supervisor?: string         // supervisor asignado (nombre)
   frecuencia?: FrecuenciaMantencion
   fecha: string
   estado: EstadoMantencion
@@ -287,7 +288,7 @@ export interface AsignacionTecnico {
 }
 
 // Usuarios y Auth
-export type RolUsuario = "admin" | "tecnico"
+export type RolUsuario = "admin" | "tecnico" | "supervisor"
 
 export interface Usuario {
   id: string
@@ -295,6 +296,7 @@ export interface Usuario {
   email: string
   password: string
   rol: RolUsuario
+  telefono?: string
   activo: boolean
   creadoEn: string
   permisos?: string[] // módulos a los que tiene acceso (solo técnicos)
