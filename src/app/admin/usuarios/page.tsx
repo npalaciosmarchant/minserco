@@ -38,7 +38,7 @@ const roles: { value: RolUsuario; label: string; color: string; icon: React.Elem
 const rolMap = Object.fromEntries(roles.map(r => [r.value, r]))
 
 function emptyForm(): Omit<Usuario, "id" | "creadoEn"> & { forzarCambio: boolean } {
-  return { nombre: "", email: "", telefono: "", password: "", rol: "tecnico", activo: true, forzarCambio: true }
+  return { nombre: "", email: "", telefono: "", supervisorId: "", password: "", rol: "tecnico", activo: true, forzarCambio: true }
 }
 
 export default function AdminUsuariosPage() {
@@ -66,6 +66,7 @@ export default function AdminUsuariosPage() {
         email: (u.email as string) ?? "",
         telefono: (u.telefono as string) ?? "",
         telegramChatId: (u.telegram_chat_id as string) ?? undefined,
+        supervisorId: (u.supervisor_id as string) ?? "",
         password: "",
         rol: (u.rol as RolUsuario) ?? "tecnico",
         activo: (u.activo as boolean) ?? true,
@@ -106,8 +107,8 @@ export default function AdminUsuariosPage() {
     try {
       const sb = getSupabase()
       const payload = editando
-        ? { action: "update", id: editando.id, nombre: form.nombre, email: form.email, telefono: form.telefono, rol: form.rol, activo: form.activo, password: form.password.trim() || undefined }
-        : { action: "create", nombre: form.nombre.trim(), email: form.email.trim(), telefono: (form.telefono ?? "").trim(), password: form.password.trim(), rol: form.rol, activo: form.activo, debeChangiar: form.forzarCambio }
+        ? { action: "update", id: editando.id, nombre: form.nombre, email: form.email, telefono: form.telefono, supervisorId: form.rol === "tecnico" ? (form.supervisorId ?? "") : "", rol: form.rol, activo: form.activo, password: form.password.trim() || undefined }
+        : { action: "create", nombre: form.nombre.trim(), email: form.email.trim(), telefono: (form.telefono ?? "").trim(), supervisorId: form.rol === "tecnico" ? (form.supervisorId ?? "") : "", password: form.password.trim(), rol: form.rol, activo: form.activo, debeChangiar: form.forzarCambio }
       const { data, error } = await sb.functions.invoke("admin-usuarios", { body: payload })
       const err = (data && (data as { error?: string }).error) || error?.message
       if (err) { setErrorMsg(err); return }
@@ -325,6 +326,18 @@ export default function AdminUsuariosPage() {
                 })}
               </div>
             </div>
+            {form.rol === "tecnico" && (
+              <div className="space-y-1">
+                <Label>Supervisor a cargo</Label>
+                <select value={form.supervisorId ?? ""} onChange={e => setS("supervisorId", e.target.value)}
+                  className="w-full h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none">
+                  <option value="">Sin supervisor</option>
+                  {lista.filter(x => x.rol === "supervisor").map(sv => (
+                    <option key={sv.id} value={sv.id}>{sv.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="flex items-center justify-between px-3 py-2.5 rounded-xl"
               style={{ background: "var(--accent)", border: "1px solid var(--border)" }}>
               <div>
