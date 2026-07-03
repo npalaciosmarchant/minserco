@@ -13,6 +13,8 @@ export interface Mantencion {
   supervisor?: string         // supervisor asignado (nombre)
   frecuencia?: FrecuenciaMantencion
   fecha: string
+  fechaInicio?: string        // fecha de inicio
+  fechaEntrega?: string       // fecha de entrega
   estado: EstadoMantencion
   observaciones?: string
   proximaMantencion?: string
@@ -298,6 +300,7 @@ export interface Usuario {
   rol: RolUsuario
   telefono?: string
   telegramChatId?: string
+  supervisorId?: string       // supervisor a cargo (id de usuario), solo para tecnicos
   activo: boolean
   creadoEn: string
   permisos?: string[] // módulos a los que tiene acceso (solo técnicos)
