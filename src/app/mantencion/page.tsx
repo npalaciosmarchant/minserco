@@ -28,7 +28,7 @@ const empty = (): Omit<Mantencion, "id" | "creadoEn"> => ({
   equipo: "", numeroSerie: "", tipo: "preventivo", descripcion: "",
   tecnico: "", tecnicos: [], supervisor: "", frecuencia: "ninguna",
   fecha: new Date().toISOString().slice(0, 10),
-  estado: "pendiente", observaciones: "", proximaMantencion: "", fotos: [],
+  estado: "pendiente", observaciones: "", proximaMantencion: "", fechaInicio: "", fechaEntrega: "", fotos: [],
 })
 
 type UsuarioTecnico = { id: string; nombre: string; rol?: string }
@@ -354,6 +354,11 @@ export default function MantencionPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1"><Label>Fecha de inicio</Label><Input type="date" value={form.fechaInicio ?? ""} onChange={e => set("fechaInicio", e.target.value)} /></div>
+              <div className="space-y-1"><Label>Fecha de entrega</Label><Input type="date" value={form.fechaEntrega ?? ""} onChange={e => set("fechaEntrega", e.target.value)} /></div>
             </div>
 
             <div className="space-y-1">
