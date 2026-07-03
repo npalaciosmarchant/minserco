@@ -65,6 +65,7 @@ export default function AdminUsuariosPage() {
         nombre: (u.nombre as string) ?? "",
         email: (u.email as string) ?? "",
         telefono: (u.telefono as string) ?? "",
+        telegramChatId: (u.telegram_chat_id as string) ?? undefined,
         password: "",
         rol: (u.rol as RolUsuario) ?? "tecnico",
         activo: (u.activo as boolean) ?? true,
@@ -210,6 +211,12 @@ export default function AdminUsuariosPage() {
 
               {/* Role badge */}
               <div className="flex items-center gap-1.5 shrink-0">
+                {u.telegramChatId && (
+                  <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium"
+                    style={{ background: "rgba(34,158,217,0.15)", color: "#229ED9" }} title="Telegram vinculado">
+                    ✓ Telegram
+                  </span>
+                )}
                 <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium"
                   style={{ background: r.color + "20", color: r.color }}>
                   <RolIcon size={11} />{r.label}
