@@ -297,6 +297,7 @@ export interface Usuario {
   password: string
   rol: RolUsuario
   telefono?: string
+  telegramChatId?: string
   activo: boolean
   creadoEn: string
   permisos?: string[] // módulos a los que tiene acceso (solo técnicos)
