@@ -12,10 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, Package, CalendarDays, MapPin } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
+import { ArchivosField } from "@/components/ui/ArchivosField"
 
 const empty = (): Omit<Equipo, "id" | "creadoEn"> => ({
   nombre: "", numeroSerie: "", tipo: "preventivo", marca: "", modelo: "",
   ubicacion: "", frecuencia: "ninguna", activo: true, notas: "",
+  planos: [], instructivos: [], fichasTecnicas: [], insumos: [], informes: [],
 })
 
 export default function EquiposPage() {
@@ -128,6 +130,16 @@ export default function EquiposPage() {
               </div>
             </div>
             <div className="space-y-1"><Label>Notas</Label><Textarea value={form.notas ?? ""} onChange={e => set("notas", e.target.value)} rows={2} /></div>
+            <div className="pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+              <div className="text-xs font-semibold mb-2" style={{ color: "var(--muted-foreground)" }}>ARCHIVOS DEL EQUIPO</div>
+              <div className="space-y-3">
+                <div className="space-y-1"><Label>Planos</Label><ArchivosField archivos={form.planos ?? []} onChange={a => setForm(f => ({ ...f, planos: a }))} /></div>
+                <div className="space-y-1"><Label>Instructivos</Label><ArchivosField archivos={form.instructivos ?? []} onChange={a => setForm(f => ({ ...f, instructivos: a }))} /></div>
+                <div className="space-y-1"><Label>Fichas técnicas</Label><ArchivosField archivos={form.fichasTecnicas ?? []} onChange={a => setForm(f => ({ ...f, fichasTecnicas: a }))} /></div>
+                <div className="space-y-1"><Label>Insumos</Label><ArchivosField archivos={form.insumos ?? []} onChange={a => setForm(f => ({ ...f, insumos: a }))} /></div>
+                <div className="space-y-1"><Label>Informes</Label><ArchivosField archivos={form.informes ?? []} onChange={a => setForm(f => ({ ...f, informes: a }))} /></div>
+              </div>
+            </div>
             <Button className="w-full" onClick={guardar}>{editando ? "Guardar cambios" : "Registrar equipo"}</Button>
           </div>
         </DialogContent>
