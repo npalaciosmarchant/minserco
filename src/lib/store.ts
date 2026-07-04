@@ -18,6 +18,7 @@ import {
   Cotizacion, OrdenTrabajo, Tecnico, AsignacionTecnico,
   Usuario, Proveedor, Gasto, InformeEntrega, AlertaConfig,
   Equipo, Notificacion,
+  DocumentoAdmin, Reunion, VisitaTecnica, Licitacion,
 } from "./types"
 
 // ── localStorage helpers (API pública sin cambios) ────────────────────────────
@@ -77,6 +78,7 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   informeId:"informe_id", completadoEn:"completado_en",
   usuarioId:"usuario_id", mantencionId:"mantencion_id",
   supervisorId:"supervisor_id",
+  fechaPublicacion:"fecha_publicacion", fechaCierre:"fecha_cierre",
 }
 
 const SNAKE_TO_CAMEL = Object.fromEntries(
@@ -152,6 +154,10 @@ export async function syncFromSupabase() {
     { sbTable: "equipos",            lsKey: "equipos"         },
     { sbTable: "notificaciones",     lsKey: "notificaciones"  },
     { sbTable: "usuarios",           lsKey: "usuarios"        },
+    { sbTable: "documentos_admin",   lsKey: "documentosAdmin" },
+    { sbTable: "reuniones",          lsKey: "reuniones"       },
+    { sbTable: "visitas_tecnicas",   lsKey: "visitasTecnicas" },
+    { sbTable: "licitaciones",       lsKey: "licitaciones"    },
   ]
 
   await Promise.all(tables.map(async ({ sbTable, lsKey }) => {
@@ -590,5 +596,80 @@ export const notificaciones = {
   },
   marcarTodasLeidas: () => {
     notificaciones.getAll().filter(n => !n.leida).forEach(n => notificaciones.marcarLeida(n.id))
+  },
+}
+
+
+// ── SECCIÓN ADMINISTRATIVA ────────────────────────────────────────────────────
+
+export const documentosAdmin = {
+  getAll: (): DocumentoAdmin[] => lsGet("documentosAdmin"),
+  add: (d: Omit<DocumentoAdmin, "id" | "creadoEn">): DocumentoAdmin => {
+    const item: DocumentoAdmin = { ...d, id: getId(), creadoEn: new Date().toISOString() }
+    lsSet("documentosAdmin", [...documentosAdmin.getAll(), item])
+    syncUp("documentos_admin", item as unknown as Record<string, unknown>, "upsert")
+    return item
+  },
+  update: (id: string, changes: Partial<DocumentoAdmin>) => {
+    lsSet("documentosAdmin", documentosAdmin.getAll().map(i => i.id === id ? { ...i, ...changes } : i))
+    syncUp("documentos_admin", { id, ...changes } as Record<string, unknown>, "upsert")
+  },
+  delete: (id: string) => {
+    lsSet("documentosAdmin", documentosAdmin.getAll().filter(i => i.id !== id))
+    syncUp("documentos_admin", { id }, "delete")
+  },
+}
+
+export const reuniones = {
+  getAll: (): Reunion[] => lsGet("reuniones"),
+  add: (r: Omit<Reunion, "id" | "creadoEn">): Reunion => {
+    const item: Reunion = { ...r, id: getId(), creadoEn: new Date().toISOString() }
+    lsSet("reuniones", [...reuniones.getAll(), item])
+    syncUp("reuniones", item as unknown as Record<string, unknown>, "upsert")
+    return item
+  },
+  update: (id: string, changes: Partial<Reunion>) => {
+    lsSet("reuniones", reuniones.getAll().map(i => i.id === id ? { ...i, ...changes } : i))
+    syncUp("reuniones", { id, ...changes } as Record<string, unknown>, "upsert")
+  },
+  delete: (id: string) => {
+    lsSet("reuniones", reuniones.getAll().filter(i => i.id !== id))
+    syncUp("reuniones", { id }, "delete")
+  },
+}
+
+export const visitasTecnicas = {
+  getAll: (): VisitaTecnica[] => lsGet("visitasTecnicas"),
+  add: (v: Omit<VisitaTecnica, "id" | "creadoEn">): VisitaTecnica => {
+    const item: VisitaTecnica = { ...v, id: getId(), creadoEn: new Date().toISOString() }
+    lsSet("visitasTecnicas", [...visitasTecnicas.getAll(), item])
+    syncUp("visitas_tecnicas", item as unknown as Record<string, unknown>, "upsert")
+    return item
+  },
+  update: (id: string, changes: Partial<VisitaTecnica>) => {
+    lsSet("visitasTecnicas", visitasTecnicas.getAll().map(i => i.id === id ? { ...i, ...changes } : i))
+    syncUp("visitas_tecnicas", { id, ...changes } as Record<string, unknown>, "upsert")
+  },
+  delete: (id: string) => {
+    lsSet("visitasTecnicas", visitasTecnicas.getAll().filter(i => i.id !== id))
+    syncUp("visitas_tecnicas", { id }, "delete")
+  },
+}
+
+export const licitaciones = {
+  getAll: (): Licitacion[] => lsGet("licitaciones"),
+  add: (l: Omit<Licitacion, "id" | "creadoEn">): Licitacion => {
+    const item: Licitacion = { ...l, id: getId(), creadoEn: new Date().toISOString() }
+    lsSet("licitaciones", [...licitaciones.getAll(), item])
+    syncUp("licitaciones", item as unknown as Record<string, unknown>, "upsert")
+    return item
+  },
+  update: (id: string, changes: Partial<Licitacion>) => {
+    lsSet("licitaciones", licitaciones.getAll().map(i => i.id === id ? { ...i, ...changes } : i))
+    syncUp("licitaciones", { id, ...changes } as Record<string, unknown>, "upsert")
+  },
+  delete: (id: string) => {
+    lsSet("licitaciones", licitaciones.getAll().filter(i => i.id !== id))
+    syncUp("licitaciones", { id }, "delete")
   },
 }

@@ -40,6 +40,10 @@ export const MODULO_A_RUTA: Record<string, string> = {
   checklist:     "/checklist",
   mapa:          "/mapa",
   informes:      "/informes-entrega",
+  documentos:    "/documentos",
+  reuniones:     "/reuniones",
+  visitas:       "/visitas",
+  licitaciones:  "/licitaciones",
 }
 
 async function fetchPerfil(uid: string): Promise<Usuario | null> {
@@ -57,7 +61,7 @@ async function fetchPerfil(uid: string): Promise<Usuario | null> {
 
   // Para técnicos, cargar permisos
   let permisos: string[] | undefined
-  if (data.rol === "tecnico") {
+  if (data.rol === "tecnico" || data.rol === "administrativo") {
     const { data: pData } = await sb
       .from("tecnico_permisos")
       .select("modulo_id, puede_ver")
@@ -173,6 +177,10 @@ export function canAccess(user: Usuario | null, pathname: string): boolean {
   if (user.rol === "admin") return true
 
   const base = "/" + pathname.split("/")[1]
+
+  // El rol administrativo accede por defecto a la sección administrativa
+  const RUTAS_ADMINISTRATIVO = ["/documentos", "/reuniones", "/visitas", "/licitaciones"]
+  if (user.rol === "administrativo" && RUTAS_ADMINISTRATIVO.some(r => base === r || pathname.startsWith(r + "/"))) return true
 
   // Si tiene permisos cargados, usarlos
   if (user.permisos !== undefined) {

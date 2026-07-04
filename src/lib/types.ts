@@ -290,7 +290,7 @@ export interface AsignacionTecnico {
 }
 
 // Usuarios y Auth
-export type RolUsuario = "admin" | "tecnico" | "supervisor"
+export type RolUsuario = "admin" | "tecnico" | "supervisor" | "administrativo"
 
 export interface Usuario {
   id: string
@@ -401,4 +401,64 @@ export interface NotificacionEmailConfig {
   habilitado: boolean
   resumenDiario: boolean
   urgentesInmediato: boolean
+}
+
+
+// ── SECCIÓN ADMINISTRATIVA ────────────────────────────────────────────────────
+export type EstadoDocumento = "pendiente" | "presentado" | "aprobado" | "rechazado"
+export interface DocumentoAdmin {
+  id: string
+  nombre: string
+  tipo?: string
+  entidad?: string
+  fecha?: string
+  estado: EstadoDocumento
+  responsable?: string
+  archivos?: { url: string; nombre: string }[]
+  enlace?: string
+  observaciones?: string
+  creadoEn: string
+}
+
+export type EstadoAgenda = "programada" | "realizada" | "cancelada"
+export interface Reunion {
+  id: string
+  titulo: string
+  fecha?: string
+  hora?: string
+  lugar?: string
+  participantes?: string
+  tema?: string
+  notas?: string
+  estado: EstadoAgenda
+  creadoEn: string
+}
+
+export interface VisitaTecnica {
+  id: string
+  cliente: string
+  fecha?: string
+  hora?: string
+  direccion?: string
+  tecnico?: string
+  motivo?: string
+  estado: EstadoAgenda
+  observaciones?: string
+  creadoEn: string
+}
+
+export type EstadoLicitacion = "en_estudio" | "en_preparacion" | "presentada" | "adjudicada" | "no_adjudicada" | "desierta"
+export interface Licitacion {
+  id: string
+  nombre: string
+  organismo?: string
+  numero?: string
+  fechaPublicacion?: string
+  fechaCierre?: string
+  monto?: number
+  estado: EstadoLicitacion
+  archivos?: { url: string; nombre: string }[]
+  enlace?: string
+  observaciones?: string
+  creadoEn: string
 }
