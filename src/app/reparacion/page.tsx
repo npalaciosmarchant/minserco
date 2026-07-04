@@ -194,8 +194,8 @@ export default function ReparacionPage() {
           <DialogHeader><DialogTitle>{editando ? "Editar Reparación" : "Ingresar Equipo"}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Equipo *</Label><SelectEquipo value={form.equipo} onChange={v => setS("equipo", v)} /></div>
-              <div className="space-y-1"><Label>N° Serie</Label><Input value={form.numeroSerie} onChange={e => setS("numeroSerie", e.target.value)} /></div>
+              <div className="space-y-1"><Label>Equipo *</Label><SelectEquipo value={form.equipo} onChange={v => setS("equipo", v)} onSelectEquipo={eq => setS("numeroSerie", eq?.numeroSerie ?? "")} /></div>
+              <div className="space-y-1"><Label>N° Serie</Label><Input value={form.numeroSerie} onChange={e => setS("numeroSerie", e.target.value)} placeholder="Se completa al elegir el equipo" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>Cliente *</Label><Input value={form.cliente} onChange={e => setS("cliente", e.target.value)} /></div>
