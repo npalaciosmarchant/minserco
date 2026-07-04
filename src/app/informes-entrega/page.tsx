@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, ClipboardCheck, Download, CheckCircle2, FileText, X, Camera } from "lucide-react"
+import { SelectTecnico } from "@/components/ui/SelectTecnico"
+import { SelectEquipo } from "@/components/ui/SelectEquipo"
 import PageShell from "@/components/layout/PageShell"
 import { FotoGaleria } from "@/components/ui/FotoGaleria"
 
@@ -306,7 +308,7 @@ export default function InformesEntregaPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>Equipo *</Label>
-                <Input value={form.equipo} onChange={e => setS("equipo", e.target.value)} placeholder="Nombre del equipo" /></div>
+                <SelectEquipo value={form.equipo} onChange={v => setS("equipo", v)} /></div>
               <div className="space-y-1"><Label>N° Serie</Label>
                 <Input value={form.numeroSerie ?? ""} onChange={e => setS("numeroSerie", e.target.value)} /></div>
             </div>
@@ -318,7 +320,7 @@ export default function InformesEntregaPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>Técnico *</Label>
-                <Input value={form.tecnico} onChange={e => setS("tecnico", e.target.value)} /></div>
+                <SelectTecnico value={form.tecnico} onChange={v => setS("tecnico", v)} /></div>
               <div className="space-y-1"><Label>Estado del equipo</Label>
                 <Select value={form.estadoEquipo} onValueChange={v => setS("estadoEquipo", v ?? "")}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
