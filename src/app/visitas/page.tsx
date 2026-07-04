@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, MapPin, User } from "lucide-react"
+import { SelectTecnico } from "@/components/ui/SelectTecnico"
 import PageShell from "@/components/layout/PageShell"
 import { AgendaVista } from "@/components/ui/AgendaVista"
 
@@ -58,6 +59,7 @@ export default function VisitasPage() {
       <AgendaVista
         items={items}
         onItemClick={v => abrir(v)}
+        onDayClick={f => { setEditando(null); setForm({ ...emptyForm(), fecha: f }); setOpen(true) }}
         renderCard={v => {
           const est = estadoCfg[v.estado]
           return (
@@ -91,7 +93,7 @@ export default function VisitasPage() {
               <div className="space-y-1"><Label>Hora</Label><Input type="time" value={form.hora ?? ""} onChange={e => setS("hora", e.target.value)} /></div>
             </div>
             <div className="space-y-1"><Label>Dirección</Label><Input value={form.direccion ?? ""} onChange={e => setS("direccion", e.target.value)} /></div>
-            <div className="space-y-1"><Label>Técnico a cargo</Label><Input value={form.tecnico ?? ""} onChange={e => setS("tecnico", e.target.value)} /></div>
+            <div className="space-y-1"><Label>Técnico a cargo</Label><SelectTecnico value={form.tecnico ?? ""} onChange={v => setS("tecnico", v)} /></div>
             <div className="space-y-1"><Label>Motivo</Label><Input value={form.motivo ?? ""} onChange={e => setS("motivo", e.target.value)} /></div>
             <div className="space-y-1"><Label>Estado</Label>
               <Select value={form.estado} onValueChange={v => setS("estado", v ?? "programada")}>
