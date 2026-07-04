@@ -308,9 +308,9 @@ export default function InformesEntregaPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>Equipo *</Label>
-                <SelectEquipo value={form.equipo} onChange={v => setS("equipo", v)} /></div>
+                <SelectEquipo value={form.equipo} onChange={v => setS("equipo", v)} onSelectEquipo={eq => setS("numeroSerie", eq?.numeroSerie ?? "")} /></div>
               <div className="space-y-1"><Label>N° Serie</Label>
-                <Input value={form.numeroSerie ?? ""} onChange={e => setS("numeroSerie", e.target.value)} /></div>
+                <Input value={form.numeroSerie ?? ""} onChange={e => setS("numeroSerie", e.target.value)} placeholder="Se completa al elegir el equipo" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>Cliente *</Label>
