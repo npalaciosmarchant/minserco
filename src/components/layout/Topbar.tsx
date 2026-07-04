@@ -32,7 +32,7 @@ const colorTipo: Record<string, string> = {
 }
 const labelTipo: Record<string, string> = {
   stock: "Bodega", mantencion: "Mantención", reparacion: "Reparación",
-  arriendo: "Arriendo", garantia: "Garantía",
+  arriendo: "Arriendo", garantia: "Garantía", importacion: "Importación", recordatorio: "Recordatorio",
 }
 
 function buildAlertas(): Alerta[] {
@@ -347,7 +347,7 @@ export default function Topbar({ onMenuToggle, menuOpen }: TopbarProps) {
                           className="px-1.5 py-0.5 rounded font-medium"
                           style={{ background: color + "12", color, fontFamily: "Fira Code, monospace", fontSize: "9px" }}
                         >
-                          {labelTipo[a.tipo].toUpperCase()}
+                          {(labelTipo[a.tipo] ?? a.tipo).toUpperCase()}
                         </span>
                         {a.detalle}
                       </div>
