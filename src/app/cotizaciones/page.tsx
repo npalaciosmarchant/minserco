@@ -295,7 +295,7 @@ export default function CotizacionesPage() {
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>N Cotizacion</Label>
-                <Input value={form.numero} onChange={e => setS("numero", e.target.value)} /></div>
+                <Input value={form.numero} readOnly disabled title="Correlativo automático" className="opacity-70 cursor-not-allowed" /></div>
               <div className="space-y-1"><Label>Estado</Label>
                 <Select value={form.estado} onValueChange={v => setS("estado", v ?? "")}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
