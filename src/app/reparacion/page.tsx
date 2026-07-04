@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, LayoutGrid, List, Settings, User, AlertTriangle, CheckCircle2, Camera } from "lucide-react"
+import { SelectTecnico } from "@/components/ui/SelectTecnico"
+import { SelectEquipo } from "@/components/ui/SelectEquipo"
 import PageShell from "@/components/layout/PageShell"
 import DateFilter, { filterByDate, DateRange } from "@/components/ui/DateFilter"
 import Pagination from "@/components/ui/Pagination"
@@ -192,7 +194,7 @@ export default function ReparacionPage() {
           <DialogHeader><DialogTitle>{editando ? "Editar Reparación" : "Ingresar Equipo"}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Equipo *</Label><Input value={form.equipo} onChange={e => setS("equipo", e.target.value)} /></div>
+              <div className="space-y-1"><Label>Equipo *</Label><SelectEquipo value={form.equipo} onChange={v => setS("equipo", v)} /></div>
               <div className="space-y-1"><Label>N° Serie</Label><Input value={form.numeroSerie} onChange={e => setS("numeroSerie", e.target.value)} /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -203,7 +205,7 @@ export default function ReparacionPage() {
             <div className="space-y-1"><Label>Diagnóstico</Label><Textarea value={form.diagnostico ?? ""} onChange={e => setS("diagnostico", e.target.value)} rows={2} /></div>
             <div className="space-y-1"><Label>Repuestos utilizados</Label><Textarea value={form.repuestosUsados ?? ""} onChange={e => setS("repuestosUsados", e.target.value)} rows={2} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Técnico *</Label><Input value={form.tecnico} onChange={e => setS("tecnico", e.target.value)} /></div>
+              <div className="space-y-1"><Label>Técnico *</Label><SelectTecnico value={form.tecnico} onChange={v => setS("tecnico", v)} /></div>
               <div className="space-y-1"><Label>Estado</Label>
                 <Select value={form.estado} onValueChange={v => setS("estado", v ?? "recibido")}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
