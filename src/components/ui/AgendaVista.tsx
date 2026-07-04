@@ -5,10 +5,11 @@ import { CalendarDays, List, ChevronLeft, ChevronRight } from "lucide-react"
 
 export type EventoAgenda = { id: string; fecha?: string; titulo: string; color?: string }
 
-export function AgendaVista<T extends EventoAgenda>({ items, onItemClick, renderCard }: {
+export function AgendaVista<T extends EventoAgenda>({ items, onItemClick, renderCard, onDayClick }: {
   items: T[]
   onItemClick: (item: T) => void
   renderCard: (item: T) => ReactNode
+  onDayClick?: (fecha: string) => void
 }) {
   const [vista, setVista] = useState<"lista" | "calendario">("lista")
   const [mes, setMes] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
@@ -58,21 +59,24 @@ export function AgendaVista<T extends EventoAgenda>({ items, onItemClick, render
         {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(d => <div key={d} className="py-1">{d}</div>)}
       </div>
       <div className="grid grid-cols-7 gap-1">
-        {celdas.map((d, i) => (
-          <div key={i} className="min-h-[68px] rounded-lg p-1 text-left" style={{ background: d ? "var(--card)" : "transparent", border: d ? "1px solid var(--border)" : "none" }}>
+        {celdas.map((d, i) => {
+          const fechaCelda = d ? `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}` : ""
+          return (
+          <div key={i} onClick={() => { if (d && onDayClick) onDayClick(fechaCelda) }} className={"min-h-[68px] rounded-lg p-1 text-left" + (d && onDayClick ? " cursor-pointer transition-colors hover:brightness-110" : "")} style={{ background: d ? "var(--card)" : "transparent", border: d ? "1px solid var(--border)" : "none" }}>
             {d && (
               <>
                 <div className="text-[11px] font-medium mb-0.5" style={{ color: "var(--muted-foreground)" }}>{d}</div>
                 <div className="space-y-0.5">
                   {eventosDia(d).slice(0, 3).map(ev => (
-                    <button key={ev.id} onClick={() => onItemClick(ev)} className="block w-full truncate text-left text-[10px] px-1 py-0.5 rounded" style={{ background: (ev.color || "#1a3673") + "22", color: ev.color || "#1a3673" }} title={ev.titulo}>{ev.titulo}</button>
+                    <button key={ev.id} onClick={e => { e.stopPropagation(); onItemClick(ev) }} className="block w-full truncate text-left text-[10px] px-1 py-0.5 rounded" style={{ background: (ev.color || "#1a3673") + "22", color: ev.color || "#1a3673" }} title={ev.titulo}>{ev.titulo}</button>
                   ))}
                   {eventosDia(d).length > 3 && <div className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>+{eventosDia(d).length - 3}</div>}
                 </div>
               </>
             )}
           </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
