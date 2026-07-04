@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, ClipboardList, Clock, Play, CheckCircle2, XCircle, MapPin, User, Wrench } from "lucide-react"
+import { SelectTecnico } from "@/components/ui/SelectTecnico"
+import { SelectEquipo } from "@/components/ui/SelectEquipo"
 import PageShell from "@/components/layout/PageShell"
 import DateFilter, { filterByDate, DateRange } from "@/components/ui/DateFilter"
 import Pagination from "@/components/ui/Pagination"
@@ -256,11 +258,11 @@ export default function OrdenesPage() {
                 </Select>
               </div>
             </div>
-            <div className="space-y-1"><Label>Equipo (si aplica)</Label><Input value={form.equipo ?? ""} onChange={e => setS("equipo", e.target.value)} placeholder="Nombre o código del equipo" /></div>
+            <div className="space-y-1"><Label>Equipo (si aplica)</Label><SelectEquipo value={form.equipo ?? ""} onChange={v => setS("equipo", v)} /></div>
             <div className="space-y-1"><Label>Descripción del trabajo *</Label>
               <Textarea value={form.descripcion} onChange={e => setS("descripcion", e.target.value)} rows={3} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Técnico asignado *</Label><Input value={form.tecnico} onChange={e => setS("tecnico", e.target.value)} /></div>
+              <div className="space-y-1"><Label>Técnico asignado *</Label><SelectTecnico value={form.tecnico} onChange={v => setS("tecnico", v)} /></div>
               <div className="space-y-1"><Label>Fecha programada</Label><Input type="date" value={form.fechaProgramada} onChange={e => setS("fechaProgramada", e.target.value)} /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
