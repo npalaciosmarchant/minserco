@@ -8,10 +8,11 @@ import {
   FileText, ClipboardList, Calendar,
   BarChart3, ShieldCheck, LogOut, HardHat,
   Building2, ChevronRight, Receipt, ClipboardCheck,
+  FolderOpen, CalendarClock, MapPin, Gavel,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { mantenciones, bodega, reparaciones, contratos } from "@/lib/store"
-import { useAuth } from "@/lib/auth"
+import { useAuth, canAccess } from "@/lib/auth"
 
 type NavItem = {
   href: string
@@ -39,11 +40,15 @@ const nav: NavItem[] = [
   { href: "/proveedores", label: "Proveedores",        icon: Building2, group: "Logística",  desc: "Gestión de proveedores" },
   { href: "/gastos",           label: "Rendición de Gastos",  icon: Receipt,       group: "Documentos", desc: "Gastos y aprobaciones" },
   { href: "/informes-entrega", label: "Informes de Entrega",  icon: ClipboardCheck,group: "Documentos", desc: "Entrega de equipos" },
+  { href: "/documentos",   label: "Presentación de Documentos", icon: FolderOpen,    group: "Administrativo", desc: "Documentos y presentaciones" },
+  { href: "/reuniones",    label: "Agenda de Reuniones", icon: CalendarClock, group: "Administrativo", desc: "Reuniones y actas" },
+  { href: "/visitas",      label: "Agenda de Visitas Técnicas", icon: MapPin,        group: "Administrativo", desc: "Visitas a terreno" },
+  { href: "/licitaciones", label: "Licitaciones",       icon: Gavel,         group: "Administrativo", desc: "Propuestas y adjudicaciones" },
 ]
 
 const TECNICO_ROUTES = ["/mantencion", "/equipos", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega"]
 
-const groups = ["Operaciones", "Terreno", "Comercial", "Logística", "Documentos"]
+const groups = ["Operaciones", "Terreno", "Comercial", "Logística", "Documentos", "Administrativo"]
 
 const groupColors: Record<string, string> = {
   "Operaciones": "#0369A1",
@@ -51,6 +56,7 @@ const groupColors: Record<string, string> = {
   "Comercial":   "#7C3AED",
   "Logística":   "#D97706",
   "Documentos":  "#059669",
+  "Administrativo": "#4F46E5",
 }
 
 interface NavDrawerProps {
@@ -90,7 +96,7 @@ export default function NavDrawer({ open, onClose }: NavDrawerProps) {
   }
 
   const esAdmin = user?.rol === "admin"
-  const visibleNav = nav.filter(item => esAdmin ? true : TECNICO_ROUTES.includes(item.href))
+  const visibleNav = nav.filter(item => esAdmin || TECNICO_ROUTES.includes(item.href) || canAccess(user, item.href))
 
   const ungrouped = visibleNav.filter(i => !i.group)
 
