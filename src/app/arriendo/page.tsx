@@ -14,6 +14,7 @@ import {
   AlertTriangle, CheckCircle2, Clock, ArrowRight,
   CreditCard, CalendarPlus, History,
 } from "lucide-react"
+import { SelectEquipo } from "@/components/ui/SelectEquipo"
 import PageShell from "@/components/layout/PageShell"
 
 // ── Utilidades de fecha ───────────────────────────────────────────────────────
@@ -386,7 +387,7 @@ export default function ArriendoPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Equipo *</Label>
-                <Input value={formContrato.equipo} onChange={e => setFC("equipo", e.target.value)} placeholder="Ej: Supresor de polvo SP-200" />
+                <SelectEquipo value={formContrato.equipo} onChange={v => setFC("equipo", v)} />
               </div>
               <div className="space-y-1">
                 <Label>Código</Label>
