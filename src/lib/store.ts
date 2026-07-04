@@ -79,6 +79,7 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   usuarioId:"usuario_id", mantencionId:"mantencion_id",
   supervisorId:"supervisor_id",
   fechaPublicacion:"fecha_publicacion", fechaCierre:"fecha_cierre",
+  fichasTecnicas:"fichas_tecnicas",
 }
 
 const SNAKE_TO_CAMEL = Object.fromEntries(

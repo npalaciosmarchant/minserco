@@ -38,6 +38,11 @@ export interface Equipo {
   proximaMantencion?: string
   activo: boolean
   notas?: string
+  planos?: { url: string; nombre: string }[]
+  instructivos?: { url: string; nombre: string }[]
+  fichasTecnicas?: { url: string; nombre: string }[]
+  insumos?: { url: string; nombre: string }[]
+  informes?: { url: string; nombre: string }[]
   creadoEn: string
 }
 
