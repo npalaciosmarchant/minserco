@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, MapPin, Users, Wrench, AlertTriangle, CheckCircle2, Clock, ClipboardList, X, History } from "lucide-react"
+import { SelectTecnico } from "@/components/ui/SelectTecnico"
+import { SelectEquipo } from "@/components/ui/SelectEquipo"
 import PageShell from "@/components/layout/PageShell"
 import Link from "next/link"
 
@@ -346,7 +348,7 @@ export default function ClientesPage() {
             </div>
             <div className="text-xs font-semibold uppercase tracking-wider pb-1 pt-2" style={{ color: "var(--muted-foreground)", borderBottom: "1px solid var(--border)" }}>Datos del equipo</div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Nombre del equipo *</Label><Input value={form.equipo} onChange={e => setS("equipo", e.target.value)} placeholder="Supresor polvo SD-2000" /></div>
+              <div className="space-y-1"><Label>Nombre del equipo *</Label><SelectEquipo value={form.equipo} onChange={v => setS("equipo", v)} /></div>
               <div className="space-y-1"><Label>Tipo</Label>
                 <Select value={form.tipoEquipo} onValueChange={v => setS("tipoEquipo", v ?? "")}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -365,7 +367,7 @@ export default function ClientesPage() {
                   <SelectContent>{estados.map(e => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1"><Label>Técnico responsable</Label><Input value={form.tecnicoResponsable ?? ""} onChange={e => setS("tecnicoResponsable", e.target.value)} /></div>
+              <div className="space-y-1"><Label>Técnico responsable</Label><SelectTecnico value={form.tecnicoResponsable ?? ""} onChange={v => setS("tecnicoResponsable", v)} /></div>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1"><Label>Fecha instalación</Label><Input type="date" value={form.fechaInstalacion} onChange={e => setS("fechaInstalacion", e.target.value)} /></div>
