@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
-import { Plus, Pencil, Trash2, ShieldCheck, HardHat, Eye, UserCheck, UserX, KeyRound, Settings2, RefreshCw } from "lucide-react"
+import { Plus, Pencil, Trash2, ShieldCheck, HardHat, Eye, FolderOpen, UserCheck, UserX, KeyRound, Settings2, RefreshCw } from "lucide-react"
 import { getSupabase } from "@/lib/supabase"
 import { PermisosForm } from "@/components/PermisosForm"
 
@@ -33,6 +33,13 @@ const roles: { value: RolUsuario; label: string; color: string; icon: React.Elem
     color: "#22c55e",
     icon: Eye,
     acceso: "Supervisa actividades y recibe alertas",
+  },
+  {
+    value: "administrativo",
+    label: "Administrativo",
+    color: "#4F46E5",
+    icon: FolderOpen,
+    acceso: "Documentos, reuniones, visitas y licitaciones",
   },
 ]
 const rolMap = Object.fromEntries(roles.map(r => [r.value, r]))
@@ -240,8 +247,8 @@ export default function AdminUsuariosPage() {
                   {u.activo ? "Activo" : "Inactivo"}
                 </button>
 
-                {/* Botón permisos — solo para técnicos */}
-                {u.rol === "tecnico" && (
+                {/* Botón permisos — técnicos y administrativos */}
+                {(u.rol === "tecnico" || u.rol === "administrativo") && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -305,7 +312,7 @@ export default function AdminUsuariosPage() {
             </div>
             <div className="space-y-1">
               <Label>Rol</Label>
-              <div className="grid grid-cols-3 gap-2 mt-1">
+              <div className="grid grid-cols-2 gap-2 mt-1">
                 {roles.map(r => {
                   const Icon = r.icon
                   const sel = form.rol === r.value
