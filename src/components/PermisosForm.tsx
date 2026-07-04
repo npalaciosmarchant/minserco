@@ -24,6 +24,10 @@ const MODULOS = [
   { id: "checklist", nombre: "Checklist" },
   { id: "mapa", nombre: "Mapa" },
   { id: "actividad", nombre: "Actividad" },
+  { id: "documentos", nombre: "Documentos" },
+  { id: "reuniones", nombre: "Reuniones" },
+  { id: "visitas", nombre: "Visitas Técnicas" },
+  { id: "licitaciones", nombre: "Licitaciones" },
 ]
 
 interface PermisoItem {
