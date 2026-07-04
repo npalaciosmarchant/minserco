@@ -348,7 +348,7 @@ export default function ClientesPage() {
             </div>
             <div className="text-xs font-semibold uppercase tracking-wider pb-1 pt-2" style={{ color: "var(--muted-foreground)", borderBottom: "1px solid var(--border)" }}>Datos del equipo</div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Nombre del equipo *</Label><SelectEquipo value={form.equipo} onChange={v => setS("equipo", v)} /></div>
+              <div className="space-y-1"><Label>Nombre del equipo *</Label><SelectEquipo value={form.equipo} onChange={v => setS("equipo", v)} onSelectEquipo={eq => setS("numeroSerie", eq?.numeroSerie ?? "")} /></div>
               <div className="space-y-1"><Label>Tipo</Label>
                 <Select value={form.tipoEquipo} onValueChange={v => setS("tipoEquipo", v ?? "")}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -358,7 +358,7 @@ export default function ClientesPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>Código equipo</Label><Input value={form.codigoEquipo ?? ""} onChange={e => setS("codigoEquipo", e.target.value)} /></div>
-              <div className="space-y-1"><Label>N° Serie</Label><Input value={form.numeroSerie ?? ""} onChange={e => setS("numeroSerie", e.target.value)} /></div>
+              <div className="space-y-1"><Label>N° Serie</Label><Input value={form.numeroSerie ?? ""} onChange={e => setS("numeroSerie", e.target.value)} placeholder="Se completa al elegir el equipo" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>Estado</Label>
