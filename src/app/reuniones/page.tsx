@@ -58,6 +58,7 @@ export default function ReunionesPage() {
       <AgendaVista
         items={items}
         onItemClick={r => abrir(r)}
+        onDayClick={f => { setEditando(null); setForm({ ...emptyForm(), fecha: f }); setOpen(true) }}
         renderCard={r => {
           const est = estadoCfg[r.estado]
           return (
