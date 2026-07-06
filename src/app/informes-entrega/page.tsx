@@ -54,6 +54,7 @@ function generarPDF(inf: InformeEntrega) {
 <html lang="es">
 <head>
 <meta charset="utf-8"/>
+<title>${inf.numero}</title>
 <style>
   body { font-family: Georgia, serif; margin: 0; padding: 40px; color: #111; font-size: 13px; }
   .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1a3673; padding-bottom: 20px; margin-bottom: 24px; }
@@ -155,6 +156,7 @@ ${(inf.fotos && inf.fotos.length > 0) ? `
   if (!w) return
   w.document.write(html)
   w.document.close()
+  w.document.title = inf.numero
   w.focus()
   setTimeout(() => w.print(), 500)
 }
