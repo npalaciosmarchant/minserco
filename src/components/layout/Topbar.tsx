@@ -6,9 +6,9 @@ import Link from "next/link"
 import Image from "next/image"
 import {
   Menu, X, Bell, AlertTriangle, Package, Wrench,
-  KeyRound, ShieldAlert, Search, ChevronRight, Mail, Ship,
+  KeyRound, ShieldAlert, Search, ChevronRight, Mail, Ship, Radio,
 } from "lucide-react"
-import { mantenciones, bodega, reparaciones, contratos, clientesEquipos, importaciones } from "@/lib/store"
+import { mantenciones, bodega, reparaciones, contratos, clientesEquipos, importaciones, nodos } from "@/lib/store"
 import { useAlertScheduler } from "@/lib/useAlertScheduler"
 import { useCallback } from "react"
 import GlobalSearch from "./GlobalSearch"
@@ -16,7 +16,7 @@ import { useAuth } from "@/lib/auth"
 
 interface Alerta {
   id: string
-  tipo: "stock" | "mantencion" | "reparacion" | "arriendo" | "garantia" | "recordatorio" | "importacion"
+  tipo: "stock" | "mantencion" | "reparacion" | "arriendo" | "garantia" | "recordatorio" | "importacion" | "nodo"
   titulo: string
   detalle: string
   urgente: boolean
@@ -24,7 +24,7 @@ interface Alerta {
 
 const iconoTipo: Record<string, React.ElementType> = {
   stock: Package, mantencion: Wrench, reparacion: Wrench,
-  arriendo: KeyRound, garantia: ShieldAlert, importacion: Ship,
+  arriendo: KeyRound, garantia: ShieldAlert, importacion: Ship, nodo: Radio,
 }
 const colorTipo: Record<string, string> = {
   stock: "#DC2626", mantencion: "#D97706", reparacion: "#0369A1",
@@ -32,7 +32,7 @@ const colorTipo: Record<string, string> = {
 }
 const labelTipo: Record<string, string> = {
   stock: "Bodega", mantencion: "Mantención", reparacion: "Reparación",
-  arriendo: "Arriendo", garantia: "Garantía", importacion: "Importación", recordatorio: "Recordatorio",
+  arriendo: "Arriendo", garantia: "Garantía", importacion: "Importación", recordatorio: "Recordatorio", nodo: "Nodo",
 }
 
 function buildAlertas(): Alerta[] {
@@ -105,6 +105,21 @@ function buildAlertas(): Alerta[] {
             : dias === 0 ? "Importación llega HOY: " + im.descripcion
             : "Importación próxima: " + im.descripcion,
           detalle: im.proveedor + " · " + (dias < 0 ? "Estimada hace " + Math.abs(dias) + "d" : dias === 0 ? "Llega hoy" : "Llega en " + dias + "d") + (im.numeroTracking ? " · " + im.numeroTracking : ""),
+          urgente: dias <= 1,
+        })
+      }
+    })
+  nodos.getAll()
+    .filter(n => n.estado === "activo" && n.fechaTermino)
+    .forEach(n => {
+      const dias = Math.ceil((new Date(n.fechaTermino!).getTime() - hoy.getTime()) / 86400000)
+      if (dias <= 7) {
+        out.push({
+          id: "nodo-" + n.id, tipo: "nodo",
+          titulo: dias < 0 ? "Servicio vencido: " + n.equipo
+            : dias === 0 ? "Servicio vence HOY: " + n.equipo
+            : "Servicio por vencer: " + n.equipo,
+          detalle: (n.cliente ? n.cliente + " · " : "") + (dias < 0 ? "Venció hace " + Math.abs(dias) + "d" : dias === 0 ? "Vence hoy" : "Vence en " + dias + "d") + (n.numeroSim ? " · SIM " + n.numeroSim : ""),
           urgente: dias <= 1,
         })
       }

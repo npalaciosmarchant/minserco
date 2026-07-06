@@ -8,7 +8,7 @@ import {
   FileText, ClipboardList, Calendar,
   BarChart3, ShieldCheck, LogOut, HardHat,
   Building2, ChevronRight, Receipt, ClipboardCheck,
-  FolderOpen, CalendarClock, MapPin, Gavel,
+  FolderOpen, CalendarClock, MapPin, Gavel, Radio, ListTodo,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { mantenciones, bodega, reparaciones, contratos } from "@/lib/store"
@@ -31,6 +31,7 @@ const nav: NavItem[] = [
   { href: "/reparacion",  label: "Reparación",   icon: Settings,      group: "Operaciones", desc: "Equipos en reparación" },
   { href: "/clientes",    label: "Equipos en Terreno", icon: Users,    group: "Terreno",    desc: "Equipos y garantías" },
   { href: "/ordenes",     label: "Órdenes de Trabajo", icon: ClipboardList, group: "Terreno", desc: "OTs y seguimiento" },
+  { href: "/nodos",       label: "Nodos",              icon: Radio,         group: "Terreno", desc: "Servicio SIM de equipos" },
   { href: "/cotizaciones",label: "Cotizaciones",      icon: FileText,  group: "Comercial",  desc: "Presupuestos y propuestas" },
   { href: "/arriendo",    label: "Arriendo",           icon: KeyRound,  group: "Comercial",  desc: "Contratos y vencimientos" },
   { href: "/bodega",      label: "Control Bodega",     icon: Package,   group: "Logística",  desc: "Inventario y stock" },
@@ -44,6 +45,7 @@ const nav: NavItem[] = [
   { href: "/reuniones",    label: "Agenda de Reuniones", icon: CalendarClock, group: "Administrativo", desc: "Reuniones y actas" },
   { href: "/visitas",      label: "Agenda de Visitas Técnicas", icon: MapPin,        group: "Administrativo", desc: "Visitas a terreno" },
   { href: "/licitaciones", label: "Licitaciones",       icon: Gavel,         group: "Administrativo", desc: "Propuestas y adjudicaciones" },
+  { href: "/tareas",       label: "Tareas",             icon: ListTodo,      group: "Administrativo", desc: "Tareas administrativas" },
 ]
 
 const TECNICO_ROUTES = ["/mantencion", "/equipos", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega"]
