@@ -467,3 +467,33 @@ export interface Licitacion {
   observaciones?: string
   creadoEn: string
 }
+
+
+// ── NODOS (servicio SIM) y TAREAS ─────────────────────────────────────────────
+export type EstadoNodo = "activo" | "suspendido" | "vencido"
+export interface Nodo {
+  id: string
+  equipo: string
+  numeroSerie?: string
+  numeroSim?: string
+  cliente?: string
+  fechaInicio?: string
+  fechaTermino?: string
+  responsable?: string
+  estado: EstadoNodo
+  observaciones?: string
+  creadoEn: string
+}
+
+export type EstadoTarea = "pendiente" | "en_proceso" | "completada"
+export interface Tarea {
+  id: string
+  titulo: string
+  tipo?: string
+  fecha?: string
+  hora?: string
+  responsable?: string
+  estado: EstadoTarea
+  descripcion?: string
+  creadoEn: string
+}

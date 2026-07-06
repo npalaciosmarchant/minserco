@@ -6,6 +6,7 @@ export type Modulo =
   | "arriendo" | "importaciones" | "fabricacion" | "reportes" | "calendario"
   | "checklist" | "mapa" | "actividad"
   | "documentos" | "reuniones" | "visitas" | "licitaciones"
+  | "nodos" | "tareas"
 
 export interface Permiso {
   modulo_id: Modulo

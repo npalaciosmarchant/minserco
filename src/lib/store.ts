@@ -19,6 +19,7 @@ import {
   Usuario, Proveedor, Gasto, InformeEntrega, AlertaConfig,
   Equipo, Notificacion,
   DocumentoAdmin, Reunion, VisitaTecnica, Licitacion,
+  Nodo, Tarea,
 } from "./types"
 
 // ── localStorage helpers (API pública sin cambios) ────────────────────────────
@@ -79,7 +80,7 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   usuarioId:"usuario_id", mantencionId:"mantencion_id",
   supervisorId:"supervisor_id",
   fechaPublicacion:"fecha_publicacion", fechaCierre:"fecha_cierre",
-  fichasTecnicas:"fichas_tecnicas",
+  fichasTecnicas:"fichas_tecnicas", numeroSim:"numero_sim",
 }
 
 const SNAKE_TO_CAMEL = Object.fromEntries(
@@ -159,6 +160,8 @@ export async function syncFromSupabase() {
     { sbTable: "reuniones",          lsKey: "reuniones"       },
     { sbTable: "visitas_tecnicas",   lsKey: "visitasTecnicas" },
     { sbTable: "licitaciones",       lsKey: "licitaciones"    },
+    { sbTable: "nodos",              lsKey: "nodos"           },
+    { sbTable: "tareas",             lsKey: "tareas"          },
   ]
 
   await Promise.all(tables.map(async ({ sbTable, lsKey }) => {
@@ -672,5 +675,44 @@ export const licitaciones = {
   delete: (id: string) => {
     lsSet("licitaciones", licitaciones.getAll().filter(i => i.id !== id))
     syncUp("licitaciones", { id }, "delete")
+  },
+}
+
+
+// ── NODOS y TAREAS ────────────────────────────────────────────────────────────
+
+export const nodos = {
+  getAll: (): Nodo[] => lsGet("nodos"),
+  add: (n: Omit<Nodo, "id" | "creadoEn">): Nodo => {
+    const item: Nodo = { ...n, id: getId(), creadoEn: new Date().toISOString() }
+    lsSet("nodos", [...nodos.getAll(), item])
+    syncUp("nodos", item as unknown as Record<string, unknown>, "upsert")
+    return item
+  },
+  update: (id: string, changes: Partial<Nodo>) => {
+    lsSet("nodos", nodos.getAll().map(i => i.id === id ? { ...i, ...changes } : i))
+    syncUp("nodos", { id, ...changes } as Record<string, unknown>, "upsert")
+  },
+  delete: (id: string) => {
+    lsSet("nodos", nodos.getAll().filter(i => i.id !== id))
+    syncUp("nodos", { id }, "delete")
+  },
+}
+
+export const tareas = {
+  getAll: (): Tarea[] => lsGet("tareas"),
+  add: (t: Omit<Tarea, "id" | "creadoEn">): Tarea => {
+    const item: Tarea = { ...t, id: getId(), creadoEn: new Date().toISOString() }
+    lsSet("tareas", [...tareas.getAll(), item])
+    syncUp("tareas", item as unknown as Record<string, unknown>, "upsert")
+    return item
+  },
+  update: (id: string, changes: Partial<Tarea>) => {
+    lsSet("tareas", tareas.getAll().map(i => i.id === id ? { ...i, ...changes } : i))
+    syncUp("tareas", { id, ...changes } as Record<string, unknown>, "upsert")
+  },
+  delete: (id: string) => {
+    lsSet("tareas", tareas.getAll().filter(i => i.id !== id))
+    syncUp("tareas", { id }, "delete")
   },
 }
