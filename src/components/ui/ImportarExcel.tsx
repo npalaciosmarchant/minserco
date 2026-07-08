@@ -115,7 +115,7 @@ function cellText(v: ExcelJS.CellValue): string {
   if (typeof v === "number" || typeof v === "boolean") return String(v)
   if (v instanceof Date) return v.toISOString().slice(0, 10)
   if (typeof v === "object") {
-    const o = v as Record<string, unknown>
+    const o = v as unknown as Record<string, unknown>
     if (typeof o.text === "string") return o.text.trim()
     if (o.richText && Array.isArray(o.richText)) return (o.richText as { text: string }[]).map(t => t.text).join("").trim()
     if (o.result !== undefined) return String(o.result).trim()
