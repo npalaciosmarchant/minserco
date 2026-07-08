@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, ArrowDown, ArrowUp, Package, AlertTriangle } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
+import { ImportarExcel, campo, pareceDescripcion, parseNumCL } from "@/components/ui/ImportarExcel"
 
 const categorias: { value: Categoria; label: string }[] = [
   { value: "equipo", label: "Equipo" },
@@ -76,6 +77,51 @@ export default function BodegaPage() {
     bodega.delete(id); cargar()
   }
 
+  function vaciarInventario() {
+    const n = bodega.getAll().length
+    if (n === 0) { alert("El inventario ya está vacío."); return }
+    if (!confirm(`¿Eliminar TODOS los ${n} items del inventario? Esta acción no se puede deshacer.`)) return
+    bodega.vaciar(); cargar()
+  }
+
+  function mapCategoria(txt: string): Categoria {
+    const t = txt.toLowerCase()
+    if (t.includes("herramienta")) return "herramienta"
+    if (t.includes("equipo")) return "equipo"
+    if (t.includes("accesorio")) return "accesorio"
+    if (t.includes("consumible")) return "consumible"
+    return "repuesto"
+  }
+
+  async function importarProductos(rows: Record<string, string>[]) {
+    const existentes = new Set(bodega.getAll().map(i => i.nombre.toLowerCase()))
+    const base = bodega.getAll().length
+    let added = 0, omitted = 0
+    for (const r of rows) {
+      if (pareceDescripcion(r)) { omitted++; continue }
+      const nombre = campo(r, "Nombre")
+      if (!nombre) { omitted++; continue }
+      if (existentes.has(nombre.toLowerCase())) { omitted++; continue }
+      const catTxt = campo(r, "Categoría", "Categoria")
+      const desc = campo(r, "Descripción", "Descripcion")
+      bodega.add({
+        codigo: `IMP-${String(base + added + 1).padStart(4, "0")}`,
+        nombre,
+        categoria: mapCategoria(catTxt),
+        descripcion: [desc, catTxt ? `(Categoría original: ${catTxt})` : ""].filter(Boolean).join("\n"),
+        cantidad: parseNumCL(campo(r, "Stock actual", "Stock")),
+        cantidadMinima: parseNumCL(campo(r, "Stock mínimo", "Stock minimo")),
+        ubicacion: "",
+        proveedor: "",
+        precioUnitario: parseNumCL(campo(r, "Valor unitario", "Valor")) || undefined,
+        unidad: "unidad",
+      })
+      existentes.add(nombre.toLowerCase()); added++
+    }
+    cargar()
+    return { added, omitted }
+  }
+
   const setIS = (k: string, v: string) => setFormItem(f => ({ ...f, [k]: v }))
   const setIN = (k: string, v: number) => setFormItem(f => ({ ...f, [k]: v }))
   const setMS = (k: string, v: string) => setFormMov(f => ({ ...f, [k]: v }))
@@ -111,6 +157,8 @@ export default function BodegaPage() {
       actions={
         <div className="flex gap-2">
           <button className="btn-ghost" onClick={() => abrirMov()}><ArrowDown size={13} /> Movimiento</button>
+          <ImportarExcel label="Importar productos" onRows={importarProductos} />
+          <button className="btn-ghost" style={{ color: "#dc2626" }} onClick={vaciarInventario}><Trash2 size={13} /> Vaciar</button>
           <button className="btn-accent" onClick={() => abrirItem()}><Plus size={14} /> Nuevo Item</button>
         </div>
       }
