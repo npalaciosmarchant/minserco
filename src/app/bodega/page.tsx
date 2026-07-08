@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Pencil, Trash2, ArrowDown, ArrowUp, Package, AlertTriangle } from "lucide-react"
+import { Plus, Pencil, Trash2, ArrowDown, ArrowUp, Package, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
 import { ImportarExcel, campo, pareceDescripcion, parseNumCL } from "@/components/ui/ImportarExcel"
 
@@ -43,6 +43,7 @@ export default function BodegaPage() {
   const [formItem, setFormItem] = useState(emptyItem())
   const [formMov, setFormMov] = useState(emptyMov())
   const [busqueda, setBusqueda] = useState("")
+  const [stockAbierto, setStockAbierto] = useState(false)
 
   const cargar = () => {
     setItems(bodega.getAll())
@@ -166,17 +167,27 @@ export default function BodegaPage() {
 
       {stockBajo.length > 0 && (
         <div className="mb-4 p-3.5 rounded-xl" style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.25)" }}>
-          <div className="flex items-center gap-2 text-sm font-semibold mb-1" style={{ color: "#f87171" }}>
+          <button
+            onClick={() => setStockAbierto(v => !v)}
+            className="flex items-center gap-2 text-sm font-semibold w-full text-left"
+            style={{ color: "#f87171" }}
+          >
+            {stockAbierto ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
             <AlertTriangle size={14} />
             {stockBajo.length} item{stockBajo.length > 1 ? "s" : ""} con stock bajo o agotado
-          </div>
-          <div className="flex flex-wrap gap-1.5 mt-1">
-            {stockBajo.map(i => (
-              <span key={i.id} className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(248,113,113,0.15)", color: "#fca5a5" }}>
-                {i.nombre} ({i.cantidad} {i.unidad})
-              </span>
-            ))}
-          </div>
+            <span className="ml-auto text-xs font-medium" style={{ opacity: 0.75 }}>
+              {stockAbierto ? "Ocultar" : "Ver detalle"}
+            </span>
+          </button>
+          {stockAbierto && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {stockBajo.map(i => (
+                <span key={i.id} className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(248,113,113,0.15)", color: "#fca5a5" }}>
+                  {i.nombre} ({i.cantidad} {i.unidad})
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
