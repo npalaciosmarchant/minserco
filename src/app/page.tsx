@@ -12,7 +12,7 @@ import {
 import {
   Wrench, Settings, Package, AlertTriangle, ArrowRight,
   KeyRound, FileText, ClipboardList, Clock, TrendingUp,
-  CheckCircle2, AlertCircle, Activity,
+  CheckCircle2, AlertCircle, Activity, ChevronDown, ChevronRight,
 } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth"
@@ -175,6 +175,7 @@ export default function Dashboard() {
   const [cs, setCs] = useState<ContratoArriendo[]>([])
   const [cots, setCots] = useState<Cotizacion[]>([])
   const [ots, setOts] = useState<OrdenTrabajo[]>([])
+  const [alertasAbierto, setAlertasAbierto] = useState(false)
 
   useEffect(() => {
     setMs(mantenciones.getAll())
@@ -346,7 +347,12 @@ export default function Dashboard() {
             background: "rgba(220,38,38,0.03)",
           }}
         >
-          <div className="flex items-center gap-2 mb-3">
+          <button
+            onClick={() => setAlertasAbierto(v => !v)}
+            className="flex items-center gap-2 w-full text-left"
+            style={{ color: "var(--ds-danger)" }}
+          >
+            {alertasAbierto ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
             <AlertTriangle size={15} style={{ color: "var(--ds-danger)" }} />
             <span className="text-[13px] font-semibold" style={{ color: "var(--ds-danger)" }}>
               {alertasBanner.filter(a => a.nivel === "critico").length > 0
@@ -355,8 +361,12 @@ export default function Dashboard() {
               }
               {alertasBanner.length} alerta{alertasBanner.length > 1 ? "s" : ""} requieren atención
             </span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
+            <span className="ml-auto text-[12px] font-medium" style={{ opacity: 0.75 }}>
+              {alertasAbierto ? "Ocultar" : "Ver detalle"}
+            </span>
+          </button>
+          {alertasAbierto && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 mt-3">
             {alertasBanner.map((a, i) => (
               <Link
                 key={i}
@@ -383,6 +393,7 @@ export default function Dashboard() {
               </Link>
             ))}
           </div>
+          )}
         </div>
       )}
 
