@@ -131,6 +131,16 @@ async function syncUp(table: string, row: Record<string, unknown>, op: "upsert" 
   }
 }
 
+// Elimina TODAS las filas de una tabla (usado por los botones "vaciar").
+async function syncClear(table: string) {
+  try {
+    const sb = getSupabase()
+    await sb.from(table).delete().not("id", "is", null)
+  } catch (e) {
+    console.warn(`[store] Supabase clear error (${table}):`, e)
+  }
+}
+
 // ── SYNC DESDE SUPABASE (llamar al hacer login) ───────────────────────────────
 
 export async function syncFromSupabase() {
@@ -257,6 +267,10 @@ export const bodega = {
     lsSet("bodega", bodega.getAll().filter(i => i.id !== id))
     syncUp("bodega", { id }, "delete")
   },
+  vaciar: () => {
+    lsSet<ItemBodega>("bodega", [])
+    syncClear("bodega")
+  },
 }
 
 export const movimientos = {
@@ -347,6 +361,10 @@ export const clientesEquipos = {
   delete: (id: string) => {
     lsSet("clientesEquipos", clientesEquipos.getAll().filter(c => c.id !== id))
     syncUp("clientes_equipos", { id }, "delete")
+  },
+  vaciar: () => {
+    lsSet<ClienteEquipo>("clientesEquipos", [])
+    syncClear("clientes_equipos")
   },
 }
 
@@ -581,6 +599,10 @@ export const equipos = {
   delete: (id: string) => {
     lsSet("equipos", equipos.getAll().filter(e => e.id !== id))
     syncUp("equipos", { id }, "delete")
+  },
+  vaciar: () => {
+    lsSet<Equipo>("equipos", [])
+    syncClear("equipos")
   },
 }
 
