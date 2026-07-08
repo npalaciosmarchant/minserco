@@ -13,6 +13,7 @@ import { Plus, Pencil, Trash2, MapPin, Users, Wrench, AlertTriangle, CheckCircle
 import { SelectTecnico } from "@/components/ui/SelectTecnico"
 import { SelectEquipo } from "@/components/ui/SelectEquipo"
 import PageShell from "@/components/layout/PageShell"
+import { ImportarExcel, campo, pareceDescripcion } from "@/components/ui/ImportarExcel"
 import Link from "next/link"
 
 const ciudades: CiudadOficina[] = ["Copiapó", "La Serena", "Viña del Mar", "Otra"]
@@ -276,6 +277,47 @@ export default function ClientesPage() {
     { label: "Garantías venc.", value: garantiasVencidas, color: "#f87171" },
   ]
 
+  function vaciarClientes() {
+    const n = clientesEquipos.getAll().length
+    if (n === 0) { alert("No hay registros para eliminar."); return }
+    if (!confirm(`¿Eliminar TODOS los ${n} registros de clientes/equipos? Esta acción no se puede deshacer.`)) return
+    clientesEquipos.vaciar(); cargar()
+  }
+
+  async function importarClientes(rows: Record<string, string>[]) {
+    const existentes = new Set(clientesEquipos.getAll().map(c => (c.rut || c.cliente).toLowerCase()))
+    let added = 0, omitted = 0
+    for (const r of rows) {
+      if (pareceDescripcion(r)) { omitted++; continue }
+      const nombre = campo(r, "Nombre")
+      if (!nombre) { omitted++; continue }
+      const rut = campo(r, "Número de identificación", "identificación", "RUT", "Rut")
+      const key = (rut || nombre).toLowerCase()
+      if (existentes.has(key)) { omitted++; continue }
+      const codigo = campo(r, "Código", "Codigo")
+      const contacto = campo(r, "Hablar con", "Contacto")
+      clientesEquipos.add({
+        cliente: nombre,
+        empresa: nombre,
+        rut,
+        telefono: campo(r, "Teléfono", "Telefono"),
+        email: campo(r, "Email", "Correo"),
+        direccion: campo(r, "Dirección", "Direccion") || "-",
+        ciudad: "Otra",
+        equipo: "",
+        codigoEquipo: "",
+        tipoEquipo: "otro",
+        numeroSerie: "",
+        fechaInstalacion: "",
+        estado: "activo",
+        notas: [codigo ? `Código 2Workers: ${codigo}` : "", contacto ? `Contacto: ${contacto}` : ""].filter(Boolean).join(" · "),
+      })
+      existentes.add(key); added++
+    }
+    cargar()
+    return { added, omitted }
+  }
+
   return (
     <PageShell
       icon={Users}
@@ -284,7 +326,11 @@ export default function ClientesPage() {
       color="#2dd4bf"
       stats={stats}
       actions={
-        <button className="btn-accent" onClick={() => abrir()}><Plus size={14} /> Nuevo Equipo</button>
+        <div className="flex gap-2">
+          <ImportarExcel label="Importar clientes" onRows={importarClientes} />
+          <button className="btn-ghost" style={{ color: "#dc2626" }} onClick={vaciarClientes}><Trash2 size={13} /> Vaciar</button>
+          <button className="btn-accent" onClick={() => abrir()}><Plus size={14} /> Nuevo Equipo</button>
+        </div>
       }
     >
 
