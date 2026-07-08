@@ -5,29 +5,55 @@ import {
   mantenciones, reparaciones, proyectos, cotizaciones,
   ordenesTrabajo, clientesEquipos, contratos, bodega, importaciones, tecnicos, asignaciones, movimientos, pagosArriendo, proveedores,
 } from "@/lib/store"
-import { Download, FileSpreadsheet, BarChart3, Wrench, Settings, FileText, ClipboardList, Users, KeyRound, Package, Ship, Database, Upload } from "lucide-react"
+import { Download, FileSpreadsheet, BarChart3, Wrench, Settings, FileText, ClipboardList, Database, Upload } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
 
+// Separador de columnas: punto y coma (estándar Excel en español / Chile)
+const SEP = ";"
+
+const ESTADOS: Record<string, string> = {
+  completado: "Completado", pendiente: "Pendiente", en_proceso: "En proceso",
+  entregado: "Entregado", en_reparacion: "En reparación", ingresado: "Ingresado",
+  diagnosticado: "Diagnosticado", presupuestado: "Presupuestado", listo: "Listo para entrega",
+  aceptada: "Aceptada", rechazada: "Rechazada", enviada: "Enviada", borrador: "Borrador", vencida: "Vencida",
+  completada: "Completada", en_curso: "En curso", asignada: "Asignada", cancelada: "Cancelada", planificada: "Planificada",
+}
+function estadoLabel(e?: string | null): string {
+  if (!e) return ""
+  return ESTADOS[e] ?? e
+}
+
 function escCsv(v: string | number | undefined | null): string {
   if (v === null || v === undefined) return ""
   const s = String(v)
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`
+  if (s.includes(SEP) || s.includes('"') || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`
   return s
 }
 
 function fila(...cols: (string | number | undefined | null)[]): string {
-  return cols.map(escCsv).join(",") + "\r\n"
+  return cols.map(escCsv).join(SEP) + "\r\n"
 }
 
 function fmtClp(n: number): string {
-  return `$${n.toLocaleString("es-CL")}`
+  return `$${(n || 0).toLocaleString("es-CL")}`
+}
+
+// Fecha legible DD-MM-AAAA
+function fmtFecha(v?: string | null): string {
+  if (!v) return ""
+  const d = new Date(v)
+  if (isNaN(d.getTime())) return String(v)
+  const dd = String(d.getDate()).padStart(2, "0")
+  const mm = String(d.getMonth() + 1).padStart(2, "0")
+  return `${dd}-${mm}-${d.getFullYear()}`
 }
 
 function descargarCsv(contenido: string, nombre: string) {
-  const bom = "﻿" // UTF-8 BOM para Excel
-  const blob = new Blob([bom + contenido], { type: "text/csv;charset=utf-8;" })
+  const bom = "﻿" // UTF-8 BOM para tildes/ñ en Excel
+  // "sep=;" hace que Excel reconozca el separador en cualquier idioma/región
+  const blob = new Blob([bom + "sep=" + SEP + "\r\n" + contenido], { type: "text/csv;charset=utf-8;" })
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url
@@ -36,70 +62,90 @@ function descargarCsv(contenido: string, nombre: string) {
   URL.revokeObjectURL(url)
 }
 
+function titulo(nombre: string, mes: number, año: number): string {
+  let s = fila(`REPORTE DE ${nombre.toUpperCase()} — ${MESES[mes]} ${año}`)
+  s += "\r\n"
+  return s
+}
+
+function bloqueResumen(pares: [string, string | number][]): string {
+  let s = "\r\n"
+  s += fila("RESUMEN")
+  pares.forEach(([k, v]) => s += fila(k, v))
+  return s
+}
+
 function generarReporteMantenciones(mes: number, año: number) {
-  const ms = mantenciones.getAll().filter(m => {
-    const d = new Date(m.creadoEn)
-    return d.getMonth() === mes && d.getFullYear() === año
-  })
-  let csv = fila("ID","Equipo","Tipo","Estado","Fecha","Próx. Mantención","Técnico","Notas")
-  ms.forEach(m => csv += fila(m.id, m.equipo, m.tipo, m.estado, m.creadoEn.slice(0,10), m.proximaMantencion ?? "", m.tecnico, m.observaciones ?? ""))
-  csv += "\r\n"
-  csv += fila("RESUMEN")
-  csv += fila("Total registros", ms.length)
-  csv += fila("Completados", ms.filter(m => m.estado === "completado").length)
-  csv += fila("Pendientes", ms.filter(m => m.estado === "pendiente").length)
-  csv += fila("En proceso", ms.filter(m => m.estado === "en_proceso").length)
+  const ms = mantenciones.getAll()
+    .filter(m => { const d = new Date(m.creadoEn); return d.getMonth() === mes && d.getFullYear() === año })
+    .sort((a, b) => a.creadoEn.localeCompare(b.creadoEn))
+  let csv = titulo("Mantenciones", mes, año)
+  csv += fila("N°", "Equipo", "Tipo", "Estado", "Fecha registro", "Próxima mantención", "Técnico", "Observaciones")
+  if (ms.length === 0) csv += fila("Sin registros en este período")
+  ms.forEach((m, i) => csv += fila(i + 1, m.equipo, m.tipo, estadoLabel(m.estado), fmtFecha(m.creadoEn), fmtFecha(m.proximaMantencion), m.tecnico, m.observaciones ?? ""))
+  csv += bloqueResumen([
+    ["Total registros", ms.length],
+    ["Completadas", ms.filter(m => m.estado === "completado").length],
+    ["Pendientes", ms.filter(m => m.estado === "pendiente").length],
+    ["En proceso", ms.filter(m => m.estado === "en_proceso").length],
+  ])
   descargarCsv(csv, `Mantenciones_${MESES[mes]}_${año}.csv`)
 }
 
 function generarReporteReparaciones(mes: number, año: number) {
-  const rs = reparaciones.getAll().filter(r => {
-    const d = new Date(r.creadoEn)
-    return d.getMonth() === mes && d.getFullYear() === año
-  })
-  let csv = fila("ID","Equipo","Cliente","Estado","Diagnóstico","Costo estimado","Costo final","Fecha ingreso","Técnico")
-  rs.forEach(r => csv += fila(r.id, r.equipo, r.cliente, r.estado, r.diagnostico ?? "", r.costoEstimado ?? 0, r.costoFinal ?? 0, r.creadoEn.slice(0,10), r.tecnico))
-  csv += "\r\n"
+  const rs = reparaciones.getAll()
+    .filter(r => { const d = new Date(r.creadoEn); return d.getMonth() === mes && d.getFullYear() === año })
+    .sort((a, b) => a.creadoEn.localeCompare(b.creadoEn))
+  let csv = titulo("Reparaciones", mes, año)
+  csv += fila("N°", "Equipo", "Cliente", "Estado", "Diagnóstico", "Costo estimado (CLP)", "Costo final (CLP)", "Fecha ingreso", "Técnico")
+  if (rs.length === 0) csv += fila("Sin registros en este período")
+  rs.forEach((r, i) => csv += fila(i + 1, r.equipo, r.cliente, estadoLabel(r.estado), r.diagnostico ?? "", r.costoEstimado ?? 0, r.costoFinal ?? 0, fmtFecha(r.creadoEn), r.tecnico))
   const totalCosto = rs.reduce((s, r) => s + (r.costoFinal ?? r.costoEstimado ?? 0), 0)
-  csv += fila("RESUMEN")
-  csv += fila("Total registros", rs.length)
-  csv += fila("Entregados", rs.filter(r => r.estado === "entregado").length)
-  csv += fila("En reparación", rs.filter(r => r.estado === "en_reparacion").length)
-  csv += fila("Ingresos estimados", fmtClp(totalCosto))
+  csv += bloqueResumen([
+    ["Total registros", rs.length],
+    ["Entregadas", rs.filter(r => r.estado === "entregado").length],
+    ["En reparación", rs.filter(r => r.estado === "en_reparacion").length],
+    ["Ingresos estimados", fmtClp(totalCosto)],
+  ])
   descargarCsv(csv, `Reparaciones_${MESES[mes]}_${año}.csv`)
 }
 
 function generarReporteCotizaciones(mes: number, año: number) {
-  const cs = cotizaciones.getAll().filter(c => {
-    const d = new Date(c.creadoEn)
-    return d.getMonth() === mes && d.getFullYear() === año
-  })
-  let csv = fila("Número","Cliente","Empresa","Estado","Subtotal","Descuento%","Total","Fecha emisión","Fecha vencimiento","Items")
-  cs.forEach(c => csv += fila(c.numero, c.cliente, c.empresa ?? "", c.estado, c.subtotal, c.descuento, c.total, c.fechaEmision, c.fechaVencimiento, c.items.length))
-  csv += "\r\n"
+  const cs = cotizaciones.getAll()
+    .filter(c => { const d = new Date(c.creadoEn); return d.getMonth() === mes && d.getFullYear() === año })
+    .sort((a, b) => String(a.numero).localeCompare(String(b.numero)))
+  let csv = titulo("Cotizaciones", mes, año)
+  csv += fila("N°", "N° Cotización", "Cliente", "Empresa", "Estado", "Subtotal (CLP)", "Descuento %", "Total (CLP)", "Fecha emisión", "Fecha vencimiento", "Ítems")
+  if (cs.length === 0) csv += fila("Sin registros en este período")
+  cs.forEach((c, i) => csv += fila(i + 1, c.numero, c.cliente, c.empresa ?? "", estadoLabel(c.estado), c.subtotal, c.descuento, c.total, fmtFecha(c.fechaEmision), fmtFecha(c.fechaVencimiento), c.items.length))
   const aceptadas = cs.filter(c => c.estado === "aceptada")
-  csv += fila("RESUMEN")
-  csv += fila("Total cotizaciones", cs.length)
-  csv += fila("Aceptadas", aceptadas.length)
-  csv += fila("Rechazadas", cs.filter(c => c.estado === "rechazada").length)
-  csv += fila("Enviadas", cs.filter(c => c.estado === "enviada").length)
-  csv += fila("Total ingreso (aceptadas)", fmtClp(aceptadas.reduce((s, c) => s + c.total, 0)))
+  csv += bloqueResumen([
+    ["Total cotizaciones", cs.length],
+    ["Aceptadas", aceptadas.length],
+    ["Rechazadas", cs.filter(c => c.estado === "rechazada").length],
+    ["Enviadas", cs.filter(c => c.estado === "enviada").length],
+    ["Total ingreso (aceptadas)", fmtClp(aceptadas.reduce((s, c) => s + c.total, 0))],
+  ])
   descargarCsv(csv, `Cotizaciones_${MESES[mes]}_${año}.csv`)
 }
 
 function generarReporteOTs(mes: number, año: number) {
-  const ots = ordenesTrabajo.getAll().filter(o => {
-    const d = new Date(o.creadoEn)
-    return d.getMonth() === mes && d.getFullYear() === año
+  const ots = ordenesTrabajo.getAll()
+    .filter(o => { const d = new Date(o.creadoEn); return d.getMonth() === mes && d.getFullYear() === año })
+    .sort((a, b) => String(a.numero).localeCompare(String(b.numero)))
+  let csv = titulo("Órdenes de Trabajo", mes, año)
+  csv += fila("N°", "N° OT", "Cliente", "Empresa", "Tipo", "Estado", "Técnico", "Fecha inicio", "Fecha término", "Costo materiales (CLP)", "Costo mano de obra (CLP)", "Total (CLP)", "Observaciones")
+  if (ots.length === 0) csv += fila("Sin registros en este período")
+  ots.forEach((o, i) => {
+    const total = (o.costoMateriales ?? 0) + (o.costoManoObra ?? 0)
+    csv += fila(i + 1, o.numero, o.cliente, o.empresa ?? "", o.tipo, estadoLabel(o.estado), o.tecnico, fmtFecha(o.fechaInicio), fmtFecha(o.fechaTermino), o.costoMateriales ?? 0, o.costoManoObra ?? 0, total, o.observaciones ?? "")
   })
-  let csv = fila("Número","Cliente","Empresa","Tipo","Estado","Técnico","Fecha inicio","Fecha término","Costo materiales","Costo mano obra","Notas")
-  ots.forEach(o => csv += fila(o.numero, o.cliente, o.empresa ?? "", o.tipo, o.estado, o.tecnico, o.fechaInicio ?? "", o.fechaTermino ?? "", o.costoMateriales ?? 0, o.costoManoObra ?? 0, o.observaciones ?? ""))
-  csv += "\r\n"
-  csv += fila("RESUMEN")
-  csv += fila("Total OTs", ots.length)
-  csv += fila("Completadas", ots.filter(o => o.estado === "completada").length)
-  csv += fila("En curso", ots.filter(o => o.estado === "en_curso").length)
-  csv += fila("Ingresos estimados", fmtClp(ots.reduce((s, o) => s + (o.costoMateriales ?? 0) + (o.costoManoObra ?? 0), 0)))
+  csv += bloqueResumen([
+    ["Total OTs", ots.length],
+    ["Completadas", ots.filter(o => o.estado === "completada").length],
+    ["En curso", ots.filter(o => o.estado === "en_curso").length],
+    ["Ingresos estimados", fmtClp(ots.reduce((s, o) => s + (o.costoMateriales ?? 0) + (o.costoManoObra ?? 0), 0))],
+  ])
   descargarCsv(csv, `OrdenesTrabajo_${MESES[mes]}_${año}.csv`)
 }
 
@@ -113,23 +159,24 @@ function generarReporteCompleto(mes: number, año: number) {
   const ingresoRep = rs.reduce((s, r) => s + (r.costoFinal ?? r.costoEstimado ?? 0), 0)
   const ingresoOTs = ots.reduce((s, o) => s + (o.costoMateriales ?? 0) + (o.costoManoObra ?? 0), 0)
 
-  let csv = `REPORTE MENSUAL MINSERCO — ${MESES[mes].toUpperCase()} ${año}\r\n\r\n`
-  csv += fila("MÓDULO","MÉTRICA","VALOR")
-  csv += fila("Mantenciones","Total registros", ms.length)
-  csv += fila("Mantenciones","Completadas", ms.filter(m => m.estado === "completado").length)
-  csv += fila("Mantenciones","Pendientes", ms.filter(m => m.estado === "pendiente").length)
-  csv += fila("Reparaciones","Total registros", rs.length)
-  csv += fila("Reparaciones","Entregadas", rs.filter(r => r.estado === "entregado").length)
-  csv += fila("Reparaciones","Ingresos estimados", fmtClp(ingresoRep))
-  csv += fila("Fabricación","Total proyectos", ps.length)
-  csv += fila("Fabricación","Completados", ps.filter(p => p.estado === "completado").length)
-  csv += fila("Cotizaciones","Total generadas", cs.length)
-  csv += fila("Cotizaciones","Aceptadas", cs.filter(c => c.estado === "aceptada").length)
-  csv += fila("Cotizaciones","Ingreso cotizaciones aceptadas", fmtClp(ingresoCots))
-  csv += fila("Órdenes de Trabajo","Total OTs", ots.length)
-  csv += fila("Órdenes de Trabajo","Completadas", ots.filter(o => o.estado === "completada").length)
-  csv += fila("Órdenes de Trabajo","Ingreso OTs", fmtClp(ingresoOTs))
-  csv += fila("TOTAL","Ingreso total estimado", fmtClp(ingresoCots + ingresoRep + ingresoOTs))
+  let csv = fila(`REPORTE MENSUAL MINSERCO — ${MESES[mes].toUpperCase()} ${año}`)
+  csv += "\r\n"
+  csv += fila("Módulo", "Métrica", "Valor")
+  csv += fila("Mantenciones", "Total registros", ms.length)
+  csv += fila("Mantenciones", "Completadas", ms.filter(m => m.estado === "completado").length)
+  csv += fila("Mantenciones", "Pendientes", ms.filter(m => m.estado === "pendiente").length)
+  csv += fila("Reparaciones", "Total registros", rs.length)
+  csv += fila("Reparaciones", "Entregadas", rs.filter(r => r.estado === "entregado").length)
+  csv += fila("Reparaciones", "Ingresos estimados", fmtClp(ingresoRep))
+  csv += fila("Fabricación", "Total proyectos", ps.length)
+  csv += fila("Fabricación", "Completados", ps.filter(p => p.estado === "completado").length)
+  csv += fila("Cotizaciones", "Total generadas", cs.length)
+  csv += fila("Cotizaciones", "Aceptadas", cs.filter(c => c.estado === "aceptada").length)
+  csv += fila("Cotizaciones", "Ingreso cotizaciones aceptadas", fmtClp(ingresoCots))
+  csv += fila("Órdenes de Trabajo", "Total OTs", ots.length)
+  csv += fila("Órdenes de Trabajo", "Completadas", ots.filter(o => o.estado === "completada").length)
+  csv += fila("Órdenes de Trabajo", "Ingreso OTs", fmtClp(ingresoOTs))
+  csv += fila("TOTAL", "Ingreso total estimado", fmtClp(ingresoCots + ingresoRep + ingresoOTs))
   descargarCsv(csv, `Reporte_Completo_${MESES[mes]}_${año}.csv`)
 }
 
@@ -355,7 +402,7 @@ export default function ReportesPage() {
       </div>
 
       <p className="text-xs text-center" style={{ color: "#9ca3af" }}>
-        Los archivos CSV se abren directamente en Microsoft Excel, LibreOffice Calc y Google Sheets. Incluyen BOM UTF-8 para compatibilidad con caracteres especiales en español.
+        Los archivos CSV se abren directamente en Microsoft Excel, LibreOffice Calc y Google Sheets. Usan punto y coma como separador e incluyen BOM UTF-8 para mostrar correctamente tildes y ñ.
       </p>
       </div>
     </PageShell>
