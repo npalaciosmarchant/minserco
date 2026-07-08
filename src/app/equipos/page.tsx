@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, Package, CalendarDays, MapPin } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
 import { ArchivosField } from "@/components/ui/ArchivosField"
+import { ImportarExcel, campo, pareceDescripcion } from "@/components/ui/ImportarExcel"
 
 const empty = (): Omit<Equipo, "id" | "creadoEn"> => ({
   nombre: "", numeroSerie: "", tipo: "preventivo", marca: "", modelo: "",
@@ -49,6 +50,40 @@ export default function EquiposPage() {
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
+  function vaciarEquipos() {
+    const n = equiposStore.getAll().length
+    if (n === 0) { alert("No hay equipos para eliminar."); return }
+    if (!confirm(`¿Eliminar TODOS los ${n} equipos registrados? Esta acción no se puede deshacer.`)) return
+    equiposStore.vaciar(); cargar()
+  }
+
+  async function importarEquipos(rows: Record<string, string>[]) {
+    const existentes = new Set(equiposStore.getAll().map(e => (e.numeroSerie || e.nombre).toLowerCase()))
+    let added = 0, omitted = 0
+    for (const r of rows) {
+      if (pareceDescripcion(r)) { omitted++; continue }
+      const nombre = campo(r, "Nombre")
+      if (!nombre) { omitted++; continue }
+      const numeroSerie = campo(r, "Identificador", "Código de barras", "N° Serie", "Serie")
+      const key = (numeroSerie || nombre).toLowerCase()
+      if (existentes.has(key)) { omitted++; continue }
+      const categoria = campo(r, "Categoría", "Categoria")
+      equiposStore.add({
+        nombre,
+        numeroSerie,
+        tipo: categoria || "preventivo",
+        ubicacion: campo(r, "Cliente"),
+        frecuencia: "ninguna",
+        activo: campo(r, "Estatus", "Estado").toLowerCase() !== "inactivo",
+        notas: campo(r, "Descripción", "Descripcion"),
+        planos: [], instructivos: [], fichasTecnicas: [], insumos: [], informes: [],
+      })
+      existentes.add(key); added++
+    }
+    cargar()
+    return { added, omitted }
+  }
+
   const stats = [
     { label: "Total", value: lista.length },
     { label: "Activos", value: lista.filter(e => e.activo).length, color: "#059669" },
@@ -61,7 +96,13 @@ export default function EquiposPage() {
       subtitle="Registro de equipos para mantención"
       color="#0891b2"
       stats={stats}
-      actions={<button className="btn-accent" onClick={() => abrir()}><Plus size={14} /> Nuevo Equipo</button>}
+      actions={
+        <div className="flex gap-2">
+          <ImportarExcel label="Importar equipos" onRows={importarEquipos} />
+          <button className="btn-ghost" style={{ color: "#dc2626" }} onClick={vaciarEquipos}><Trash2 size={13} /> Vaciar</button>
+          <button className="btn-accent" onClick={() => abrir()}><Plus size={14} /> Nuevo Equipo</button>
+        </div>
+      }
     >
       <div className="glass-section overflow-hidden">
         {lista.length === 0 ? (
