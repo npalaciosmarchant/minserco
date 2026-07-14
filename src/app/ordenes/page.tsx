@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ordenesTrabajo } from "@/lib/store"
+import { ordenesTrabajo, usuarios } from "@/lib/store"
+import { getSupabase } from "@/lib/supabase"
 import { OrdenTrabajo, EstadoOT, TipoOT, CiudadOficina } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -9,8 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Pencil, Trash2, ClipboardList, Clock, Play, CheckCircle2, XCircle, MapPin, User, Wrench } from "lucide-react"
-import { SelectTecnico } from "@/components/ui/SelectTecnico"
+import { Plus, Pencil, Trash2, ClipboardList, Clock, Play, CheckCircle2, XCircle, MapPin, User, Wrench, X } from "lucide-react"
 import { SelectEquipo } from "@/components/ui/SelectEquipo"
 import PageShell from "@/components/layout/PageShell"
 import DateFilter, { filterByDate, DateRange } from "@/components/ui/DateFilter"
@@ -37,7 +37,7 @@ const estadoMap = Object.fromEntries(estadosOT.map(e => [e.value, e]))
 const empty = (): Omit<OrdenTrabajo, "id" | "creadoEn"> => ({
   numero: "", tipo: "instalacion",
   cliente: "", empresa: "", direccion: "", ciudad: "Copiapó",
-  equipo: "", descripcion: "", tecnico: "",
+  equipo: "", descripcion: "", tecnico: "", tecnicos: [],
   fechaProgramada: new Date().toISOString().slice(0, 10),
   fechaInicio: "", fechaTermino: "", estado: "pendiente",
   observaciones: "", costoManoObra: 0, costoMateriales: 0,
@@ -113,21 +113,49 @@ export default function OrdenesPage() {
   const [vistaKanban, setVistaKanban] = useState(true)
   const [filtroCiudad, setFiltroCiudad] = useState<CiudadOficina | "todas">("todas")
   const [busqueda, setBusqueda] = useState("")
+  const [tecnicosUsuarios, setTecnicosUsuarios] = useState<{ id: string; nombre: string; rol?: string }[]>([])
 
   const [dateRange, setDateRange] = useState<DateRange>({ from: "", to: "" })
+
+  // Lista de técnicos = mismos usuarios que en Gestión de Usuarios
+  useEffect(() => {
+    const local = usuarios.getAll()
+    if (local.length > 0) {
+      setTecnicosUsuarios(local.map(u => ({ id: u.id, nombre: u.nombre, rol: u.rol })))
+    } else {
+      (async () => {
+        try {
+          const { data } = await getSupabase().from("usuarios").select("id,nombre,rol")
+          if (data) setTecnicosUsuarios(data.map((u: { id: string; nombre: string; rol?: string }) => ({ id: u.id, nombre: u.nombre, rol: u.rol })))
+        } catch { /* offline: texto libre */ }
+      })()
+    }
+  }, [])
 
   const cargar = () => setLista(ordenesTrabajo.getAll().slice().reverse())
   useEffect(() => { cargar() }, [])
 
   function abrir(ot?: OrdenTrabajo) {
-    if (ot) { setEditando(ot); const { id, creadoEn, ...r } = ot; setForm(r) }
+    if (ot) { setEditando(ot); const { id, creadoEn, ...r } = ot; setForm({ ...r, tecnicos: ot.tecnicos && ot.tecnicos.length ? ot.tecnicos : (ot.tecnico ? [ot.tecnico] : []) }) }
     else { setEditando(null); setForm({ ...empty(), numero: ordenesTrabajo.nextNumero() }) }
     setOpen(true)
   }
 
+  function toggleTecnico(nombre: string) {
+    setForm(f => {
+      const cur = f.tecnicos ?? []
+      return { ...f, tecnicos: cur.includes(nombre) ? cur.filter(t => t !== nombre) : [...cur, nombre] }
+    })
+  }
+
   function guardar() {
-    if (!form.cliente || !form.descripcion || !form.tecnico) return
-    editando ? ordenesTrabajo.update(editando.id, form) : ordenesTrabajo.add(form)
+    const tecnicosSel = form.tecnicos ?? []
+    if (!form.cliente || !form.descripcion || tecnicosSel.length === 0) {
+      alert("Cliente, descripción y al menos un técnico son obligatorios.")
+      return
+    }
+    const payload = { ...form, tecnico: tecnicosSel.join(", "), tecnicos: tecnicosSel }
+    editando ? ordenesTrabajo.update(editando.id, payload) : ordenesTrabajo.add(payload)
     cargar(); setOpen(false)
   }
 
@@ -261,10 +289,32 @@ export default function OrdenesPage() {
             <div className="space-y-1"><Label>Equipo (si aplica)</Label><SelectEquipo value={form.equipo ?? ""} onChange={v => setS("equipo", v)} /></div>
             <div className="space-y-1"><Label>Descripción del trabajo *</Label>
               <Textarea value={form.descripcion} onChange={e => setS("descripcion", e.target.value)} rows={3} /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Técnico asignado *</Label><SelectTecnico value={form.tecnico} onChange={v => setS("tecnico", v)} /></div>
-              <div className="space-y-1"><Label>Fecha programada</Label><Input type="date" value={form.fechaProgramada} onChange={e => setS("fechaProgramada", e.target.value)} /></div>
+            <div className="space-y-1.5">
+              <Label>Técnicos asignados *</Label>
+              {(form.tecnicos ?? []).length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {(form.tecnicos ?? []).map(t => (
+                    <span key={t} className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full" style={{ background: "#eef2ff", color: "#1a3673" }}>
+                      {t}<button type="button" onClick={() => toggleTecnico(t)}><X size={11} /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {tecnicosUsuarios.length > 0 ? (
+                <select value="" onChange={e => { if (e.target.value) toggleTecnico(e.target.value) }}
+                  className="w-full h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none">
+                  <option value="">Agregar técnico…</option>
+                  {tecnicosUsuarios.filter(u => u.rol === "tecnico" && !(form.tecnicos ?? []).includes(u.nombre)).map(u => (
+                    <option key={u.id} value={u.nombre}>{u.nombre}</option>
+                  ))}
+                </select>
+              ) : (
+                <Input placeholder="Nombre del técnico y Enter" onKeyDown={e => {
+                  if (e.key === "Enter") { e.preventDefault(); const v = (e.target as HTMLInputElement).value.trim(); if (v) { toggleTecnico(v); (e.target as HTMLInputElement).value = "" } }
+                }} />
+              )}
             </div>
+            <div className="space-y-1"><Label>Fecha programada</Label><Input type="date" value={form.fechaProgramada} onChange={e => setS("fechaProgramada", e.target.value)} /></div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>Fecha inicio</Label><Input type="date" value={form.fechaInicio ?? ""} onChange={e => setS("fechaInicio", e.target.value)} /></div>
               <div className="space-y-1"><Label>Fecha término</Label><Input type="date" value={form.fechaTermino ?? ""} onChange={e => setS("fechaTermino", e.target.value)} /></div>
