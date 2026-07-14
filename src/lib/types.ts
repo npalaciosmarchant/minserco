@@ -256,6 +256,7 @@ export interface OrdenTrabajo {
   equipo?: string
   descripcion: string
   tecnico: string
+  tecnicos?: string[]
   fechaProgramada: string
   fechaInicio?: string
   fechaTermino?: string
