@@ -150,8 +150,8 @@ export default function OrdenesPage() {
 
   function guardar() {
     const tecnicosSel = form.tecnicos ?? []
-    if (!form.cliente || !form.descripcion || tecnicosSel.length === 0) {
-      alert("Cliente, descripción y al menos un técnico son obligatorios.")
+    if (!form.cliente || !form.descripcion) {
+      alert("Cliente y descripción son obligatorios.")
       return
     }
     const payload = { ...form, tecnico: tecnicosSel.join(", "), tecnicos: tecnicosSel }
@@ -290,7 +290,7 @@ export default function OrdenesPage() {
             <div className="space-y-1"><Label>Descripción del trabajo *</Label>
               <Textarea value={form.descripcion} onChange={e => setS("descripcion", e.target.value)} rows={3} /></div>
             <div className="space-y-1.5">
-              <Label>Técnicos asignados *</Label>
+              <Label>Técnicos asignados (si aplica)</Label>
               {(form.tecnicos ?? []).length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {(form.tecnicos ?? []).map(t => (
