@@ -248,7 +248,7 @@ export default function AdminUsuariosPage() {
                 </button>
 
                 {/* Botón permisos — técnicos y administrativos */}
-                {(u.rol === "tecnico" || u.rol === "administrativo") && (
+                {(u.rol === "tecnico" || u.rol === "administrativo" || u.rol === "supervisor") && (
                   <Button
                     variant="ghost"
                     size="icon"
