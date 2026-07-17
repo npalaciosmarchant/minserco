@@ -63,7 +63,7 @@ async function fetchPerfil(uid: string): Promise<Usuario | null> {
 
   // Para técnicos, cargar permisos
   let permisos: string[] | undefined
-  if (data.rol === "tecnico" || data.rol === "administrativo") {
+  if (data.rol === "tecnico" || data.rol === "administrativo" || data.rol === "supervisor") {
     const { data: pData } = await sb
       .from("tecnico_permisos")
       .select("modulo_id, puede_ver")
@@ -184,8 +184,9 @@ export function canAccess(user: Usuario | null, pathname: string): boolean {
   const RUTAS_ADMINISTRATIVO = ["/documentos", "/reuniones", "/visitas", "/licitaciones", "/tareas"]
   if (user.rol === "administrativo" && RUTAS_ADMINISTRATIVO.some(r => base === r || pathname.startsWith(r + "/"))) return true
 
-  // Si tiene permisos cargados, usarlos
-  if (user.permisos !== undefined) {
+  // Si tiene permisos explícitos guardados, usarlos. Si el arreglo está vacío
+  // (usuario sin configurar), se cae al fallback de rutas por defecto.
+  if (user.permisos && user.permisos.length > 0) {
     return user.permisos.some(modulo => {
       const ruta = MODULO_A_RUTA[modulo]
       return ruta && (base === ruta || pathname.startsWith(ruta + "/"))
