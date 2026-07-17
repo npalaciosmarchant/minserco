@@ -92,18 +92,20 @@ export function PermisosForm({ tecnicoId }: { tecnicoId: string }) {
     nuevosMapa.set(modulo, actualizado)
     setPermisos(nuevosMapa)
 
-    // Guardar en BD
+    // Guardar TODO el set en BD (garantiza que lo mostrado quede persistido)
     const supabase = getSupabase()
-    await supabase
+    const filas = Array.from(nuevosMapa.values()).map(p => ({
+      tecnico_id: tecnicoId,
+      modulo_id: p.modulo_id,
+      puede_ver: p.puede_ver,
+      puede_crear: p.puede_crear,
+      puede_editar: p.puede_editar,
+      puede_eliminar: p.puede_eliminar,
+    }))
+    const { error } = await supabase
       .from("tecnico_permisos")
-      .upsert({
-        tecnico_id: tecnicoId,
-        modulo_id: modulo,
-        puede_ver: actualizado.puede_ver,
-        puede_crear: actualizado.puede_crear,
-        puede_editar: actualizado.puede_editar,
-        puede_eliminar: actualizado.puede_eliminar,
-      })
+      .upsert(filas, { onConflict: "tecnico_id,modulo_id" })
+    if (error) { console.warn("Error guardando permisos:", error.message); alert("No se pudo guardar el permiso: " + error.message) }
   }
 
   if (cargando) return <div className="text-sm text-gray-500">Cargando permisos...</div>
