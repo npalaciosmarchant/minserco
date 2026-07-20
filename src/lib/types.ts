@@ -354,7 +354,8 @@ export interface Gasto {
   tipoDocumento: TipoDocumentoGasto
   numeroBoleta?: string
   faenaProyecto?: string      // faena o proyecto asociado
-  adjuntoBase64?: string      // imagen/PDF en base64
+  adjuntoBase64?: string      // imagen/PDF en base64 (registros antiguos)
+  adjuntoUrl?: string         // enlace del archivo en Storage (nuevo)
   adjuntoNombre?: string      // nombre del archivo
   adjuntoTipo?: string        // MIME type
   estado: EstadoGasto

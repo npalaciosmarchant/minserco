@@ -67,7 +67,7 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   validezDias:"validez_dias", fechaProgramada:"fecha_programada",
   costoManoObra:"costo_mano_obra", costoMateriales:"costo_materiales",
   tipoDocumento:"tipo_documento", numeroBoleta:"numero_boleta",
-  faenaProyecto:"faena_proyecto", adjuntoBase64:"adjunto_base64",
+  faenaProyecto:"faena_proyecto", adjuntoBase64:"adjunto_base64", adjuntoUrl:"adjunto_url",
   adjuntoNombre:"adjunto_nombre", adjuntoTipo:"adjunto_tipo",
   estadoEquipo:"estado_equipo", descripcionEntrega:"descripcion_entrega",
   itemsEntregados:"items_entregados", creadoEn:"creado_en",
