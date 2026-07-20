@@ -14,6 +14,7 @@ import {
   XCircle, Send, Upload, Maximize2, FileImage, FileText, X, Download,
 } from "lucide-react"
 import { imprimirGastosPDF } from "@/lib/gastos-pdf"
+import { subirArchivo } from "@/lib/upload-archivo"
 import PageShell from "@/components/layout/PageShell"
 import DateFilter, { filterByDate, DateRange } from "@/components/ui/DateFilter"
 import Pagination from "@/components/ui/Pagination"
@@ -59,6 +60,7 @@ function emptyForm(): Omit<Gasto, "id" | "creadoEn"> {
     numeroBoleta: "",
     faenaProyecto: "",
     adjuntoBase64: "",
+    adjuntoUrl: "",
     adjuntoNombre: "",
     adjuntoTipo: "",
     estado: "borrador",
@@ -66,12 +68,21 @@ function emptyForm(): Omit<Gasto, "id" | "creadoEn"> {
   }
 }
 
+// Devuelve el origen del adjunto: enlace de Storage (nuevo) o data-URL base64 (antiguos)
+function adjuntoSrc(g: { adjuntoUrl?: string; adjuntoBase64?: string; adjuntoTipo?: string }): string {
+  if (g.adjuntoUrl) return g.adjuntoUrl
+  if (g.adjuntoBase64) return `data:${g.adjuntoTipo ?? "application/octet-stream"};base64,${g.adjuntoBase64}`
+  return ""
+}
+function tieneAdjunto(g: { adjuntoUrl?: string; adjuntoBase64?: string }): boolean {
+  return !!(g.adjuntoUrl || g.adjuntoBase64)
+}
+
 // Visor de imagen/PDF maximizado
-function AdjuntoViewer({ base64, tipo, nombre, onClose }: {
-  base64: string; tipo: string; nombre: string; onClose: () => void
+function AdjuntoViewer({ src, tipo, nombre, onClose }: {
+  src: string; tipo: string; nombre: string; onClose: () => void
 }) {
   const isPDF = tipo === "application/pdf"
-  const src = `data:${tipo};base64,${base64}`
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm"
       onClick={onClose}>
@@ -100,6 +111,7 @@ export default function GastosPage() {
   const [filtroEstado, setFiltroEstado] = useState<EstadoGasto | "todos">("todos")
   const [filtroCategoria, setFiltroCategoria] = useState<CategoriaGasto | "todos">("todos")
   const [visorAdjunto, setVisorAdjunto] = useState<Gasto | null>(null)
+  const [subiendo, setSubiendo] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [dateRange, setDateRange] = useState<DateRange>({ from: "", to: "" })
@@ -126,26 +138,30 @@ export default function GastosPage() {
 
   const setS = (k: string, v: string | number) => setForm(f => ({ ...f, [k]: v }))
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => {
-      const result = ev.target?.result as string
-      // result is "data:image/png;base64,..."
-      const base64 = result.split(",")[1]
+    if (file.size > 10 * 1024 * 1024) { alert("El archivo supera los 10MB. Usa uno más liviano."); return }
+    setSubiendo(true)
+    try {
+      const { url } = await subirArchivo(file)
       setForm(f => ({
         ...f,
-        adjuntoBase64: base64,
+        adjuntoUrl: url,
         adjuntoNombre: file.name,
         adjuntoTipo: file.type,
+        adjuntoBase64: "", // ya no se guarda el archivo en el registro
       }))
+    } catch (err) {
+      alert("No se pudo subir el archivo: " + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setSubiendo(false)
+      if (fileRef.current) fileRef.current.value = ""
     }
-    reader.readAsDataURL(file)
   }
 
   function removeAdjunto() {
-    setForm(f => ({ ...f, adjuntoBase64: "", adjuntoNombre: "", adjuntoTipo: "" }))
+    setForm(f => ({ ...f, adjuntoBase64: "", adjuntoUrl: "", adjuntoNombre: "", adjuntoTipo: "" }))
     if (fileRef.current) fileRef.current.value = ""
   }
 
@@ -196,9 +212,9 @@ export default function GastosPage() {
       }
     >
       {/* Visor maximizado */}
-      {visorAdjunto?.adjuntoBase64 && (
+      {visorAdjunto && tieneAdjunto(visorAdjunto) && (
         <AdjuntoViewer
-          base64={visorAdjunto.adjuntoBase64}
+          src={adjuntoSrc(visorAdjunto)}
           tipo={visorAdjunto.adjuntoTipo ?? "image/png"}
           nombre={visorAdjunto.adjuntoNombre ?? "Adjunto"}
           onClose={() => setVisorAdjunto(null)}
@@ -246,11 +262,11 @@ export default function GastosPage() {
                 {/* Adjunto thumbnail */}
                 <div className="shrink-0 w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center cursor-pointer relative"
                   style={{ background: cat.bg, border: `1px solid ${cat.color}30` }}
-                  onClick={() => g.adjuntoBase64 ? setVisorAdjunto(g) : undefined}>
-                  {g.adjuntoBase64 ? (
+                  onClick={() => tieneAdjunto(g) ? setVisorAdjunto(g) : undefined}>
+                  {tieneAdjunto(g) ? (
                     <>
                       {g.adjuntoTipo?.startsWith("image/")
-                        ? <img src={`data:${g.adjuntoTipo};base64,${g.adjuntoBase64}`}
+                        ? <img src={adjuntoSrc(g)}
                             alt="" className="w-full h-full object-cover" />
                         : <FileText size={20} style={{ color: cat.color }} />
                       }
@@ -288,7 +304,7 @@ export default function GastosPage() {
                       📍 {g.faenaProyecto}
                     </div>
                   )}
-                  {g.adjuntoBase64 && (
+                  {tieneAdjunto(g) && (
                     <button onClick={() => setVisorAdjunto(g)}
                       className="mt-1 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
                       <FileImage size={11} />
@@ -407,10 +423,10 @@ export default function GastosPage() {
             {/* Adjunto */}
             <div className="space-y-2">
               <Label>Documento de respaldo</Label>
-              {form.adjuntoBase64 ? (
+              {(form.adjuntoUrl || form.adjuntoBase64) ? (
                 <div className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 bg-gray-50">
                   {form.adjuntoTipo?.startsWith("image/") ? (
-                    <img src={`data:${form.adjuntoTipo};base64,${form.adjuntoBase64}`}
+                    <img src={adjuntoSrc(form)}
                       alt="" className="w-16 h-16 object-cover rounded-lg border border-gray-200 cursor-pointer"
                       onClick={() => setVisorAdjunto({ ...form, id: "", creadoEn: "" } as Gasto)} />
                   ) : (
@@ -434,11 +450,11 @@ export default function GastosPage() {
                   </div>
                 </div>
               ) : (
-                <button type="button" onClick={() => fileRef.current?.click()}
-                  className="w-full flex flex-col items-center gap-2 py-6 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-all">
+                <button type="button" disabled={subiendo} onClick={() => fileRef.current?.click()}
+                  className="w-full flex flex-col items-center gap-2 py-6 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-all disabled:opacity-60">
                   <Upload size={20} className="text-gray-400" />
-                  <span className="text-sm text-gray-500">Haz clic para subir imagen o PDF</span>
-                  <span className="text-xs text-gray-400">PNG, JPG, PDF hasta 5MB</span>
+                  <span className="text-sm text-gray-500">{subiendo ? "Subiendo archivo…" : "Haz clic para subir imagen o PDF"}</span>
+                  <span className="text-xs text-gray-400">PNG, JPG, PDF hasta 10MB</span>
                 </button>
               )}
               <input ref={fileRef} type="file" accept="image/*,application/pdf"
