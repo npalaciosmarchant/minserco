@@ -20,6 +20,12 @@ const estadoCfg: Record<EstadoTarea, { label: string; color: string }> = {
   completada: { label: "Completada", color: "#059669" },
 }
 
+function fmtFecha(f?: string): string {
+  if (!f) return ""
+  const p = f.split("-")
+  return (p.length === 3) ? `${p[2]}-${p[1]}-${p[0]}` : f
+}
+
 function emptyForm(): Omit<Tarea, "id" | "creadoEn"> {
   return { titulo: "", tipo: "", fecha: new Date().toISOString().slice(0, 10), hora: "", responsable: "", estado: "pendiente", descripcion: "" }
 }
@@ -34,7 +40,7 @@ export default function TareasPage() {
   const setS = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }) as unknown as typeof f)
 
   function abrir(t?: Tarea) {
-    if (t) { setEditando(t); const { id, creadoEn, ...r } = t; void id; void creadoEn; setForm({ ...emptyForm(), ...r }) }
+    if (t) { setEditando(t); const { id, creadoEn, color, ...r } = t as Tarea & { color?: string }; void id; void creadoEn; void color; setForm({ ...emptyForm(), ...r }) }
     else { setEditando(null); setForm(emptyForm()) }
     setOpen(true)
   }
@@ -69,7 +75,7 @@ export default function TareasPage() {
                 <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: est.color + "20", color: est.color }}>{est.label}</span>
               </div>
               <div className="text-xs space-y-0.5" style={{ color: "var(--muted-foreground)" }}>
-                <div>{t.fecha}{t.hora ? ` · ${t.hora}` : ""}</div>
+                <div>{fmtFecha(t.fecha)}{t.hora ? ` · ${t.hora}` : ""}</div>
                 {t.tipo && <div className="flex items-center gap-1"><Tag size={11} />{t.tipo}</div>}
                 {t.responsable && <div className="flex items-center gap-1"><User size={11} />{t.responsable}</div>}
                 {t.descripcion && <div className="line-clamp-2">{t.descripcion}</div>}
