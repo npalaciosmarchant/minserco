@@ -19,6 +19,12 @@ const estadoCfg: Record<EstadoAgenda, { label: string; color: string }> = {
   cancelada:  { label: "Cancelada",  color: "#dc2626" },
 }
 
+function fmtFecha(f?: string): string {
+  if (!f) return ""
+  const p = f.split("-")
+  return (p.length === 3) ? `${p[2]}-${p[1]}-${p[0]}` : f
+}
+
 function emptyForm(): Omit<Reunion, "id" | "creadoEn"> {
   return { titulo: "", fecha: new Date().toISOString().slice(0, 10), hora: "", lugar: "", participantes: "", tema: "", notas: "", estado: "programada" }
 }
@@ -33,7 +39,7 @@ export default function ReunionesPage() {
   const setS = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }) as unknown as typeof f)
 
   function abrir(r?: Reunion) {
-    if (r) { setEditando(r); const { id, creadoEn, ...rest } = r; void id; void creadoEn; setForm({ ...emptyForm(), ...rest }) }
+    if (r) { setEditando(r); const { id, creadoEn, color, ...rest } = r as Reunion & { color?: string }; void id; void creadoEn; void color; setForm({ ...emptyForm(), ...rest }) }
     else { setEditando(null); setForm(emptyForm()) }
     setOpen(true)
   }
@@ -68,7 +74,7 @@ export default function ReunionesPage() {
                 <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: est.color + "20", color: est.color }}>{est.label}</span>
               </div>
               <div className="text-xs space-y-0.5" style={{ color: "var(--muted-foreground)" }}>
-                <div>{r.fecha}{r.hora ? ` · ${r.hora}` : ""}</div>
+                <div>{fmtFecha(r.fecha)}{r.hora ? ` · ${r.hora}` : ""}</div>
                 {r.lugar && <div className="flex items-center gap-1"><MapPin size={11} />{r.lugar}</div>}
                 {r.participantes && <div>Participantes: {r.participantes}</div>}
                 {r.tema && <div>Tema: {r.tema}</div>}
