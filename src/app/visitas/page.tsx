@@ -20,6 +20,12 @@ const estadoCfg: Record<EstadoAgenda, { label: string; color: string }> = {
   cancelada:  { label: "Cancelada",  color: "#dc2626" },
 }
 
+function fmtFecha(f?: string): string {
+  if (!f) return ""
+  const p = f.split("-")
+  return (p.length === 3) ? `${p[2]}-${p[1]}-${p[0]}` : f
+}
+
 function emptyForm(): Omit<VisitaTecnica, "id" | "creadoEn"> {
   return { cliente: "", fecha: new Date().toISOString().slice(0, 10), hora: "", direccion: "", tecnico: "", motivo: "", estado: "programada", observaciones: "" }
 }
@@ -34,7 +40,7 @@ export default function VisitasPage() {
   const setS = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }) as unknown as typeof f)
 
   function abrir(v?: VisitaTecnica) {
-    if (v) { setEditando(v); const { id, creadoEn, ...rest } = v; void id; void creadoEn; setForm({ ...emptyForm(), ...rest }) }
+    if (v) { setEditando(v); const { id, creadoEn, color, titulo, ...rest } = v as VisitaTecnica & { color?: string; titulo?: string }; void id; void creadoEn; void color; void titulo; setForm({ ...emptyForm(), ...rest }) }
     else { setEditando(null); setForm(emptyForm()) }
     setOpen(true)
   }
@@ -69,7 +75,7 @@ export default function VisitasPage() {
                 <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: est.color + "20", color: est.color }}>{est.label}</span>
               </div>
               <div className="text-xs space-y-0.5" style={{ color: "var(--muted-foreground)" }}>
-                <div>{v.fecha}{v.hora ? ` · ${v.hora}` : ""}</div>
+                <div>{fmtFecha(v.fecha)}{v.hora ? ` · ${v.hora}` : ""}</div>
                 {v.direccion && <div className="flex items-center gap-1"><MapPin size={11} />{v.direccion}</div>}
                 {v.tecnico && <div className="flex items-center gap-1"><User size={11} />{v.tecnico}</div>}
                 {v.motivo && <div>Motivo: {v.motivo}</div>}
