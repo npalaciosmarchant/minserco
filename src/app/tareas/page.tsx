@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { tareas } from "@/lib/store"
+import { tareas, usuarios } from "@/lib/store"
+import { getSupabase } from "@/lib/supabase"
 import { Tarea, EstadoTarea } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -9,10 +10,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Pencil, Trash2, ListTodo, User, Tag } from "lucide-react"
+import { Plus, Pencil, Trash2, ListTodo, User, Tag, X } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
 import { AgendaVista } from "@/components/ui/AgendaVista"
-import { SelectUsuario } from "@/components/ui/SelectUsuario"
 
 const estadoCfg: Record<EstadoTarea, { label: string; color: string }> = {
   pendiente:  { label: "Pendiente",  color: "#d97706" },
@@ -27,7 +27,7 @@ function fmtFecha(f?: string): string {
 }
 
 function emptyForm(): Omit<Tarea, "id" | "creadoEn"> {
-  return { titulo: "", tipo: "", fecha: new Date().toISOString().slice(0, 10), hora: "", responsable: "", estado: "pendiente", descripcion: "" }
+  return { titulo: "", tipo: "", fecha: new Date().toISOString().slice(0, 10), hora: "", responsable: "", responsables: [], estado: "pendiente", descripcion: "" }
 }
 
 export default function TareasPage() {
@@ -35,18 +35,29 @@ export default function TareasPage() {
   const [open, setOpen] = useState(false)
   const [editando, setEditando] = useState<Tarea | null>(null)
   const [form, setForm] = useState(emptyForm())
+  const [usuariosLista, setUsuariosLista] = useState<{ id: string; nombre: string }[]>([])
   const cargar = () => setLista(tareas.getAll())
   useEffect(() => { cargar() }, [])
+  useEffect(() => {
+    const local = usuarios.getAll()
+    if (local.length) setUsuariosLista(local.map(u => ({ id: u.id, nombre: u.nombre })))
+    else (async () => { try { const { data } = await getSupabase().from("usuarios").select("id,nombre"); if (data) setUsuariosLista(data.map((u: { id: string; nombre: string }) => ({ id: u.id, nombre: u.nombre }))) } catch { /* offline */ } })()
+  }, [])
+  function toggleResponsable(nombre: string) {
+    setForm(f => { const cur = f.responsables ?? []; return { ...f, responsables: cur.includes(nombre) ? cur.filter(x => x !== nombre) : [...cur, nombre] } })
+  }
   const setS = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }) as unknown as typeof f)
 
   function abrir(t?: Tarea) {
-    if (t) { setEditando(t); const { id, creadoEn, color, ...r } = t as Tarea & { color?: string }; void id; void creadoEn; void color; setForm({ ...emptyForm(), ...r }) }
+    if (t) { setEditando(t); const { id, creadoEn, color, ...r } = t as Tarea & { color?: string }; void id; void creadoEn; void color; setForm({ ...emptyForm(), ...r, responsables: t.responsables && t.responsables.length ? t.responsables : (t.responsable ? [t.responsable] : []) }) }
     else { setEditando(null); setForm(emptyForm()) }
     setOpen(true)
   }
   function guardar() {
     if (!form.titulo.trim()) { alert("El título es obligatorio."); return }
-    if (editando) tareas.update(editando.id, form); else tareas.add(form)
+    const resp = form.responsables ?? []
+    const payload = { ...form, responsable: resp.join(", "), responsables: resp }
+    if (editando) tareas.update(editando.id, payload); else tareas.add(payload)
     cargar(); setOpen(false)
   }
   function eliminar(id: string) { if (confirm("¿Eliminar esta tarea?")) { tareas.delete(id); cargar() } }
@@ -77,7 +88,7 @@ export default function TareasPage() {
               <div className="text-xs space-y-0.5" style={{ color: "var(--muted-foreground)" }}>
                 <div>{fmtFecha(t.fecha)}{t.hora ? ` · ${t.hora}` : ""}</div>
                 {t.tipo && <div className="flex items-center gap-1"><Tag size={11} />{t.tipo}</div>}
-                {t.responsable && <div className="flex items-center gap-1"><User size={11} />{t.responsable}</div>}
+                {(t.responsables && t.responsables.length ? t.responsables.join(", ") : t.responsable) && <div className="flex items-center gap-1"><User size={11} />{t.responsables && t.responsables.length ? t.responsables.join(", ") : t.responsable}</div>}
                 {t.descripcion && <div className="line-clamp-2">{t.descripcion}</div>}
               </div>
               <div className="flex gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
@@ -99,7 +110,21 @@ export default function TareasPage() {
               <div className="space-y-1"><Label>Fecha</Label><Input type="date" value={form.fecha ?? ""} onChange={e => setS("fecha", e.target.value)} /></div>
               <div className="space-y-1"><Label>Hora</Label><Input type="time" value={form.hora ?? ""} onChange={e => setS("hora", e.target.value)} /></div>
             </div>
-            <div className="space-y-1"><Label>Responsable</Label><SelectUsuario value={form.responsable ?? ""} onChange={v => setS("responsable", v)} /></div>
+            <div className="space-y-1.5"><Label>Responsables</Label>
+              {(form.responsables ?? []).length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {(form.responsables ?? []).map(r => (
+                    <span key={r} className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full" style={{ background: "#eef2ff", color: "#1a3673" }}>
+                      {r}<button type="button" onClick={() => toggleResponsable(r)}><X size={11} /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <select value="" onChange={e => { if (e.target.value) toggleResponsable(e.target.value) }} className="w-full h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none">
+                <option value="">Agregar responsable…</option>
+                {usuariosLista.filter(u => !(form.responsables ?? []).includes(u.nombre)).map(u => <option key={u.id} value={u.nombre}>{u.nombre}</option>)}
+              </select>
+            </div>
             <div className="space-y-1"><Label>Estado</Label>
               <Select value={form.estado} onValueChange={v => setS("estado", v ?? "pendiente")}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
