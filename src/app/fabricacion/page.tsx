@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { proyectos } from "@/lib/store"
+import { proyectos, usuarios } from "@/lib/store"
+import { getSupabase } from "@/lib/supabase"
 import { Proyecto, EstadoProyecto } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -9,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Pencil, Trash2, LayoutGrid, List, Factory, Calendar, User, TrendingUp } from "lucide-react"
+import { Plus, Pencil, Trash2, LayoutGrid, List, Factory, Calendar, User, TrendingUp, X } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
 
 const estados: { value: EstadoProyecto; label: string; color: string; bg: string; border: string }[] = [
@@ -24,7 +25,7 @@ const estadoMap = Object.fromEntries(estados.map(e => [e.value, e]))
 const empty = (): Omit<Proyecto, "id" | "creadoEn"> => ({
   nombre: "", cliente: "", descripcion: "", estado: "planificacion",
   fechaInicio: new Date().toISOString().slice(0, 10),
-  fechaEntrega: "", responsable: "", progreso: 0, notas: "",
+  fechaEntrega: "", responsable: "", responsables: [], progreso: 0, notas: "",
 })
 
 function ProyectoCard({ p, onEdit, onDelete }: { p: Proyecto; onEdit: () => void; onDelete: () => void }) {
@@ -54,7 +55,7 @@ function ProyectoCard({ p, onEdit, onDelete }: { p: Proyecto; onEdit: () => void
             <User size={10} />{p.cliente}
           </span>
           <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md" style={{ background: "var(--accent)", color: "var(--muted-foreground)" }}>
-            {p.responsable}
+            {p.responsables && p.responsables.length ? p.responsables.join(", ") : p.responsable}
           </span>
           {p.fechaEntrega && (
             <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md font-medium"
@@ -95,18 +96,29 @@ export default function FabricacionPage() {
   const [vista, setVista] = useState<"kanban" | "lista">("kanban")
   const [tabActivo, setTabActivo] = useState<EstadoProyecto | "todos">("todos")
 
+  const [usuariosLista, setUsuariosLista] = useState<{ id: string; nombre: string }[]>([])
   const cargar = () => setLista(proyectos.getAll().slice().reverse())
   useEffect(() => { cargar() }, [])
+  useEffect(() => {
+    const local = usuarios.getAll()
+    if (local.length) setUsuariosLista(local.map(u => ({ id: u.id, nombre: u.nombre })))
+    else (async () => { try { const { data } = await getSupabase().from("usuarios").select("id,nombre"); if (data) setUsuariosLista(data.map((u: { id: string; nombre: string }) => ({ id: u.id, nombre: u.nombre }))) } catch { /* offline */ } })()
+  }, [])
+  function toggleResponsable(nombre: string) {
+    setForm(f => { const cur = f.responsables ?? []; return { ...f, responsables: cur.includes(nombre) ? cur.filter(x => x !== nombre) : [...cur, nombre] } })
+  }
 
   function abrir(p?: Proyecto) {
-    if (p) { setEditando(p); const { id, creadoEn, ...r } = p; setForm(r) }
+    if (p) { setEditando(p); const { id, creadoEn, ...r } = p; setForm({ ...empty(), ...r, responsables: p.responsables && p.responsables.length ? p.responsables : (p.responsable ? [p.responsable] : []) }) }
     else { setEditando(null); setForm(empty()) }
     setOpen(true)
   }
 
   function guardar() {
-    if (!form.nombre || !form.cliente || !form.responsable) return
-    editando ? proyectos.update(editando.id, form) : proyectos.add(form)
+    const resp = form.responsables ?? []
+    if (!form.nombre || !form.cliente || resp.length === 0) { alert("Nombre, cliente y al menos un responsable son obligatorios."); return }
+    const payload = { ...form, responsable: resp.join(", "), responsables: resp }
+    editando ? proyectos.update(editando.id, payload) : proyectos.add(payload)
     cargar(); setOpen(false)
   }
 
@@ -155,7 +167,21 @@ export default function FabricacionPage() {
               <Input value={form.nombre} onChange={e => setS("nombre", e.target.value)} placeholder="Ej: Supresor polvo minera X" /></div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>Cliente *</Label><Input value={form.cliente} onChange={e => setS("cliente", e.target.value)} /></div>
-              <div className="space-y-1"><Label>Responsable *</Label><Input value={form.responsable} onChange={e => setS("responsable", e.target.value)} /></div>
+            </div>
+            <div className="space-y-1.5"><Label>Responsables *</Label>
+              {(form.responsables ?? []).length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {(form.responsables ?? []).map(r => (
+                    <span key={r} className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full" style={{ background: "#eef2ff", color: "#1a3673" }}>
+                      {r}<button type="button" onClick={() => toggleResponsable(r)}><X size={11} /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <select value="" onChange={e => { if (e.target.value) toggleResponsable(e.target.value) }} className="w-full h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none">
+                <option value="">Agregar responsable…</option>
+                {usuariosLista.filter(u => !(form.responsables ?? []).includes(u.nombre)).map(u => <option key={u.id} value={u.nombre}>{u.nombre}</option>)}
+              </select>
             </div>
             <div className="space-y-1"><Label>Descripción</Label><Textarea value={form.descripcion} onChange={e => setS("descripcion", e.target.value)} rows={3} /></div>
             <div className="grid grid-cols-2 gap-3">
