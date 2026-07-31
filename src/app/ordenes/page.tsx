@@ -21,6 +21,10 @@ const ciudades: CiudadOficina[] = ["Copiapó", "La Serena", "Viña del Mar", "Ot
 
 const tiposOT: { value: TipoOT; label: string }[] = [
   { value: "instalacion", label: "Instalación" },
+  { value: "fabricacion", label: "Fabricación" },
+  { value: "puesta_marcha", label: "Puesta en marcha" },
+  { value: "emergencia", label: "Emergencia" },
+  { value: "retiro", label: "Retiro / Desmontaje" },
   { value: "mantencion_terreno", label: "Mantención en Terreno" },
   { value: "reparacion_terreno", label: "Reparación en Terreno" },
   { value: "inspeccion", label: "Inspección" },
