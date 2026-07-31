@@ -70,6 +70,7 @@ export interface Proyecto {
   fechaInicio: string
   fechaEntrega: string
   responsable: string
+  responsables?: string[]
   progreso: number
   notas?: string
   creadoEn: string
@@ -243,7 +244,7 @@ export interface Cotizacion {
 
 // Órdenes de Trabajo
 export type EstadoOT = "pendiente" | "en_curso" | "completada" | "cancelada"
-export type TipoOT = "instalacion" | "mantencion_terreno" | "reparacion_terreno" | "inspeccion"
+export type TipoOT = "instalacion" | "mantencion_terreno" | "reparacion_terreno" | "inspeccion" | "fabricacion" | "puesta_marcha" | "emergencia" | "retiro"
 
 export interface OrdenTrabajo {
   id: string
@@ -495,6 +496,7 @@ export interface Tarea {
   fecha?: string
   hora?: string
   responsable?: string
+  responsables?: string[]
   estado: EstadoTarea
   descripcion?: string
   creadoEn: string
