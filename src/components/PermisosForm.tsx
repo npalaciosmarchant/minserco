@@ -8,6 +8,8 @@ import { Card } from "@/components/ui/card"
 const MODULOS = [
   { id: "reparaciones", nombre: "Reparaciones" },
   { id: "gastos", nombre: "Gastos" },
+  { id: "pagos", nombre: "Pagos" },
+  { id: "equipos", nombre: "Equipos" },
   { id: "informes", nombre: "Informes" },
   { id: "ordenes", nombre: "Órdenes" },
   { id: "bodega", nombre: "Bodega" },
