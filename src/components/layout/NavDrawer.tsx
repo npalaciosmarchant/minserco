@@ -7,7 +7,7 @@ import {
   LayoutDashboard, KeyRound, Activity, Users,
   FileText, ClipboardList, Calendar,
   BarChart3, ShieldCheck, LogOut, HardHat,
-  Building2, ChevronRight, Receipt, ClipboardCheck,
+  Building2, ChevronRight, Receipt, ClipboardCheck, Wallet,
   FolderOpen, CalendarClock, MapPin, Gavel, Radio, ListTodo,
 } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -46,6 +46,7 @@ const nav: NavItem[] = [
   { href: "/visitas",      label: "Agenda de Visitas Técnicas", icon: MapPin,        group: "Administrativo", desc: "Visitas a terreno" },
   { href: "/licitaciones", label: "Licitaciones",       icon: Gavel,         group: "Administrativo", desc: "Propuestas y adjudicaciones" },
   { href: "/tareas",       label: "Tareas",             icon: ListTodo,      group: "Administrativo", desc: "Tareas administrativas" },
+  { href: "/pagos",        label: "Pagos",              icon: Wallet,        group: "Comercial",     desc: "Pagos y vencimientos" },
 ]
 
 const TECNICO_ROUTES = ["/mantencion", "/equipos", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega"]

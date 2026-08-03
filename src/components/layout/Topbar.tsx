@@ -6,9 +6,9 @@ import Link from "next/link"
 import Image from "next/image"
 import {
   Menu, X, Bell, AlertTriangle, Package, Wrench,
-  KeyRound, ShieldAlert, Search, ChevronRight, Mail, Ship, Radio,
+  KeyRound, ShieldAlert, Search, ChevronRight, Mail, Ship, Radio, Wallet,
 } from "lucide-react"
-import { mantenciones, bodega, reparaciones, contratos, clientesEquipos, importaciones, nodos } from "@/lib/store"
+import { mantenciones, bodega, reparaciones, contratos, clientesEquipos, importaciones, nodos, pagos } from "@/lib/store"
 import { useAlertScheduler } from "@/lib/useAlertScheduler"
 import { useCallback } from "react"
 import GlobalSearch from "./GlobalSearch"
@@ -16,7 +16,7 @@ import { useAuth } from "@/lib/auth"
 
 interface Alerta {
   id: string
-  tipo: "stock" | "mantencion" | "reparacion" | "arriendo" | "garantia" | "recordatorio" | "importacion" | "nodo"
+  tipo: "stock" | "mantencion" | "reparacion" | "arriendo" | "garantia" | "recordatorio" | "importacion" | "nodo" | "pago"
   titulo: string
   detalle: string
   urgente: boolean
@@ -24,7 +24,7 @@ interface Alerta {
 
 const iconoTipo: Record<string, React.ElementType> = {
   stock: Package, mantencion: Wrench, reparacion: Wrench,
-  arriendo: KeyRound, garantia: ShieldAlert, importacion: Ship, nodo: Radio,
+  arriendo: KeyRound, garantia: ShieldAlert, importacion: Ship, nodo: Radio, pago: Wallet,
 }
 const colorTipo: Record<string, string> = {
   stock: "#DC2626", mantencion: "#D97706", reparacion: "#0369A1",
@@ -32,7 +32,7 @@ const colorTipo: Record<string, string> = {
 }
 const labelTipo: Record<string, string> = {
   stock: "Bodega", mantencion: "Mantención", reparacion: "Reparación",
-  arriendo: "Arriendo", garantia: "Garantía", importacion: "Importación", recordatorio: "Recordatorio", nodo: "Nodo",
+  arriendo: "Arriendo", garantia: "Garantía", importacion: "Importación", recordatorio: "Recordatorio", nodo: "Nodo", pago: "Pago",
 }
 
 function buildAlertas(): Alerta[] {
@@ -120,6 +120,21 @@ function buildAlertas(): Alerta[] {
             : dias === 0 ? "Servicio vence HOY: " + n.equipo
             : "Servicio por vencer: " + n.equipo,
           detalle: (n.cliente ? n.cliente + " · " : "") + (dias < 0 ? "Venció hace " + Math.abs(dias) + "d" : dias === 0 ? "Vence hoy" : "Vence en " + dias + "d") + (n.numeroSim ? " · SIM " + n.numeroSim : ""),
+          urgente: dias <= 1,
+        })
+      }
+    })
+  pagos.getAll()
+    .filter(p => p.estado !== "pagado" && p.fechaVencimiento)
+    .forEach(p => {
+      const dias = Math.ceil((new Date(p.fechaVencimiento!).getTime() - hoy.getTime()) / 86400000)
+      if (dias <= 7) {
+        out.push({
+          id: "pago-" + p.id, tipo: "pago",
+          titulo: dias < 0 ? "Pago vencido: " + p.concepto
+            : dias === 0 ? "Pago vence HOY: " + p.concepto
+            : "Pago por vencer: " + p.concepto,
+          detalle: (p.contraparte ? p.contraparte + " · " : "") + (dias < 0 ? "Venció hace " + Math.abs(dias) + "d" : dias === 0 ? "Vence hoy" : "Vence en " + dias + "d"),
           urgente: dias <= 1,
         })
       }
