@@ -501,3 +501,19 @@ export interface Tarea {
   descripcion?: string
   creadoEn: string
 }
+
+// Pagos
+export type EstadoPago = "pendiente" | "pagado" | "vencido"
+export interface Pago {
+  id: string
+  concepto: string
+  tipo?: "por_pagar" | "por_cobrar"
+  contraparte?: string
+  monto?: number
+  moneda?: "CLP" | "USD"
+  fechaVencimiento?: string
+  estado: EstadoPago
+  responsable?: string
+  notas?: string
+  creadoEn: string
+}

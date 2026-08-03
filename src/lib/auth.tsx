@@ -46,6 +46,7 @@ export const MODULO_A_RUTA: Record<string, string> = {
   licitaciones:  "/licitaciones",
   nodos:         "/nodos",
   tareas:        "/tareas",
+  pagos:         "/pagos",
 }
 
 async function fetchPerfil(uid: string): Promise<Usuario | null> {
@@ -180,8 +181,11 @@ export function canAccess(user: Usuario | null, pathname: string): boolean {
 
   const base = "/" + pathname.split("/")[1]
 
+  // Rutas base siempre disponibles para roles no-admin (coinciden con el menú)
+  if (TECNICO_RUTAS_DEFAULT.some(r => base === r || pathname.startsWith(r + "/"))) return true
+
   // El rol administrativo accede por defecto a la sección administrativa
-  const RUTAS_ADMINISTRATIVO = ["/documentos", "/reuniones", "/visitas", "/licitaciones", "/tareas"]
+  const RUTAS_ADMINISTRATIVO = ["/documentos", "/reuniones", "/visitas", "/licitaciones", "/tareas", "/pagos"]
   if (user.rol === "administrativo" && RUTAS_ADMINISTRATIVO.some(r => base === r || pathname.startsWith(r + "/"))) return true
 
   // Si tiene permisos explícitos guardados, usarlos. Si el arreglo está vacío
@@ -193,6 +197,5 @@ export function canAccess(user: Usuario | null, pathname: string): boolean {
     })
   }
 
-  // Fallback: rutas por defecto
-  return TECNICO_RUTAS_DEFAULT.some(r => pathname === r || pathname.startsWith(r + "/"))
+  return false
 }

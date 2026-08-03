@@ -19,7 +19,7 @@ import {
   Usuario, Proveedor, Gasto, InformeEntrega, AlertaConfig,
   Equipo, Notificacion,
   DocumentoAdmin, Reunion, VisitaTecnica, Licitacion,
-  Nodo, Tarea,
+  Nodo, Tarea, Pago,
 } from "./types"
 
 // ── localStorage helpers (API pública sin cambios) ────────────────────────────
@@ -172,6 +172,7 @@ export async function syncFromSupabase() {
     { sbTable: "licitaciones",       lsKey: "licitaciones"    },
     { sbTable: "nodos",              lsKey: "nodos"           },
     { sbTable: "tareas",             lsKey: "tareas"          },
+    { sbTable: "pagos",              lsKey: "pagos"           },
   ]
 
   await Promise.all(tables.map(async ({ sbTable, lsKey }) => {
@@ -718,6 +719,24 @@ export const nodos = {
   delete: (id: string) => {
     lsSet("nodos", nodos.getAll().filter(i => i.id !== id))
     syncUp("nodos", { id }, "delete")
+  },
+}
+
+export const pagos = {
+  getAll: (): Pago[] => lsGet("pagos"),
+  add: (p: Omit<Pago, "id" | "creadoEn">): Pago => {
+    const item: Pago = { ...p, id: getId(), creadoEn: new Date().toISOString() }
+    lsSet("pagos", [...pagos.getAll(), item])
+    syncUp("pagos", item as unknown as Record<string, unknown>, "upsert")
+    return item
+  },
+  update: (id: string, changes: Partial<Pago>) => {
+    lsSet("pagos", pagos.getAll().map(i => i.id === id ? { ...i, ...changes } : i))
+    syncUp("pagos", { id, ...changes } as Record<string, unknown>, "upsert")
+  },
+  delete: (id: string) => {
+    lsSet("pagos", pagos.getAll().filter(i => i.id !== id))
+    syncUp("pagos", { id }, "delete")
   },
 }
 
