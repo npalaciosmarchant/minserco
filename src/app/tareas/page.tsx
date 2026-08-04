@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, ListTodo, User, Tag, X } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
+import { FiltroMes, mesActual, enMes } from "@/components/ui/FiltroMes"
 import { AgendaVista } from "@/components/ui/AgendaVista"
 
 const estadoCfg: Record<EstadoTarea, { label: string; color: string }> = {
@@ -35,6 +36,7 @@ export default function TareasPage() {
   const [open, setOpen] = useState(false)
   const [editando, setEditando] = useState<Tarea | null>(null)
   const [form, setForm] = useState(emptyForm())
+  const [mes, setMes] = useState(mesActual())
   const [usuariosLista, setUsuariosLista] = useState<{ id: string; nombre: string }[]>([])
   const cargar = () => setLista(tareas.getAll())
   useEffect(() => { cargar() }, [])
@@ -62,7 +64,7 @@ export default function TareasPage() {
   }
   function eliminar(id: string) { if (confirm("¿Eliminar esta tarea?")) { tareas.delete(id); cargar() } }
 
-  const items = lista.map(t => ({ ...t, color: estadoCfg[t.estado].color }))
+  const items = lista.filter(t => enMes(t.fecha, mes)).map(t => ({ ...t, color: estadoCfg[t.estado].color }))
 
   const stats = [
     { label: "Total", value: lista.length },
@@ -73,6 +75,7 @@ export default function TareasPage() {
   return (
     <PageShell icon={ListTodo} title="Tareas" subtitle="Tareas administrativas por tipo, con calendario" color="#4F46E5" stats={stats}
       actions={<button className="btn-accent" onClick={() => abrir()}><Plus size={14} /> Nueva Tarea</button>}>
+      <FiltroMes value={mes} onChange={setMes} />
       <AgendaVista
         items={items}
         onItemClick={t => abrir(t)}
