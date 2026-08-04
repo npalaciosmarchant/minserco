@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, Wallet, User, Calendar } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
+import { FiltroMes, mesActual, enMes } from "@/components/ui/FiltroMes"
 import { SelectUsuario } from "@/components/ui/SelectUsuario"
 
 const estadoCfg: Record<EstadoPago, { label: string; color: string }> = {
@@ -36,6 +37,7 @@ export default function PagosPage() {
   const [open, setOpen] = useState(false)
   const [editando, setEditando] = useState<Pago | null>(null)
   const [form, setForm] = useState(emptyForm())
+  const [mes, setMes] = useState(mesActual())
   const cargar = () => setLista(pagos.getAll().slice().reverse())
   useEffect(() => { cargar() }, [])
   const setS = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }) as unknown as typeof f)
@@ -58,12 +60,15 @@ export default function PagosPage() {
     { label: "Por vencer (7d)", value: lista.filter(p => { const d = diasRestantes(p.fechaVencimiento); return p.estado !== "pagado" && d !== null && d <= 7 }).length, color: "#dc2626" },
   ]
 
+  const filtrada = lista.filter(p => enMes(p.fechaVencimiento, mes))
+
   return (
     <PageShell icon={Wallet} title="Pagos" subtitle="Pagos por pagar/cobrar con alerta de vencimiento" color="#7c3aed" stats={stats}
       actions={<button className="btn-accent" onClick={() => abrir()}><Plus size={14} /> Nuevo Pago</button>}>
+      <FiltroMes value={mes} onChange={setMes} />
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-        {lista.length === 0 && <div className="col-span-3 empty-state glass-section"><Wallet size={40} /><p>No hay pagos registrados</p></div>}
-        {lista.map(p => {
+        {filtrada.length === 0 && <div className="col-span-3 empty-state glass-section"><Wallet size={40} /><p>No hay pagos en este período</p></div>}
+        {filtrada.map(p => {
           const est = estadoCfg[p.estado]
           const tip = tipoCfg[p.tipo ?? "por_pagar"]
           const d = diasRestantes(p.fechaVencimiento)
