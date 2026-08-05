@@ -13,7 +13,7 @@
 
 import { getSupabase } from "./supabase"
 import {
-  Mantencion, Proyecto, Reparacion, ItemBodega, MovimientoBodega,
+  Mantencion, Proyecto, Reparacion, ItemBodega, MovimientoBodega, Bodega,
   Importacion, ContratoArriendo, PagoArriendo, ClienteEquipo,
   Cotizacion, OrdenTrabajo, Tecnico, AsignacionTecnico,
   Usuario, Proveedor, Gasto, InformeEntrega, AlertaConfig,
@@ -151,6 +151,7 @@ export async function syncFromSupabase() {
     { sbTable: "proyectos",          lsKey: "proyectos"       },
     { sbTable: "bodega",             lsKey: "bodega"          },
     { sbTable: "movimientos_bodega", lsKey: "movimientos"     },
+    { sbTable: "bodegas",            lsKey: "bodegas"         },
     { sbTable: "importaciones",      lsKey: "importaciones"   },
     { sbTable: "contratos_arriendo", lsKey: "contratos"       },
     { sbTable: "pagos_arriendo",     lsKey: "pagosArriendo"   },
@@ -271,6 +272,24 @@ export const bodega = {
   vaciar: () => {
     lsSet<ItemBodega>("bodega", [])
     syncClear("bodega")
+  },
+}
+
+export const bodegas = {
+  getAll: (): Bodega[] => lsGet("bodegas"),
+  add: (b: Omit<Bodega, "id" | "creadoEn">): Bodega => {
+    const item: Bodega = { ...b, id: getId(), creadoEn: new Date().toISOString() }
+    lsSet("bodegas", [...bodegas.getAll(), item])
+    syncUp("bodegas", item as unknown as Record<string, unknown>, "upsert")
+    return item
+  },
+  update: (id: string, changes: Partial<Bodega>) => {
+    lsSet("bodegas", bodegas.getAll().map(i => i.id === id ? { ...i, ...changes } : i))
+    syncUp("bodegas", { id, ...changes } as Record<string, unknown>, "upsert")
+  },
+  delete: (id: string) => {
+    lsSet("bodegas", bodegas.getAll().filter(i => i.id !== id))
+    syncUp("bodegas", { id }, "delete")
   },
 }
 

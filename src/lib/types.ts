@@ -102,6 +102,13 @@ export interface Reparacion {
 // Bodega
 export type Categoria = "equipo" | "accesorio" | "repuesto" | "consumible" | "herramienta"
 
+export interface Bodega {
+  id: string
+  nombre: string
+  descripcion?: string
+  creadoEn: string
+}
+
 export interface ItemBodega {
   id: string
   codigo: string
@@ -110,6 +117,7 @@ export interface ItemBodega {
   descripcion?: string
   cantidad: number
   cantidadMinima: number
+  bodega?: string
   ubicacion: string
   proveedor?: string
   precioUnitario?: number
