@@ -387,6 +387,7 @@ export interface InformeEntrega {
   direccion?: string
   tecnico: string
   fechaEntrega: string
+  responsables?: string[]
   estadoEquipo: EstadoEquipoEntrega
   descripcionEntrega: string
   itemsEntregados: string[]
