@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { bodega, movimientos } from "@/lib/store"
-import { ItemBodega, MovimientoBodega, Categoria } from "@/lib/types"
+import { bodega, bodegas as bodegasStore, movimientos } from "@/lib/store"
+import { ItemBodega, MovimientoBodega, Categoria, Bodega } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import {
@@ -26,7 +26,7 @@ const categorias: { value: Categoria; label: string }[] = [
 
 const emptyItem = (): Omit<ItemBodega, "id" | "creadoEn" | "actualizadoEn"> => ({
   codigo: "", nombre: "", categoria: "repuesto", descripcion: "", cantidad: 0,
-  cantidadMinima: 1, ubicacion: "", proveedor: "", precioUnitario: undefined, unidad: "unidad",
+  cantidadMinima: 1, bodega: "", ubicacion: "", proveedor: "", precioUnitario: undefined, unidad: "unidad",
 })
 
 const emptyMov = (): Omit<MovimientoBodega, "id" | "creadoEn"> => ({
@@ -44,12 +44,31 @@ export default function BodegaPage() {
   const [formMov, setFormMov] = useState(emptyMov())
   const [busqueda, setBusqueda] = useState("")
   const [stockAbierto, setStockAbierto] = useState(false)
+  const [bodegasList, setBodegasList] = useState<Bodega[]>([])
+  const [filtroBodega, setFiltroBodega] = useState<string>("todas")
+  const [openBodegas, setOpenBodegas] = useState(false)
+  const [formBodega, setFormBodega] = useState({ nombre: "", descripcion: "" })
 
   const cargar = () => {
     setItems(bodega.getAll())
     setMovs(movimientos.getAll().slice().reverse())
+    setBodegasList(bodegasStore.getAll())
   }
   useEffect(() => { cargar() }, [])
+
+  function agregarBodega() {
+    const nom = formBodega.nombre.trim()
+    if (!nom) return
+    bodegasStore.add({ nombre: nom, descripcion: formBodega.descripcion.trim() || undefined })
+    setFormBodega({ nombre: "", descripcion: "" }); cargar()
+  }
+  function renombrarBodega(b: Bodega) {
+    const nom = prompt("Nuevo nombre de la bodega:", b.nombre)
+    if (nom && nom.trim()) { bodegasStore.update(b.id, { nombre: nom.trim() }); cargar() }
+  }
+  function eliminarBodega(id: string) {
+    if (confirm("¿Eliminar esta bodega? Los ítems no se borran, solo quedan sin bodega asignada.")) { bodegasStore.delete(id); cargar() }
+  }
 
   function abrirItem(i?: ItemBodega) {
     if (i) { setEditando(i); const { id, creadoEn, actualizadoEn, ...r } = i; setFormItem(r) }
@@ -128,10 +147,12 @@ export default function BodegaPage() {
   const setMS = (k: string, v: string) => setFormMov(f => ({ ...f, [k]: v }))
   const setMN = (k: string, v: number) => setFormMov(f => ({ ...f, [k]: v }))
 
-  const filtrados = items.filter(i =>
-    i.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-    i.codigo.toLowerCase().includes(busqueda.toLowerCase())
-  )
+  const filtrados = items.filter(i => {
+    const q = busqueda.toLowerCase()
+    const matchTexto = i.nombre.toLowerCase().includes(q) || i.codigo.toLowerCase().includes(q)
+    const matchBodega = filtroBodega === "todas" ? true : filtroBodega === "__sin" ? !i.bodega : i.bodega === filtroBodega
+    return matchTexto && matchBodega
+  })
   const stockBajo = items.filter(i => i.cantidad <= i.cantidadMinima)
   const nombreItem = (id: string) => items.find(i => i.id === id)?.nombre ?? "(Producto eliminado)"
 
@@ -158,6 +179,7 @@ export default function BodegaPage() {
       actions={
         <div className="flex gap-2">
           <button className="btn-ghost" onClick={() => abrirMov()}><ArrowDown size={13} /> Movimiento</button>
+          <button className="btn-ghost" onClick={() => setOpenBodegas(true)}><Package size={13} /> Bodegas</button>
           <ImportarExcel label="Importar productos" onRows={importarProductos} />
           <button className="btn-ghost" style={{ color: "#dc2626" }} onClick={vaciarInventario}><Trash2 size={13} /> Vaciar</button>
           <button className="btn-accent" onClick={() => abrirItem()}><Plus size={14} /> Nuevo Item</button>
@@ -220,6 +242,15 @@ export default function BodegaPage() {
         </TabsList>
 
         <TabsContent value="inventario">
+          {bodegasList.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              <button onClick={() => setFiltroBodega("todas")} className={`filter-pill${filtroBodega === "todas" ? " active" : ""}`}>Todas las bodegas</button>
+              {bodegasList.map(b => (
+                <button key={b.id} onClick={() => setFiltroBodega(b.nombre)} className={`filter-pill${filtroBodega === b.nombre ? " active" : ""}`}>{b.nombre} ({items.filter(i => i.bodega === b.nombre).length})</button>
+              ))}
+              {items.some(i => !i.bodega) && <button onClick={() => setFiltroBodega("__sin")} className={`filter-pill${filtroBodega === "__sin" ? " active" : ""}`}>Sin bodega ({items.filter(i => !i.bodega).length})</button>}
+            </div>
+          )}
           <div className="mb-4">
             <Input
               placeholder="Buscar por nombre o código..."
@@ -267,10 +298,20 @@ export default function BodegaPage() {
                         </div>
                       </div>
                       <div className="flex gap-3 text-xs" style={{ color: "var(--muted-foreground)" }}>
+                        {i.bodega && <span>🏬 {i.bodega}</span>}
                         {i.ubicacion && <span>📍 {i.ubicacion}</span>}
                         {i.proveedor && <span>· {i.proveedor}</span>}
                         {i.precioUnitario && <span>· ${i.precioUnitario.toLocaleString()}</span>}
                       </div>
+                      {bodegasList.length > 0 && (
+                        <div className="mt-1.5" onClick={e => e.stopPropagation()}>
+                          <select value={i.bodega || "__none"} onChange={e => { const v = e.target.value; bodega.update(i.id, { bodega: v === "__none" ? "" : v }); cargar() }}
+                            className="text-xs rounded-md border px-1.5 py-1 bg-transparent outline-none" style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }}>
+                            <option value="__none">Sin bodega</option>
+                            {bodegasList.map(b => <option key={b.id} value={b.nombre}>{b.nombre}</option>)}
+                          </select>
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-1 shrink-0 items-center">
                       <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => abrirMov(i.id)}>
@@ -352,9 +393,18 @@ export default function BodegaPage() {
               <div className="space-y-1"><Label>Cantidad mínima</Label><Input type="number" min={0} value={formItem.cantidadMinima} onChange={e => setIN("cantidadMinima", Number(e.target.value))} /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Ubicación</Label><Input value={formItem.ubicacion} onChange={e => setIS("ubicacion", e.target.value)} placeholder="Estante A-1" /></div>
-              <div className="space-y-1"><Label>Proveedor</Label><Input value={formItem.proveedor ?? ""} onChange={e => setIS("proveedor", e.target.value)} /></div>
+              <div className="space-y-1"><Label>Bodega</Label>
+                <Select value={formItem.bodega ? formItem.bodega : "__none"} onValueChange={v => setIS("bodega", v === "__none" ? "" : (v ?? ""))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">Sin bodega</SelectItem>
+                    {bodegasList.map(b => <SelectItem key={b.id} value={b.nombre}>{b.nombre}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1"><Label>Ubicación / Estante</Label><Input value={formItem.ubicacion} onChange={e => setIS("ubicacion", e.target.value)} placeholder="Estante A-1" /></div>
             </div>
+            <div className="space-y-1"><Label>Proveedor</Label><Input value={formItem.proveedor ?? ""} onChange={e => setIS("proveedor", e.target.value)} /></div>
             <div className="space-y-1"><Label>Precio unitario ($)</Label><Input type="number" value={formItem.precioUnitario ?? ""} onChange={e => setIN("precioUnitario", Number(e.target.value))} /></div>
             <Button className="w-full" onClick={guardarItem}>{editando ? "Guardar cambios" : "Agregar item"}</Button>
           </div>
@@ -401,6 +451,30 @@ export default function BodegaPage() {
           </div>
         </DialogContent>
       </Dialog>
+      <Dialog open={openBodegas} onOpenChange={setOpenBodegas}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Bodegas / Almacenes</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Crea las bodegas que necesites y luego asigna cada ítem a una.</p>
+            <div className="flex gap-2">
+              <Input placeholder="Nombre de la bodega (ej: Bodega Copiapó)" value={formBodega.nombre} onChange={e => setFormBodega(f => ({ ...f, nombre: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") agregarBodega() }} />
+              <Button onClick={agregarBodega}><Plus size={14} /> Agregar</Button>
+            </div>
+            <div className="space-y-1.5 max-h-72 overflow-y-auto">
+              {bodegasList.length === 0 && <div className="text-sm text-center py-6" style={{ color: "var(--muted-foreground)" }}>Aún no hay bodegas. Crea la primera arriba.</div>}
+              {bodegasList.map(b => (
+                <div key={b.id} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "var(--accent)", border: "1px solid var(--border)" }}>
+                  <span className="flex-1 text-sm font-medium" style={{ color: "var(--foreground)" }}>{b.nombre}</span>
+                  <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>{items.filter(i => i.bodega === b.nombre).length} ítems</span>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => renombrarBodega(b)}><Pencil size={12} /></Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => eliminarBodega(b.id)}><Trash2 size={12} /></Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </PageShell>
   )
 }
