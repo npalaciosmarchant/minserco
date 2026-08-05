@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { informesEntrega } from "@/lib/store"
+import { informesEntrega, equipos as equiposStore } from "@/lib/store"
 import { InformeEntrega, EstadoEquipoEntrega, EstadoInformeEntrega } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, ClipboardCheck, Download, CheckCircle2, FileText, X, Camera } from "lucide-react"
 import { SelectTecnico } from "@/components/ui/SelectTecnico"
-import { SelectEquipo } from "@/components/ui/SelectEquipo"
 import PageShell from "@/components/layout/PageShell"
 import { FotoGaleria } from "@/components/ui/FotoGaleria"
 
@@ -31,6 +30,7 @@ function emptyForm(): Omit<InformeEntrega, "id" | "creadoEn"> {
   return {
     numero: "",
     equipo: "",
+    equipos: [],
     numeroSerie: "",
     cliente: "",
     empresa: "",
@@ -93,7 +93,7 @@ function generarPDF(inf: InformeEntrega) {
 <div class="grid2">
   <div class="section">
     <h3>Datos del Equipo</h3>
-    <div class="field"><div class="field-label">Equipo</div><div class="field-value">${inf.equipo}</div></div>
+    <div class="field"><div class="field-label">Equipo(s)</div><div class="field-value">${inf.equipos && inf.equipos.length ? inf.equipos.join(", ") : inf.equipo}</div></div>
     ${inf.numeroSerie ? `<div class="field"><div class="field-label">N° Serie</div><div class="field-value">${inf.numeroSerie}</div></div>` : ""}
     <div class="field"><div class="field-label">Estado del equipo</div><div style="margin-top:4px;"><span class="estado-badge">${eq.label}</span></div></div>
   </div>
@@ -166,20 +166,34 @@ export default function InformesEntregaPage() {
   const [open, setOpen] = useState(false)
   const [editando, setEditando] = useState<InformeEntrega | null>(null)
   const [form, setForm] = useState(emptyForm())
+  const [equiposLista, setEquiposLista] = useState<{ nombre: string; numeroSerie?: string }[]>([])
+  useEffect(() => { setEquiposLista(equiposStore.getAll().map(e => ({ nombre: e.nombre, numeroSerie: e.numeroSerie }))) }, [])
+  function toggleEquipo(nombre: string) {
+    setForm(f => {
+      const cur = f.equipos ?? []
+      const yaEsta = cur.includes(nombre)
+      const nuevo = yaEsta ? cur.filter(x => x !== nombre) : [...cur, nombre]
+      const eq = equiposLista.find(e => e.nombre === nombre)
+      const ns = (!yaEsta && !f.numeroSerie && eq?.numeroSerie) ? eq.numeroSerie : f.numeroSerie
+      return { ...f, equipos: nuevo, numeroSerie: ns }
+    })
+  }
   const [filtro, setFiltro] = useState<EstadoInformeEntrega | "todos">("todos")
 
   const cargar = () => setLista(informesEntrega.getAll().slice().reverse())
   useEffect(() => { cargar() }, [])
 
   function abrir(inf?: InformeEntrega) {
-    if (inf) { setEditando(inf); const { id, creadoEn, ...r } = inf; setForm(r) }
+    if (inf) { setEditando(inf); const { id, creadoEn, ...r } = inf; setForm({ ...emptyForm(), ...r, equipos: inf.equipos && inf.equipos.length ? inf.equipos : (inf.equipo ? inf.equipo.split(",").map(x => x.trim()).filter(Boolean) : []) }) }
     else { setEditando(null); setForm({ ...emptyForm(), numero: informesEntrega.nextNumero() }) }
     setOpen(true)
   }
 
   function guardar() {
-    if (!form.equipo || !form.cliente || !form.tecnico) return
-    editando ? informesEntrega.update(editando.id, form) : informesEntrega.add(form)
+    if (!form.cliente || !form.tecnico) { alert("Cliente y técnico son obligatorios."); return }
+    const eqs = form.equipos ?? []
+    const payload = { ...form, equipo: eqs.join(", "), equipos: eqs }
+    editando ? informesEntrega.update(editando.id, payload) : informesEntrega.add(payload)
     cargar(); setOpen(false)
   }
 
@@ -243,7 +257,7 @@ export default function InformesEntregaPage() {
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <div className="text-xs font-mono text-blue-600 font-semibold">{inf.numero}</div>
-                  <div className="text-sm font-bold text-gray-900 mt-0.5">{inf.equipo}</div>
+                  <div className="text-sm font-bold text-gray-900 mt-0.5">{inf.equipos && inf.equipos.length ? inf.equipos.join(", ") : inf.equipo}</div>
                   {inf.numeroSerie && <div className="text-xs text-gray-400">S/N: {inf.numeroSerie}</div>}
                 </div>
                 <span className="text-xs px-2 py-1 rounded-full font-semibold shrink-0"
@@ -309,10 +323,27 @@ export default function InformesEntregaPage() {
                 <Input type="date" value={form.fechaEntrega} onChange={e => setS("fechaEntrega", e.target.value)} /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Equipo *</Label>
-                <SelectEquipo value={form.equipo} onChange={v => setS("equipo", v)} onSelectEquipo={eq => setS("numeroSerie", eq?.numeroSerie ?? "")} /></div>
+              <div className="space-y-1.5"><Label>Equipos (opcional, puede elegir varios)</Label>
+                {(form.equipos ?? []).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {(form.equipos ?? []).map(eq => (
+                      <span key={eq} className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full" style={{ background: "#eef2ff", color: "#1a3673" }}>
+                        {eq}<button type="button" onClick={() => toggleEquipo(eq)}><X size={11} /></button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {equiposLista.length > 0 ? (
+                  <select value="" onChange={e => { if (e.target.value) toggleEquipo(e.target.value) }} className="w-full h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none">
+                    <option value="">Agregar equipo…</option>
+                    {equiposLista.filter(e => !(form.equipos ?? []).includes(e.nombre)).map(e => <option key={e.nombre} value={e.nombre}>{e.nombre}</option>)}
+                  </select>
+                ) : (
+                  <Input placeholder="Nombre del equipo y Enter" onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const v = (e.target as HTMLInputElement).value.trim(); if (v) { toggleEquipo(v); (e.target as HTMLInputElement).value = "" } } }} />
+                )}
+              </div>
               <div className="space-y-1"><Label>N° Serie</Label>
-                <Input value={form.numeroSerie ?? ""} onChange={e => setS("numeroSerie", e.target.value)} placeholder="Se completa al elegir el equipo" /></div>
+                <Input value={form.numeroSerie ?? ""} onChange={e => setS("numeroSerie", e.target.value)} placeholder="Opcional" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>Cliente *</Label>
