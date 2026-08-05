@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { informesEntrega, equipos as equiposStore } from "@/lib/store"
+import { informesEntrega, equipos as equiposStore, usuarios } from "@/lib/store"
+import { getSupabase } from "@/lib/supabase"
 import { InformeEntrega, EstadoEquipoEntrega, EstadoInformeEntrega } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -10,7 +11,6 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, ClipboardCheck, Download, CheckCircle2, FileText, X, Camera } from "lucide-react"
-import { SelectTecnico } from "@/components/ui/SelectTecnico"
 import PageShell from "@/components/layout/PageShell"
 import { FotoGaleria } from "@/components/ui/FotoGaleria"
 
@@ -36,6 +36,7 @@ function emptyForm(): Omit<InformeEntrega, "id" | "creadoEn"> {
     empresa: "",
     direccion: "",
     tecnico: "",
+    responsables: [],
     fechaEntrega: new Date().toISOString().slice(0, 10),
     estadoEquipo: "bueno",
     descripcionEntrega: "",
@@ -102,7 +103,7 @@ function generarPDF(inf: InformeEntrega) {
     <div class="field"><div class="field-label">Cliente</div><div class="field-value">${inf.cliente}</div></div>
     ${inf.empresa ? `<div class="field"><div class="field-label">Empresa</div><div class="field-value">${inf.empresa}</div></div>` : ""}
     ${inf.direccion ? `<div class="field"><div class="field-label">Dirección</div><div class="field-value">${inf.direccion}</div></div>` : ""}
-    <div class="field"><div class="field-label">Técnico responsable</div><div class="field-value">${inf.tecnico}</div></div>
+    <div class="field"><div class="field-label">Responsable(s)</div><div class="field-value">${inf.responsables && inf.responsables.length ? inf.responsables.join(", ") : inf.tecnico}</div></div>
   </div>
 </div>
 
@@ -136,8 +137,8 @@ ${(inf.fotos && inf.fotos.length > 0) ? `
 <div class="firma-section">
   <div class="firma-box">
     <div style="height:60px;"></div>
-    <div class="firma-label">Firma Técnico Minserco</div>
-    <div style="font-size:12px;color:#334155;margin-top:4px;">${inf.tecnico}</div>
+    <div class="firma-label">Firma Responsable(s) Minserco</div>
+    <div style="font-size:12px;color:#334155;margin-top:4px;">${inf.responsables && inf.responsables.length ? inf.responsables.join(", ") : inf.tecnico}</div>
   </div>
   <div class="firma-box">
     <div style="height:60px;"></div>
@@ -167,7 +168,16 @@ export default function InformesEntregaPage() {
   const [editando, setEditando] = useState<InformeEntrega | null>(null)
   const [form, setForm] = useState(emptyForm())
   const [equiposLista, setEquiposLista] = useState<{ nombre: string; numeroSerie?: string }[]>([])
-  useEffect(() => { setEquiposLista(equiposStore.getAll().map(e => ({ nombre: e.nombre, numeroSerie: e.numeroSerie }))) }, [])
+  const [usuariosLista, setUsuariosLista] = useState<{ id: string; nombre: string }[]>([])
+  useEffect(() => {
+    setEquiposLista(equiposStore.getAll().map(e => ({ nombre: e.nombre, numeroSerie: e.numeroSerie })))
+    const local = usuarios.getAll()
+    if (local.length) setUsuariosLista(local.map(u => ({ id: u.id, nombre: u.nombre })))
+    else (async () => { try { const { data } = await getSupabase().from("usuarios").select("id,nombre"); if (data) setUsuariosLista(data.map((u: { id: string; nombre: string }) => ({ id: u.id, nombre: u.nombre }))) } catch { /* offline */ } })()
+  }, [])
+  function toggleResponsable(nombre: string) {
+    setForm(f => { const cur = f.responsables ?? []; return { ...f, responsables: cur.includes(nombre) ? cur.filter(x => x !== nombre) : [...cur, nombre] } })
+  }
   function toggleEquipo(nombre: string) {
     setForm(f => {
       const cur = f.equipos ?? []
@@ -184,15 +194,16 @@ export default function InformesEntregaPage() {
   useEffect(() => { cargar() }, [])
 
   function abrir(inf?: InformeEntrega) {
-    if (inf) { setEditando(inf); const { id, creadoEn, ...r } = inf; setForm({ ...emptyForm(), ...r, equipos: inf.equipos && inf.equipos.length ? inf.equipos : (inf.equipo ? inf.equipo.split(",").map(x => x.trim()).filter(Boolean) : []) }) }
+    if (inf) { setEditando(inf); const { id, creadoEn, ...r } = inf; setForm({ ...emptyForm(), ...r, equipos: inf.equipos && inf.equipos.length ? inf.equipos : (inf.equipo ? inf.equipo.split(",").map(x => x.trim()).filter(Boolean) : []), responsables: inf.responsables && inf.responsables.length ? inf.responsables : (inf.tecnico ? inf.tecnico.split(",").map(x => x.trim()).filter(Boolean) : []) }) }
     else { setEditando(null); setForm({ ...emptyForm(), numero: informesEntrega.nextNumero() }) }
     setOpen(true)
   }
 
   function guardar() {
-    if (!form.cliente || !form.tecnico) { alert("Cliente y técnico son obligatorios."); return }
+    const resp = form.responsables ?? []
+    if (!form.cliente || resp.length === 0) { alert("Cliente y al menos un responsable son obligatorios."); return }
     const eqs = form.equipos ?? []
-    const payload = { ...form, equipo: eqs.join(", "), equipos: eqs }
+    const payload = { ...form, equipo: eqs.join(", "), equipos: eqs, tecnico: resp.join(", "), responsables: resp }
     editando ? informesEntrega.update(editando.id, payload) : informesEntrega.add(payload)
     cargar(); setOpen(false)
   }
@@ -270,8 +281,8 @@ export default function InformesEntregaPage() {
                   <span className="font-medium text-gray-800">{inf.cliente}{inf.empresa ? ` — ${inf.empresa}` : ""}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-gray-400">Técnico:</span>
-                  <span className="font-medium text-gray-800">{inf.tecnico}</span>
+                  <span className="text-gray-400">Responsables:</span>
+                  <span className="font-medium text-gray-800">{inf.responsables && inf.responsables.length ? inf.responsables.join(", ") : inf.tecnico}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-gray-400">Fecha entrega:</span>
@@ -351,9 +362,22 @@ export default function InformesEntregaPage() {
               <div className="space-y-1"><Label>Empresa</Label>
                 <Input value={form.empresa ?? ""} onChange={e => setS("empresa", e.target.value)} /></div>
             </div>
+            <div className="space-y-1.5"><Label>Responsables * (cualquier persona registrada)</Label>
+              {(form.responsables ?? []).length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {(form.responsables ?? []).map(r => (
+                    <span key={r} className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full" style={{ background: "#eef2ff", color: "#1a3673" }}>
+                      {r}<button type="button" onClick={() => toggleResponsable(r)}><X size={11} /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <select value="" onChange={e => { if (e.target.value) toggleResponsable(e.target.value) }} className="w-full h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none">
+                <option value="">Agregar responsable…</option>
+                {usuariosLista.filter(u => !(form.responsables ?? []).includes(u.nombre)).map(u => <option key={u.id} value={u.nombre}>{u.nombre}</option>)}
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Técnico *</Label>
-                <SelectTecnico value={form.tecnico} onChange={v => setS("tecnico", v)} /></div>
               <div className="space-y-1"><Label>Estado del equipo</Label>
                 <Select value={form.estadoEquipo} onValueChange={v => setS("estadoEquipo", v ?? "")}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
