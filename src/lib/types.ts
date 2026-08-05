@@ -372,6 +372,7 @@ export interface InformeEntrega {
   id: string
   numero: string
   equipo: string
+  equipos?: string[]
   numeroSerie?: string
   cliente: string
   empresa?: string
