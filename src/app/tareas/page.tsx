@@ -60,6 +60,8 @@ export default function TareasPage() {
     const resp = form.responsables ?? []
     const payload = { ...form, responsable: resp.join(", "), responsables: resp }
     if (editando) tareas.update(editando.id, payload); else tareas.add(payload)
+    const mF = (payload.fecha || "").slice(0, 7)
+    if (mF && mes !== "todos" && mF !== mes) setMes(mF)
     cargar(); setOpen(false)
   }
   function eliminar(id: string) { if (confirm("¿Eliminar esta tarea?")) { tareas.delete(id); cargar() } }
@@ -78,6 +80,8 @@ export default function TareasPage() {
       <FiltroMes value={mes} onChange={setMes} />
       <AgendaVista
         items={items}
+        mesRef={mes === "todos" ? undefined : mes}
+        onMesRefChange={setMes}
         onItemClick={t => abrir(t)}
         onDayClick={f => { setEditando(null); setForm({ ...emptyForm(), fecha: f }); setOpen(true) }}
         renderCard={t => {
