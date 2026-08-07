@@ -50,6 +50,8 @@ export default function PagosPage() {
   function guardar() {
     if (!form.concepto.trim()) { alert("El concepto es obligatorio."); return }
     if (editando) pagos.update(editando.id, form); else pagos.add(form)
+    const mF = (form.fechaVencimiento || "").slice(0, 7)
+    if (mF && mes !== "todos" && mF !== mes) setMes(mF)
     cargar(); setOpen(false)
   }
   function eliminar(id: string) { if (confirm("¿Eliminar este pago?")) { pagos.delete(id); cargar() } }
