@@ -5,14 +5,21 @@ import { CalendarDays, List, ChevronLeft, ChevronRight } from "lucide-react"
 
 export type EventoAgenda = { id: string; fecha?: string; titulo: string; color?: string }
 
-export function AgendaVista<T extends EventoAgenda>({ items, onItemClick, renderCard, onDayClick }: {
+export function AgendaVista<T extends EventoAgenda>({ items, onItemClick, renderCard, onDayClick, mesRef, onMesRefChange }: {
   items: T[]
   onItemClick: (item: T) => void
   renderCard: (item: T) => ReactNode
   onDayClick?: (fecha: string) => void
+  mesRef?: string
+  onMesRefChange?: (ym: string) => void
 }) {
   const [vista, setVista] = useState<"lista" | "calendario">("lista")
-  const [mes, setMes] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
+  const [mesInterno, setMesInterno] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
+  const mes = mesRef ? new Date(Number(mesRef.slice(0, 4)), Number(mesRef.slice(5, 7)) - 1, 1) : mesInterno
+  const irMes = (nuevo: Date) => {
+    if (mesRef && onMesRefChange) onMesRefChange(`${nuevo.getFullYear()}-${String(nuevo.getMonth() + 1).padStart(2, "0")}`)
+    else setMesInterno(nuevo)
+  }
 
   const toggle = (
     <div className="flex items-center gap-1 rounded-lg p-0.5" style={{ background: "var(--accent)", border: "1px solid var(--border)" }}>
@@ -49,9 +56,9 @@ export function AgendaVista<T extends EventoAgenda>({ items, onItemClick, render
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <button onClick={() => setMes(new Date(y, m - 1, 1))} className="p-1.5 rounded-lg" style={{ background: "var(--accent)", border: "1px solid var(--border)" }}><ChevronLeft size={16} /></button>
+          <button onClick={() => irMes(new Date(y, m - 1, 1))} className="p-1.5 rounded-lg" style={{ background: "var(--accent)", border: "1px solid var(--border)" }}><ChevronLeft size={16} /></button>
           <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{meses[m]} {y}</span>
-          <button onClick={() => setMes(new Date(y, m + 1, 1))} className="p-1.5 rounded-lg" style={{ background: "var(--accent)", border: "1px solid var(--border)" }}><ChevronRight size={16} /></button>
+          <button onClick={() => irMes(new Date(y, m + 1, 1))} className="p-1.5 rounded-lg" style={{ background: "var(--accent)", border: "1px solid var(--border)" }}><ChevronRight size={16} /></button>
         </div>
         {toggle}
       </div>
