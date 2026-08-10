@@ -20,68 +20,69 @@ interface Result {
 function buscar(q: string): Result[] {
   if (!q.trim()) return []
   const t = q.toLowerCase()
+  const has = (v?: string | null) => !!v && v.toLowerCase().includes(t)
   const res: Result[] = []
 
   mantenciones.getAll().filter(m =>
-    m.equipo.toLowerCase().includes(t) || m.tecnico.toLowerCase().includes(t)
+    has(m.equipo) || has(m.tecnico)
   ).slice(0, 3).forEach(m => res.push({
-    id: "m" + m.id, label: m.equipo, sub: "Mantención · " + m.tecnico,
+    id: "m" + m.id, label: m.equipo || "(sin equipo)", sub: "Mantención · " + (m.tecnico || ""),
     href: "/mantencion", icon: Wrench, color: "#D97706",
   }))
 
   reparaciones.getAll().filter(r =>
-    r.equipo.toLowerCase().includes(t) || r.cliente.toLowerCase().includes(t)
+    has(r.equipo) || has(r.cliente)
   ).slice(0, 3).forEach(r => res.push({
-    id: "r" + r.id, label: r.equipo, sub: "Reparación · " + r.cliente,
+    id: "r" + r.id, label: r.equipo || "", sub: "Reparación · " + (r.cliente || ""),
     href: "/reparacion", icon: Settings, color: "#0369A1",
   }))
 
   bodega.getAll().filter(b =>
-    b.nombre.toLowerCase().includes(t)
+    has(b.nombre)
   ).slice(0, 2).forEach(b => res.push({
-    id: "b" + b.id, label: b.nombre, sub: "Bodega · " + b.cantidad + " " + b.unidad,
+    id: "b" + b.id, label: b.nombre || "", sub: "Bodega · " + (b.cantidad ?? 0) + " " + (b.unidad || ""),
     href: "/bodega", icon: Package, color: "#059669",
   }))
 
   contratos.getAll().filter(c =>
-    c.equipo.toLowerCase().includes(t) || c.cliente.toLowerCase().includes(t)
+    has(c.equipo) || has(c.cliente)
   ).slice(0, 2).forEach(c => res.push({
-    id: "c" + c.id, label: c.equipo, sub: "Arriendo · " + c.cliente,
+    id: "c" + c.id, label: c.equipo || "", sub: "Arriendo · " + (c.cliente || ""),
     href: "/arriendo", icon: KeyRound, color: "#7C3AED",
   }))
 
   cotizaciones.getAll().filter(c =>
-    c.numero.toLowerCase().includes(t) || c.cliente.toLowerCase().includes(t)
+    has(c.numero) || has(c.cliente)
   ).slice(0, 2).forEach(c => res.push({
-    id: "cot" + c.id, label: c.numero + " — " + c.cliente, sub: "Cotización",
+    id: "cot" + c.id, label: (c.numero || "") + " — " + (c.cliente || ""), sub: "Cotización",
     href: "/cotizaciones", icon: FileText, color: "#6366F1",
   }))
 
   ordenesTrabajo.getAll().filter(o =>
-    o.numero.toLowerCase().includes(t) || o.cliente.toLowerCase().includes(t)
+    has(o.numero) || has(o.cliente)
   ).slice(0, 2).forEach(o => res.push({
-    id: "ot" + o.id, label: o.numero + " — " + o.cliente, sub: "Orden de Trabajo",
+    id: "ot" + o.id, label: (o.numero || "") + " — " + (o.cliente || ""), sub: "Orden de Trabajo",
     href: "/ordenes", icon: ClipboardList, color: "#0369A1",
   }))
 
   clientesEquipos.getAll().filter(e =>
-    e.equipo.toLowerCase().includes(t) || e.empresa.toLowerCase().includes(t)
+    has(e.equipo) || has(e.empresa)
   ).slice(0, 2).forEach(e => res.push({
-    id: "ce" + e.id, label: e.equipo, sub: "Terreno · " + e.empresa,
+    id: "ce" + e.id, label: e.equipo || "", sub: "Terreno · " + (e.empresa || ""),
     href: "/clientes", icon: Users, color: "#059669",
   }))
 
   gastos.getAll().filter(g =>
-    g.descripcion.toLowerCase().includes(t) || g.responsable.toLowerCase().includes(t)
+    has(g.descripcion) || has(g.responsable)
   ).slice(0, 2).forEach(g => res.push({
-    id: "g" + g.id, label: g.descripcion, sub: "Gasto · " + g.responsable + " · $" + g.monto.toLocaleString("es-CL"),
+    id: "g" + g.id, label: g.descripcion || "", sub: "Gasto · " + (g.responsable || "") + " · $" + (g.monto ?? 0).toLocaleString("es-CL"),
     href: "/gastos", icon: Receipt, color: "#2563eb",
   }))
 
   informesEntrega.getAll().filter(i =>
-    i.equipo.toLowerCase().includes(t) || i.cliente.toLowerCase().includes(t) || i.numero.toLowerCase().includes(t)
+    has(i.equipo) || has(i.cliente) || has(i.numero)
   ).slice(0, 2).forEach(i => res.push({
-    id: "ie" + i.id, label: i.numero + " — " + i.equipo, sub: "Informe entrega · " + i.cliente,
+    id: "ie" + i.id, label: (i.numero || "") + " — " + (i.equipo || ""), sub: "Informe entrega · " + (i.cliente || ""),
     href: "/informes-entrega", icon: ClipboardCheck, color: "#059669",
   }))
 
