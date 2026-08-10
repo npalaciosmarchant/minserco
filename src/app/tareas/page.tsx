@@ -10,10 +10,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Pencil, Trash2, ListTodo, User, Tag, X } from "lucide-react"
+import { Plus, Pencil, Trash2, ListTodo, User, Tag, X, Camera } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
 import { FiltroMes, mesActual, enMes } from "@/components/ui/FiltroMes"
 import { AgendaVista } from "@/components/ui/AgendaVista"
+import { FotoGaleria } from "@/components/ui/FotoGaleria"
+import { useAuth } from "@/lib/auth"
 
 const estadoCfg: Record<EstadoTarea, { label: string; color: string }> = {
   pendiente:  { label: "Pendiente",  color: "#d97706" },
@@ -28,7 +30,7 @@ function fmtFecha(f?: string): string {
 }
 
 function emptyForm(): Omit<Tarea, "id" | "creadoEn"> {
-  return { titulo: "", tipo: "", fecha: new Date().toISOString().slice(0, 10), hora: "", responsable: "", responsables: [], estado: "pendiente", descripcion: "" }
+  return { titulo: "", tipo: "", fecha: new Date().toISOString().slice(0, 10), hora: "", responsable: "", responsables: [], fechaLimite: "", fotos: [], estado: "pendiente", descripcion: "" }
 }
 
 export default function TareasPage() {
@@ -37,6 +39,7 @@ export default function TareasPage() {
   const [editando, setEditando] = useState<Tarea | null>(null)
   const [form, setForm] = useState(emptyForm())
   const [mes, setMes] = useState(mesActual())
+  const { user } = useAuth()
   const [usuariosLista, setUsuariosLista] = useState<{ id: string; nombre: string }[]>([])
   const cargar = () => setLista(tareas.getAll())
   useEffect(() => { cargar() }, [])
@@ -66,12 +69,18 @@ export default function TareasPage() {
   }
   function eliminar(id: string) { if (confirm("¿Eliminar esta tarea?")) { tareas.delete(id); cargar() } }
 
-  const items = lista.filter(t => enMes(t.fecha, mes)).map(t => ({ ...t, color: estadoCfg[t.estado].color }))
+  const visibles = user?.rol === "tecnico"
+    ? lista.filter(t => {
+        const rs = t.responsables && t.responsables.length ? t.responsables : (t.responsable ? t.responsable.split(",").map(x => x.trim()) : [])
+        return rs.includes(user.nombre)
+      })
+    : lista
+  const items = visibles.filter(t => enMes(t.fecha, mes)).map(t => ({ ...t, color: estadoCfg[t.estado].color }))
 
   const stats = [
-    { label: "Total", value: lista.length },
-    { label: "Pendientes", value: lista.filter(t => t.estado === "pendiente").length, color: "#d97706" },
-    { label: "Completadas", value: lista.filter(t => t.estado === "completada").length, color: "#059669" },
+    { label: "Total", value: visibles.length },
+    { label: "Pendientes", value: visibles.filter(t => t.estado === "pendiente").length, color: "#d97706" },
+    { label: "Completadas", value: visibles.filter(t => t.estado === "completada").length, color: "#059669" },
   ]
 
   return (
@@ -94,6 +103,8 @@ export default function TareasPage() {
               </div>
               <div className="text-xs space-y-0.5" style={{ color: "var(--muted-foreground)" }}>
                 <div>{fmtFecha(t.fecha)}{t.hora ? ` · ${t.hora}` : ""}</div>
+                {t.fechaLimite && <div style={{ color: "#dc2626" }}>Plazo: {fmtFecha(t.fechaLimite)}</div>}
+                {t.fotos && t.fotos.length > 0 && <div className="flex items-center gap-1"><Camera size={11} />{t.fotos.length} foto(s)</div>}
                 {t.tipo && <div className="flex items-center gap-1"><Tag size={11} />{t.tipo}</div>}
                 {(t.responsables && t.responsables.length ? t.responsables.join(", ") : t.responsable) && <div className="flex items-center gap-1"><User size={11} />{t.responsables && t.responsables.length ? t.responsables.join(", ") : t.responsable}</div>}
                 {t.descripcion && <div className="line-clamp-2">{t.descripcion}</div>}
@@ -117,6 +128,7 @@ export default function TareasPage() {
               <div className="space-y-1"><Label>Fecha</Label><Input type="date" value={form.fecha ?? ""} onChange={e => setS("fecha", e.target.value)} /></div>
               <div className="space-y-1"><Label>Hora</Label><Input type="time" value={form.hora ?? ""} onChange={e => setS("hora", e.target.value)} /></div>
             </div>
+            <div className="space-y-1"><Label>Fecha límite (plazo para realizarla)</Label><Input type="date" value={form.fechaLimite ?? ""} onChange={e => setS("fechaLimite", e.target.value)} /></div>
             <div className="space-y-1.5"><Label>Responsables</Label>
               {(form.responsables ?? []).length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
@@ -139,6 +151,9 @@ export default function TareasPage() {
               </Select>
             </div>
             <div className="space-y-1"><Label>Descripción</Label><Textarea value={form.descripcion ?? ""} onChange={e => setS("descripcion", e.target.value)} rows={3} /></div>
+            <div className="space-y-1.5"><Label className="flex items-center gap-1.5"><Camera size={13} />Fotos ({(form.fotos ?? []).length})</Label>
+              <FotoGaleria fotos={form.fotos ?? []} onChange={fotos => setForm(f => ({ ...f, fotos }))} />
+            </div>
             <Button className="w-full" onClick={guardar}>{editando ? "Guardar cambios" : "Crear tarea"}</Button>
           </div>
         </DialogContent>
