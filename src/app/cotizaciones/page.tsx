@@ -240,7 +240,7 @@ export default function CotizacionesPage() {
     if (filtroEstado !== "todos" && c.estado !== filtroEstado) return false
     if (busqueda) {
       const q = busqueda.toLowerCase()
-      return c.cliente.toLowerCase().includes(q) || (c.empresa ?? "").toLowerCase().includes(q) || c.numero.toLowerCase().includes(q)
+      return (c.cliente ?? "").toLowerCase().includes(q) || (c.empresa ?? "").toLowerCase().includes(q) || (c.numero ?? "").toLowerCase().includes(q)
     }
     return true
   })
