@@ -174,7 +174,7 @@ export default function OrdenesPage() {
     if (filtroCiudad !== "todas" && ot.ciudad !== filtroCiudad) return false
     if (busqueda) {
       const q = busqueda.toLowerCase()
-      return ot.cliente.toLowerCase().includes(q) || (ot.empresa ?? "").toLowerCase().includes(q) || ot.numero.toLowerCase().includes(q)
+      return (ot.cliente ?? "").toLowerCase().includes(q) || (ot.empresa ?? "").toLowerCase().includes(q) || (ot.numero ?? "").toLowerCase().includes(q)
     }
     return true
   })
