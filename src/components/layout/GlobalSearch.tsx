@@ -2,10 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Search, X, Wrench, Settings, Package, KeyRound, FileText, ClipboardList, Users, Receipt, ClipboardCheck } from "lucide-react"
+import { Search, X, Wrench, Settings, Package, KeyRound, FileText, ClipboardList, Users, Receipt, ClipboardCheck, Building2 } from "lucide-react"
 import {
   mantenciones, reparaciones, bodega, contratos,
-  cotizaciones, ordenesTrabajo, clientesEquipos, gastos, informesEntrega,
+  cotizaciones, ordenesTrabajo, clientesEquipos, gastos, informesEntrega, proveedores,
 } from "@/lib/store"
 
 interface Result {
@@ -77,6 +77,13 @@ function buscar(q: string): Result[] {
   ).slice(0, 2).forEach(g => res.push({
     id: "g" + g.id, label: g.descripcion || "", sub: "Gasto · " + (g.responsable || "") + " · $" + (g.monto ?? 0).toLocaleString("es-CL"),
     href: "/gastos", icon: Receipt, color: "#2563eb",
+  }))
+
+  proveedores.getAll().filter(p =>
+    has(p.nombre) || has(p.productos) || has(p.pais) || has(p.contacto)
+  ).slice(0, 3).forEach(p => res.push({
+    id: "p" + p.id, label: p.nombre || "", sub: "Proveedor · " + (p.pais || "") + (p.productos ? " · " + p.productos : ""),
+    href: "/proveedores", icon: Building2, color: "#0891b2",
   }))
 
   informesEntrega.getAll().filter(i =>
