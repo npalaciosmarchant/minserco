@@ -75,8 +75,8 @@ const OT_TIPO_LABEL: Record<string, string> = {
 
 function HistorialModal({ equipo, onClose }: { equipo: ClienteEquipo; onClose: () => void }) {
   const ots = ordenesTrabajo.getAll().filter(o =>
-    o.cliente.toLowerCase() === equipo.cliente.toLowerCase() ||
-    o.empresa?.toLowerCase() === equipo.empresa.toLowerCase()
+    (o.cliente ?? "").toLowerCase() === (equipo.cliente ?? "").toLowerCase() ||
+    (o.empresa ?? "").toLowerCase() === (equipo.empresa ?? "").toLowerCase()
   ).sort((a, b) => b.creadoEn.localeCompare(a.creadoEn))
 
   return (
@@ -259,7 +259,7 @@ export default function ClientesPage() {
     if (filtroEstado !== "todos" && c.estado !== filtroEstado) return false
     if (busqueda) {
       const q = busqueda.toLowerCase()
-      return c.cliente.toLowerCase().includes(q) || c.empresa.toLowerCase().includes(q) || c.equipo.toLowerCase().includes(q)
+      return (c.cliente ?? "").toLowerCase().includes(q) || (c.empresa ?? "").toLowerCase().includes(q) || (c.equipo ?? "").toLowerCase().includes(q)
     }
     return true
   })
