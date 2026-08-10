@@ -63,7 +63,7 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   costoTotal:"costo_total", tipoEquipo:"tipo_equipo",
   fechaInstalacion:"fecha_instalacion", garantiaHasta:"garantia_hasta",
   ultimaMantencion:"ultima_mantencion", tecnicoResponsable:"tecnico_responsable",
-  fechaEmision:"fecha_emision", fechaVencimiento:"fecha_vencimiento",
+  fechaEmision:"fecha_emision", fechaVencimiento:"fecha_vencimiento", fechaLimite:"fecha_limite",
   validezDias:"validez_dias", fechaProgramada:"fecha_programada",
   costoManoObra:"costo_mano_obra", costoMateriales:"costo_materiales",
   tipoDocumento:"tipo_documento", numeroBoleta:"numero_boleta",
