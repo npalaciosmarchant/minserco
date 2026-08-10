@@ -149,7 +149,7 @@ export default function BodegaPage() {
 
   const filtrados = items.filter(i => {
     const q = busqueda.toLowerCase()
-    const matchTexto = i.nombre.toLowerCase().includes(q) || i.codigo.toLowerCase().includes(q)
+    const matchTexto = (i.nombre ?? "").toLowerCase().includes(q) || (i.codigo ?? "").toLowerCase().includes(q)
     const matchBodega = filtroBodega === "todas" ? true : filtroBodega === "__sin" ? !i.bodega : i.bodega === filtroBodega
     return matchTexto && matchBodega
   })
