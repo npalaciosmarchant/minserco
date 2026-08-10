@@ -136,7 +136,7 @@ export default function ProveedoresPage() {
     if (filtroCategoria !== "todos" && !p.categorias.includes(filtroCategoria)) return false
     if (busqueda) {
       const q = busqueda.toLowerCase()
-      return p.nombre.toLowerCase().includes(q) || p.pais.toLowerCase().includes(q) || p.productos.toLowerCase().includes(q)
+      return (p.nombre ?? "").toLowerCase().includes(q) || (p.pais ?? "").toLowerCase().includes(q) || (p.productos ?? "").toLowerCase().includes(q)
     }
     return true
   })
