@@ -5,8 +5,9 @@ export type FrecuenciaMantencion = "ninguna" | "mensual" | "trimestral" | "semes
 export interface Mantencion {
   id: string
   equipo: string
+  equipos?: string[]
   numeroSerie: string
-  tipo: "preventivo" | "correctivo"
+  tipo: "preventivo" | "correctivo" | "mensual"
   descripcion: string
   tecnico: string             // compat: nombres unidos por coma
   tecnicos?: string[]         // varios tecnicos (nombres)
@@ -507,6 +508,8 @@ export interface Tarea {
   hora?: string
   responsable?: string
   responsables?: string[]
+  fechaLimite?: string
+  fotos?: string[]
   estado: EstadoTarea
   descripcion?: string
   creadoEn: string
