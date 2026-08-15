@@ -70,8 +70,8 @@ export function imprimirInstalacionPDF(e: EntradaInstalacion, r: Recomendacion, 
   .panel.no h3 { color:#dc2626; }
   .panel ul { list-style:none; }
   .panel li { font-size:12px; margin-bottom:7px; line-height:1.35; }
-  .panel.ok li::before { content:"\2713  "; color:#059669; font-weight:700; }
-  .panel.no li::before { content:"\2717  "; color:#dc2626; font-weight:700; }
+  .panel.ok li::before { content:"✓  "; color:#059669; font-weight:700; }
+  .panel.no li::before { content:"✗  "; color:#dc2626; font-weight:700; }
   .li-t { font-weight:600; }
   .li-d { display:block; color:#64748b; font-size:11px; margin-left:16px; }
   .adv { background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:12px 16px; margin-top:14px; }
