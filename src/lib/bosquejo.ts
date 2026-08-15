@@ -27,19 +27,19 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
   const aire: Caja[] = [
     { tag: "A1", label: "Toma aire", sub: "acople rápido", tipo: "linea" },
     { tag: "A2", label: "Válv. bola", sub: "corte manual", tipo: "linea" },
-    { tag: "A3", label: "Filtro aire", sub: "coalescente 5 µm", tipo: "linea" },
+    { tag: "A3", label: "Filtro aire", sub: "de línea", tipo: "linea" },
   ]
   if (regAire) aire.push({ tag: "A4", label: "Regulador", sub: `ajustar ${r.setAire} bar`, tipo: "linea" })
-  aire.push({ tag: "A5", label: "Electroválv.", sub: r.evAire ? `${r.evAire.codigo} 24 VDC` : "24 VDC", tipo: "linea" })
+  aire.push({ tag: "A5", label: "Válv. solen.", sub: "230V · a nodo", tipo: "linea" })
 
   const agua: Caja[] = [
     { tag: "W1", label: "Toma agua", sub: "matriz", tipo: "linea" },
     { tag: "W2", label: "Válv. bola", sub: "corte manual", tipo: "linea" },
   ]
   if (necesitaBomba) agua.push({ tag: "WB", label: "Bomba", sub: "SBI 4-16 + estanque", tipo: "bomba" })
-  agua.push({ tag: "W3", label: "Filtro Y", sub: "malla 100 mesh", tipo: "linea" })
+  agua.push({ tag: "W3", label: "Filtro agua", sub: "de línea", tipo: "linea" })
   if (regAgua) agua.push({ tag: "W4", label: "Regulador", sub: `ajustar ${r.setAgua} bar`, tipo: "linea" })
-  agua.push({ tag: "W5", label: "Electroválv.", sub: r.evAgua ? `${r.evAgua.codigo} 24 VDC` : "24 VDC", tipo: "linea" })
+  agua.push({ tag: "W5", label: "Válv. solen.", sub: "230V · a nodo", tipo: "linea" })
 
   const nCols = Math.max(aire.length, agua.length)
   const manifoldX = x0 + nCols * pitch + 6
@@ -103,7 +103,7 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
   const a5cx = x0 + idxA5 * pitch + boxW / 2
   const w5cx = x0 + idxW5 * pitch + boxW / 2
   const controlador = `<rect x="${ctrlX}" y="${ctrlY}" width="${ctrlW}" height="${ctrlH}" rx="9" fill="#f3e8ff" stroke="#a855f7" stroke-width="1.5"/>
-    <text x="${ctrlX + ctrlW / 2}" y="${ctrlY + 27}" font-size="12" font-weight="700" fill="#6b21a8" text-anchor="middle">CONTROLADOR · nodo 24 VDC</text>
+    <text x="${ctrlX + ctrlW / 2}" y="${ctrlY + 27}" font-size="12" font-weight="700" fill="#6b21a8" text-anchor="middle">CONTROLADOR · nodo de monitoreo</text>
     <line x1="${a5cx}" y1="${yAire + boxH}" x2="${a5cx}" y2="${ctrlY}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3"/>
     <line x1="${w5cx}" y1="${yAgua}" x2="${w5cx}" y2="${ctrlY}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3"/>`
 
@@ -114,7 +114,7 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
     <line x1="${W - 160}" y1="30" x2="${W - 130}" y2="30" stroke="#2563eb" stroke-width="2.5"/>
     <text x="${W - 124}" y="34">Agua</text>
     <line x1="${W - 300}" y1="50" x2="${W - 270}" y2="50" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3"/>
-    <text x="${W - 264}" y="54">Señal eléctrica 24 VDC</text>
+    <text x="${W - 264}" y="54">Alimentación válvulas 230V</text>
   </g>`
 
   const etiqAire = `<text x="${x0}" y="${yAire - 12}" font-size="12" font-weight="700" fill="#0ea5e9">LÍNEA DE AIRE</text>`
