@@ -530,3 +530,21 @@ export interface Pago {
   notas?: string
   creadoEn: string
 }
+
+
+// Instalación (supresión de polvo por nebulización aire-agua)
+export interface Instalacion {
+  id: string
+  cliente?: string
+  faena?: string
+  puntoDescarga?: string
+  presionAire: number
+  presionAgua: number
+  nBoquillas: number
+  boquillaTipo: string
+  largoCorrea?: number
+  espaciamiento?: number
+  resultado?: unknown
+  observaciones?: string
+  creadoEn: string
+}
