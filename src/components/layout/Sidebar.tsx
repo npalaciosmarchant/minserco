@@ -7,7 +7,7 @@ import {
   LayoutDashboard, KeyRound, Activity, Users,
   FileText, ClipboardList, CalendarDays, Calendar, BarChart3, ShieldCheck,
   LogOut, HardHat, Building2, ChevronRight, Receipt, ClipboardCheck,
-  CheckSquare, History, Bell,
+  CheckSquare, History, Bell, Droplets,
 } from "lucide-react"
 import Image from "next/image"
 import { useEffect, useState } from "react"
@@ -23,6 +23,7 @@ const nav: NavItem[] = [
   { href: "/fabricacion", label: "Fabricación",   icon: Factory,       group: "Operaciones" },
   { href: "/reparacion",  label: "Reparación",    icon: Settings,      group: "Operaciones" },
   { href: "/clientes",    label: "Equipos en Terreno", icon: Users,         group: "Terreno" },
+  { href: "/instalacion", label: "Instalación",         icon: Droplets,      group: "Terreno" },
   { href: "/ordenes",     label: "Órdenes de Trabajo", icon: ClipboardList, group: "Terreno" },
   { href: "/tecnicos",    label: "Técnicos y Agenda", icon: CalendarDays,  group: "Terreno" },
   { href: "/cotizaciones",label: "Cotizaciones",       icon: FileText,      group: "Comercial" },
@@ -40,7 +41,7 @@ const nav: NavItem[] = [
 
 const TECNICO_ROUTES = [
   "/mantencion", "/reparacion", "/clientes", "/ordenes",
-  "/gastos", "/informes-entrega",
+  "/gastos", "/informes-entrega", "/instalacion",
 ]
 
 const SB = {
