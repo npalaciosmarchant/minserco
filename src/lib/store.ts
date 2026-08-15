@@ -19,7 +19,7 @@ import {
   Usuario, Proveedor, Gasto, InformeEntrega, AlertaConfig,
   Equipo, Notificacion,
   DocumentoAdmin, Reunion, VisitaTecnica, Licitacion,
-  Nodo, Tarea, Pago,
+  Nodo, Tarea, Pago, Instalacion,
 } from "./types"
 
 // ── localStorage helpers (API pública sin cambios) ────────────────────────────
@@ -81,6 +81,8 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   supervisorId:"supervisor_id",
   fechaPublicacion:"fecha_publicacion", fechaCierre:"fecha_cierre",
   fichasTecnicas:"fichas_tecnicas", numeroSim:"numero_sim",
+  puntoDescarga:"punto_descarga", presionAire:"presion_aire", presionAgua:"presion_agua",
+  nBoquillas:"n_boquillas", boquillaTipo:"boquilla_tipo", largoCorrea:"largo_correa",
 }
 
 const SNAKE_TO_CAMEL = Object.fromEntries(
@@ -174,6 +176,7 @@ export async function syncFromSupabase() {
     { sbTable: "nodos",              lsKey: "nodos"           },
     { sbTable: "tareas",             lsKey: "tareas"          },
     { sbTable: "pagos",              lsKey: "pagos"           },
+    { sbTable: "instalaciones",      lsKey: "instalaciones"   },
   ]
 
   await Promise.all(tables.map(async ({ sbTable, lsKey }) => {
@@ -774,5 +777,24 @@ export const tareas = {
   delete: (id: string) => {
     lsSet("tareas", tareas.getAll().filter(i => i.id !== id))
     syncUp("tareas", { id }, "delete")
+  },
+}
+
+
+export const instalaciones = {
+  getAll: (): Instalacion[] => lsGet("instalaciones"),
+  add: (i: Omit<Instalacion, "id" | "creadoEn">): Instalacion => {
+    const item: Instalacion = { ...i, id: getId(), creadoEn: new Date().toISOString() }
+    lsSet("instalaciones", [...instalaciones.getAll(), item])
+    syncUp("instalaciones", item as unknown as Record<string, unknown>, "upsert")
+    return item
+  },
+  update: (id: string, changes: Partial<Instalacion>) => {
+    lsSet("instalaciones", instalaciones.getAll().map(i => i.id === id ? { ...i, ...changes } : i))
+    syncUp("instalaciones", { id, ...changes } as Record<string, unknown>, "upsert")
+  },
+  delete: (id: string) => {
+    lsSet("instalaciones", instalaciones.getAll().filter(i => i.id !== id))
+    syncUp("instalaciones", { id }, "delete")
   },
 }
