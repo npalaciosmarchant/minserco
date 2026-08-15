@@ -8,7 +8,7 @@ import {
   FileText, ClipboardList, Calendar,
   BarChart3, ShieldCheck, LogOut, HardHat,
   Building2, ChevronRight, Receipt, ClipboardCheck, Wallet,
-  FolderOpen, CalendarClock, MapPin, Gavel, Radio, ListTodo,
+  FolderOpen, CalendarClock, MapPin, Gavel, Radio, ListTodo, Droplets,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { mantenciones, bodega, reparaciones, contratos } from "@/lib/store"
@@ -30,6 +30,7 @@ const nav: NavItem[] = [
   { href: "/fabricacion", label: "Fabricación",  icon: Factory,       group: "Operaciones", desc: "Proyectos de fabricación" },
   { href: "/reparacion",  label: "Reparación",   icon: Settings,      group: "Operaciones", desc: "Equipos en reparación" },
   { href: "/clientes",    label: "Equipos en Terreno", icon: Users,    group: "Terreno",    desc: "Equipos y garantías" },
+  { href: "/instalacion", label: "Instalación",        icon: Droplets,      group: "Terreno",    desc: "Cálculo de nebulización" },
   { href: "/ordenes",     label: "Órdenes de Trabajo", icon: ClipboardList, group: "Terreno", desc: "OTs y seguimiento" },
   { href: "/nodos",       label: "Nodos",              icon: Radio,         group: "Terreno", desc: "Servicio SIM de equipos" },
   { href: "/cotizaciones",label: "Cotizaciones",      icon: FileText,  group: "Comercial",  desc: "Presupuestos y propuestas" },
@@ -99,7 +100,11 @@ export default function NavDrawer({ open, onClose }: NavDrawerProps) {
   }
 
   const esAdmin = user?.rol === "admin"
-  const visibleNav = nav.filter(item => esAdmin || TECNICO_ROUTES.includes(item.href) || canAccess(user, item.href))
+  const visibleNav = nav.filter(item => {
+    // Módulo Instalación: en desarrollo, visible solo para la cuenta autorizada (ver canAccess)
+    if (item.href === "/instalacion") return canAccess(user, item.href)
+    return esAdmin || TECNICO_ROUTES.includes(item.href) || canAccess(user, item.href)
+  })
 
   const ungrouped = visibleNav.filter(i => !i.group)
 
