@@ -19,13 +19,17 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
   const boxW = 116, boxH = 56, pitch = 150, x0 = 16
   const yAire = 96, yAgua = 250
 
-  const regAgua = r.setAgua != null && e.presionAgua > (r.setAgua as number) + 0.05
-  const regAire = r.setAire != null && e.presionAire > (r.setAire as number) + 0.05
-  const necesitaBomba = r.ok && r.setAgua != null && e.presionAgua < (r.setAgua as number) - 1e-6
+  const sinAire = e.aireEnPlanta === false
+  const sinAgua = e.aguaEnPlanta === false
+  const regAgua = !sinAgua && r.setAgua != null && e.presionAgua > (r.setAgua as number) + 0.05
+  const regAire = !sinAire && r.setAire != null && e.presionAire > (r.setAire as number) + 0.05
+  const necesitaBomba = !sinAgua && r.ok && r.setAgua != null && e.presionAgua < (r.setAgua as number) - 1e-6
 
   // Componentes de cada línea (izq → der)
   const aire: Caja[] = [
-    { tag: "A1", label: "Toma aire", sub: "acople rápido", tipo: "linea" },
+    sinAire
+      ? { tag: "A0", label: "Compresor", sub: `${r.setAire ?? "—"} bar`, tipo: "bomba" }
+      : { tag: "A1", label: "Toma aire", sub: "acople rápido", tipo: "linea" },
     { tag: "A2", label: "Válv. bola", sub: "corte manual", tipo: "linea" },
     { tag: "A3", label: "Filtro aire", sub: "de línea", tipo: "linea" },
   ]
@@ -33,10 +37,12 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
   aire.push({ tag: "A5", label: "Válv. solen.", sub: "230V · a nodo", tipo: "linea" })
 
   const agua: Caja[] = [
-    { tag: "W1", label: "Toma agua", sub: "matriz", tipo: "linea" },
+    sinAgua
+      ? { tag: "W0", label: "Estanque+bomba", sub: "SBI 4-16", tipo: "bomba" }
+      : { tag: "W1", label: "Toma agua", sub: "matriz", tipo: "linea" },
     { tag: "W2", label: "Válv. bola", sub: "corte manual", tipo: "linea" },
   ]
-  if (necesitaBomba) agua.push({ tag: "WB", label: "Bomba", sub: "SBI 4-16 + estanque", tipo: "bomba" })
+  if (necesitaBomba) agua.push({ tag: "WB", label: "Bomba", sub: "booster SBI 4-16", tipo: "bomba" })
   agua.push({ tag: "W3", label: "Filtro agua", sub: "de línea", tipo: "linea" })
   if (regAgua) agua.push({ tag: "W4", label: "Regulador", sub: `ajustar ${r.setAgua} bar`, tipo: "linea" })
   agua.push({ tag: "W5", label: "Válv. solen.", sub: "230V · a nodo", tipo: "linea" })
