@@ -47,7 +47,6 @@ export const MODULO_A_RUTA: Record<string, string> = {
   nodos:         "/nodos",
   tareas:        "/tareas",
   pagos:         "/pagos",
-  instalacion:   "/instalacion",
 }
 
 async function fetchPerfil(uid: string): Promise<Usuario | null> {
@@ -174,10 +173,19 @@ export function useAuth() {
 }
 
 // Rutas accesibles por técnicos sin permisos asignados (fallback)
-const TECNICO_RUTAS_DEFAULT = ["/mantencion", "/equipos", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega", "/instalacion"]
+const TECNICO_RUTAS_DEFAULT = ["/mantencion", "/equipos", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega"]
+
+// Módulo en desarrollo: visible/accesible solo para esta cuenta hasta su lanzamiento
+const INSTALACION_EMAIL = "n.palacios.marchant@gmail.com"
 
 export function canAccess(user: Usuario | null, pathname: string): boolean {
   if (!user) return false
+
+  // Módulo Instalación restringido temporalmente a una sola cuenta
+  if (("/" + pathname.split("/")[1]) === "/instalacion") {
+    return (user.email ?? "").toLowerCase() === INSTALACION_EMAIL.toLowerCase()
+  }
+
   if (user.rol === "admin") return true
 
   const base = "/" + pathname.split("/")[1]
