@@ -17,6 +17,7 @@ interface FormState {
   cliente: string; faena: string; puntoDescarga: string
   presionAire: string; presionAgua: string; nBoquillas: string
   boquillaTipo: BoquillaTipo; objetivo: Objetivo
+  aireEnPlanta: "si" | "no"; aguaEnPlanta: "si" | "no"
   largoCorrea: string; espaciamiento: string; observaciones: string
 }
 
@@ -25,6 +26,7 @@ function emptyForm(): FormState {
     cliente: "", faena: "", puntoDescarga: "",
     presionAire: "6", presionAgua: "4", nBoquillas: "3",
     boquillaTipo: "auto", objetivo: "alcance",
+    aireEnPlanta: "si", aguaEnPlanta: "si",
     largoCorrea: "", espaciamiento: "", observaciones: "",
   }
 }
@@ -45,6 +47,8 @@ export default function InstalacionPage() {
     nBoquillas: Number(form.nBoquillas) || 0,
     boquillaTipo: form.boquillaTipo,
     objetivo: form.objetivo,
+    aireEnPlanta: form.aireEnPlanta === "si",
+    aguaEnPlanta: form.aguaEnPlanta === "si",
     largoCorrea: form.largoCorrea ? Number(form.largoCorrea) : undefined,
     espaciamiento: form.espaciamiento ? Number(form.espaciamiento) : undefined,
   }), [form])
@@ -74,6 +78,8 @@ export default function InstalacionPage() {
       presionAire: String(i.presionAire ?? ""), presionAgua: String(i.presionAgua ?? ""),
       nBoquillas: String(i.nBoquillas ?? ""),
       boquillaTipo: (i.boquillaTipo as BoquillaTipo) ?? "auto", objetivo: "alcance",
+      aireEnPlanta: (i.resultado as { aireEnPlanta?: boolean } | undefined)?.aireEnPlanta === false ? "no" : "si",
+      aguaEnPlanta: (i.resultado as { aguaEnPlanta?: boolean } | undefined)?.aguaEnPlanta === false ? "no" : "si",
       largoCorrea: i.largoCorrea != null ? String(i.largoCorrea) : "",
       espaciamiento: i.espaciamiento != null ? String(i.espaciamiento) : "",
       observaciones: i.observaciones ?? "",
@@ -104,8 +110,22 @@ export default function InstalacionPage() {
         <div className="glass-section p-4 space-y-3 self-start">
           <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Datos en terreno</div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1"><Label>Presión aire (bar)</Label><Input type="number" step="0.1" min="0" value={form.presionAire} onChange={e => set("presionAire", e.target.value)} /></div>
-            <div className="space-y-1"><Label>Presión agua (bar)</Label><Input type="number" step="0.1" min="0" value={form.presionAgua} onChange={e => set("presionAgua", e.target.value)} /></div>
+            <div className="space-y-1"><Label>¿Aire en planta?</Label>
+              <select className={selCls} value={form.aireEnPlanta} onChange={e => set("aireEnPlanta", e.target.value)}>
+                <option value="si">Sí</option>
+                <option value="no">No (agregar compresor)</option>
+              </select>
+            </div>
+            <div className="space-y-1"><Label>¿Agua en planta?</Label>
+              <select className={selCls} value={form.aguaEnPlanta} onChange={e => set("aguaEnPlanta", e.target.value)}>
+                <option value="si">Sí</option>
+                <option value="no">No (agregar estanque)</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1"><Label>Presión aire (bar)</Label><Input type="number" step="0.1" min="0" value={form.presionAire} disabled={form.aireEnPlanta === "no"} onChange={e => set("presionAire", e.target.value)} /></div>
+            <div className="space-y-1"><Label>Presión agua (bar)</Label><Input type="number" step="0.1" min="0" value={form.presionAgua} disabled={form.aguaEnPlanta === "no"} onChange={e => set("presionAgua", e.target.value)} /></div>
           </div>
           <div className="space-y-1"><Label>N° de boquillas</Label><Input type="number" min="1" value={form.nBoquillas} onChange={e => set("nBoquillas", e.target.value)} /></div>
 
