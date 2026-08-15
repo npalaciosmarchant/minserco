@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { visitasTecnicas } from "@/lib/store"
+import { visitasTecnicas, usuarios } from "@/lib/store"
+import { getSupabase } from "@/lib/supabase"
 import { VisitaTecnica, EstadoAgenda } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -10,7 +11,6 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, MapPin, User } from "lucide-react"
-import { SelectTecnico } from "@/components/ui/SelectTecnico"
 import PageShell from "@/components/layout/PageShell"
 import { AgendaVista } from "@/components/ui/AgendaVista"
 
@@ -37,6 +37,12 @@ export default function VisitasPage() {
   const [form, setForm] = useState(emptyForm())
   const cargar = () => setLista(visitasTecnicas.getAll())
   useEffect(() => { cargar() }, [])
+  const [usuariosLista, setUsuariosLista] = useState<{ id: string; nombre: string }[]>([])
+  useEffect(() => {
+    const local = usuarios.getAll()
+    if (local.length) setUsuariosLista(local.map(u => ({ id: u.id, nombre: u.nombre })))
+    else (async () => { try { const { data } = await getSupabase().from("usuarios").select("id,nombre"); if (data) setUsuariosLista(data.map((u: { id: string; nombre: string }) => ({ id: u.id, nombre: u.nombre }))) } catch { /* offline */ } })()
+  }, [])
   const setS = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }) as unknown as typeof f)
 
   function abrir(v?: VisitaTecnica) {
@@ -99,7 +105,17 @@ export default function VisitasPage() {
               <div className="space-y-1"><Label>Hora</Label><Input type="time" value={form.hora ?? ""} onChange={e => setS("hora", e.target.value)} /></div>
             </div>
             <div className="space-y-1"><Label>Dirección</Label><Input value={form.direccion ?? ""} onChange={e => setS("direccion", e.target.value)} /></div>
-            <div className="space-y-1"><Label>Técnico a cargo</Label><SelectTecnico value={form.tecnico ?? ""} onChange={v => setS("tecnico", v)} /></div>
+            <div className="space-y-1"><Label>Encargado</Label>
+              {usuariosLista.length > 0 ? (
+                <select value={form.tecnico ?? ""} onChange={e => setS("tecnico", e.target.value)} className="w-full h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none">
+                  <option value="">Seleccionar encargado…</option>
+                  {usuariosLista.map(u => <option key={u.id} value={u.nombre}>{u.nombre}</option>)}
+                  {form.tecnico && !usuariosLista.some(u => u.nombre === form.tecnico) && <option value={form.tecnico}>{form.tecnico}</option>}
+                </select>
+              ) : (
+                <Input value={form.tecnico ?? ""} onChange={e => setS("tecnico", e.target.value)} placeholder="Nombre del encargado" />
+              )}
+            </div>
             <div className="space-y-1"><Label>Motivo</Label><Input value={form.motivo ?? ""} onChange={e => setS("motivo", e.target.value)} /></div>
             <div className="space-y-1"><Label>Estado</Label>
               <Select value={form.estado} onValueChange={v => setS("estado", v ?? "programada")}>
