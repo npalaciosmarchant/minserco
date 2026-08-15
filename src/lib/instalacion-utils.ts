@@ -105,6 +105,8 @@ export interface EntradaInstalacion {
   nBoquillas: number
   boquillaTipo: BoquillaTipo
   objetivo: Objetivo
+  aireEnPlanta?: boolean   // ¿la planta cuenta con aire comprimido? (default true)
+  aguaEnPlanta?: boolean   // ¿la planta cuenta con agua? (default true)
   largoCorrea?: number     // m (opcional, para sugerir N)
   espaciamiento?: number   // m entre boquillas (opcional)
 }
@@ -126,6 +128,8 @@ export interface Recomendacion {
   instalar: ItemReco[]
   noInstalar: ItemReco[]
   advertencias: string[]
+  aireEnPlanta: boolean
+  aguaEnPlanta: boolean
 }
 
 function tabla(tipo: "0.8" | "1"): FilaTurbofog[] {
@@ -169,12 +173,19 @@ export function recomendar(e: EntradaInstalacion): Recomendacion {
   let tipo: "0.8" | "1" = e.boquillaTipo === "1" ? "1" : "0.8"
   if (e.boquillaTipo === "auto") tipo = "0.8"
 
-  let fila = mejorFila(tipo, e.presionAire, e.presionAgua, e.objetivo)
+  // ¿La planta cuenta con aire y/o agua? Si no, la fuente (compresor / estanque+bomba)
+  // provee la presión de trabajo, así que para elegir el punto se usa todo el rango de tabla.
+  const aireEnPlanta = e.aireEnPlanta !== false
+  const aguaEnPlanta = e.aguaEnPlanta !== false
+  const effAire = aireEnPlanta ? e.presionAire : 2.5
+  const effAgua = aguaEnPlanta ? e.presionAgua : 6
+
+  let fila = mejorFila(tipo, effAire, effAgua, e.objetivo)
 
   // Si la seleccionada no alcanza pero la otra sí, avisar
   if (!fila) {
     const otra = tipo === "0.8" ? "1" : "0.8"
-    const filaOtra = mejorFila(otra as "0.8" | "1", e.presionAire, e.presionAgua, e.objetivo)
+    const filaOtra = mejorFila(otra as "0.8" | "1", effAire, effAgua, e.objetivo)
     if (filaOtra) advertencias.push(`Con la boquilla Ø${tipo}mm las presiones disponibles no alcanzan una posición de trabajo válida; la boquilla Ø${otra}mm sí funcionaría.`)
   }
 
@@ -195,6 +206,7 @@ export function recomendar(e: EntradaInstalacion): Recomendacion {
       aguaTotalLmin: 0, aireTotalM3h: 0, aporteFrioTotal: 0,
       nSugerido, setAgua: null, setAire: null, evAgua: null, evAire: null,
       instalar, noInstalar, advertencias,
+      aireEnPlanta, aguaEnPlanta,
     }
   }
 
@@ -208,11 +220,15 @@ export function recomendar(e: EntradaInstalacion): Recomendacion {
   // Boquillas
   instalar.push({ texto: `${n} boquilla(s) Turbofog Ø${tipo}mm con válvula antigoteo`, detalle: `consumo total ${aguaTotalLmin} L/min de agua y ${aireTotalM3h} m³/h de aire` })
 
-  // Reguladores: bajar presión disponible al punto de trabajo
-  if (e.presionAgua > fila.pAgua + 0.05) {
+  // Regulador de agua (solo si hay agua en planta y la presión sobra)
+  if (aguaEnPlanta && e.presionAgua > fila.pAgua + 0.05) {
     instalar.push({ texto: "Regulador de presión de agua", detalle: `ajustar a ${fila.pAgua} bar (disponible ${e.presionAgua} bar)` })
   }
-  if (e.presionAire > fila.pAire + 0.05) {
+
+  // Fuente de aire: compresor si NO hay aire en planta; si hay y sobra, regulador
+  if (!aireEnPlanta) {
+    instalar.push({ texto: "Compresor de aire", detalle: `no hay aire en planta: debe entregar ${fila.pAire} bar y ~${aireTotalM3h} m³/h` })
+  } else if (e.presionAire > fila.pAire + 0.05) {
     instalar.push({ texto: "Regulador de presión de aire", detalle: `ajustar a ${fila.pAire} bar (disponible ${e.presionAire} bar)` })
   }
 
@@ -230,27 +246,34 @@ export function recomendar(e: EntradaInstalacion): Recomendacion {
   instalar.push({ texto: `Manifold de mezcla aire/agua con ${Math.max(1, n)} salida(s)` })
   instalar.push({ texto: `Controlador / nodo de monitoreo ${DEFAULTS.voltaje}`, detalle: "comanda las electroválvulas y reporta estado" })
 
-  // Bomba/estanque: ¿la presión de agua alcanza?
-  const necesitaBomba = e.presionAgua < fila.pAgua - 1e-6
-  if (necesitaBomba) {
-    if (aguaTotalLmin <= DEFAULTS.bombaCaudalLmin) {
-      instalar.push({ texto: `Bomba booster ${DEFAULTS.bombaModelo} + estanque ${DEFAULTS.estanqueLitros} L`, detalle: `entrega ${DEFAULTS.bombaCaudalLmin} L/min, suficiente para ${aguaTotalLmin} L/min` })
+  // Fuente de agua
+  const bombaOk = aguaTotalLmin <= DEFAULTS.bombaCaudalLmin
+  const hayBomba = !aguaEnPlanta || e.presionAgua < fila.pAgua - 1e-6
+  if (!aguaEnPlanta) {
+    if (bombaOk) {
+      instalar.push({ texto: `Estanque de agua ${DEFAULTS.estanqueLitros} L + bomba ${DEFAULTS.bombaModelo}`, detalle: `no hay agua en planta: almacenar y presurizar a ${fila.pAgua} bar · ${DEFAULTS.bombaCaudalLmin} L/min` })
+    } else {
+      instalar.push({ texto: `Estanque de agua + bomba de mayor caudal (>${aguaTotalLmin} L/min)`, detalle: `la ${DEFAULTS.bombaModelo} (${DEFAULTS.bombaCaudalLmin} L/min) queda corta` })
+      advertencias.push(`El caudal total (${aguaTotalLmin} L/min) supera la capacidad de la bomba ${DEFAULTS.bombaModelo} (${DEFAULTS.bombaCaudalLmin} L/min).`)
+    }
+  } else if (e.presionAgua < fila.pAgua - 1e-6) {
+    if (bombaOk) {
+      instalar.push({ texto: `Bomba booster ${DEFAULTS.bombaModelo} + estanque ${DEFAULTS.estanqueLitros} L`, detalle: `presión de agua insuficiente (${e.presionAgua} < ${fila.pAgua} bar); entrega ${DEFAULTS.bombaCaudalLmin} L/min` })
     } else {
       instalar.push({ texto: `Bomba de mayor caudal (>${aguaTotalLmin} L/min) + estanque`, detalle: `la ${DEFAULTS.bombaModelo} (${DEFAULTS.bombaCaudalLmin} L/min) queda corta` })
       advertencias.push(`El caudal total (${aguaTotalLmin} L/min) supera la capacidad de la bomba ${DEFAULTS.bombaModelo} (${DEFAULTS.bombaCaudalLmin} L/min).`)
     }
   } else {
-    noInstalar.push({ texto: "Bomba booster", detalle: `presión de agua de red suficiente (${e.presionAgua} bar ≥ ${fila.pAgua} bar de trabajo)` })
-    noInstalar.push({ texto: "Estanque acumulador", detalle: "suministro directo de red" })
+    noInstalar.push({ texto: "Bomba booster / estanque", detalle: `hay agua en planta con presión suficiente (${e.presionAgua} bar ≥ ${fila.pAgua} bar)` })
   }
 
-  // Aire de red: si sobra presión, no se necesita compresor extra
-  if (e.presionAire >= fila.pAire) {
-    noInstalar.push({ texto: "Compresor adicional", detalle: `aire disponible suficiente (${e.presionAire} bar ≥ ${fila.pAire} bar de trabajo)` })
+  // Compresor: no hace falta si hay aire en planta con presión suficiente
+  if (aireEnPlanta && e.presionAire >= fila.pAire) {
+    noInstalar.push({ texto: "Compresor", detalle: `hay aire en planta suficiente (${e.presionAire} bar ≥ ${fila.pAire} bar de trabajo)` })
   }
 
   // Boquillas extra por caudal (informativo respecto a bomba)
-  if (necesitaBomba && aguaTotalLmin <= DEFAULTS.bombaCaudalLmin) {
+  if (hayBomba && bombaOk) {
     const margen = DEFAULTS.bombaCaudalLmin - aguaTotalLmin
     const extra = Math.floor(margen / (fila.aguaLh / 60))
     if (extra > 0) noInstalar.push({ texto: `Boquillas adicionales`, detalle: `con la bomba caben hasta ~${extra} boquilla(s) más antes de saturar el caudal` })
@@ -263,5 +286,6 @@ export function recomendar(e: EntradaInstalacion): Recomendacion {
     setAgua: fila.pAgua, setAire: fila.pAire,
     evAgua, evAire,
     instalar, noInstalar, advertencias,
+    aireEnPlanta, aguaEnPlanta,
   }
 }
