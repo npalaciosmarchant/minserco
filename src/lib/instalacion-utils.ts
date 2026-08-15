@@ -83,9 +83,9 @@ export const TABLA_EV: FilaEV[] = [
 
 // ── Reglas por defecto (ajustables a futuro) ─────────────────────────────────
 export const DEFAULTS = {
-  voltaje: "24 VDC",
-  filtroAire: "coalescente 5 µm",
-  filtroAgua: "Y malla 100 mesh",
+  voltaje: "230V",
+  filtroAire: "de línea",
+  filtroAgua: "de línea",
   bombaModelo: "STAIRS SBI 4-16",
   bombaCaudalLmin: 83,
   estanqueLitros: 500,
@@ -142,6 +142,14 @@ function mejorFila(tipo: "0.8" | "1", pAire: number, pAgua: number, obj: Objetiv
     return b.alcanceM - a.alcanceM || b.aguaLh - a.aguaLh // alcance
   })
   return sorted[0]
+}
+
+function valvulaPara(linea: string, flujoLmin: number, ev: FilaEV): ItemReco {
+  const pequenas = ["EV04", "EV06", "EV08"] // hasta ½" -> válvula solenoide Minserco
+  if (pequenas.includes(ev.codigo)) {
+    return { texto: `Válvula solenoide ${linea} Minserco ½" NPT (${DEFAULTS.voltaje})`, detalle: `caudal ${flujoLmin.toFixed(1)} L/min · filtro interno 20 µm · comunica a nodo (RS232)` }
+  }
+  return { texto: `Electroválvula ${linea} ${ev.codigo} (${ev.medida}) ${DEFAULTS.voltaje}`, detalle: `capacidad ${ev.capacidadLmin} L/min · bobina BB220CA + tripolar TP8W` }
 }
 
 export function recomendar(e: EntradaInstalacion): Recomendacion {
@@ -209,14 +217,14 @@ export function recomendar(e: EntradaInstalacion): Recomendacion {
   }
 
   // Filtros estándar
-  instalar.push({ texto: `Filtro de aire ${DEFAULTS.filtroAire}`, detalle: "protege boquillas y electroválvula" })
-  instalar.push({ texto: `Filtro de agua ${DEFAULTS.filtroAgua}`, detalle: "la válvula solenoide trae filtro interno de 20 µm" })
+  instalar.push({ texto: "Filtro de aire de línea", detalle: "protege las boquillas y la válvula" })
+  instalar.push({ texto: "Filtro de agua de línea", detalle: "la válvula solenoide trae filtro interno de 20 µm (ficha técnica)" })
 
-  // Electroválvulas
+  // Válvulas de línea (agua y aire)
   const evAgua = elegirEV(aguaTotalLmin)
   const evAire = elegirEV(aireTotalLmin)
-  instalar.push({ texto: `Electroválvula agua ${evAgua.codigo} (${evAgua.medida})`, detalle: `capacidad ${evAgua.capacidadLmin} L/min · bobina ${DEFAULTS.voltaje}` })
-  instalar.push({ texto: `Electroválvula aire ${evAire.codigo} (${evAire.medida})`, detalle: `capacidad ${evAire.capacidadLmin} L/min · bobina ${DEFAULTS.voltaje}` })
+  instalar.push(valvulaPara("agua", aguaTotalLmin, evAgua))
+  instalar.push(valvulaPara("aire", aireTotalLmin, evAire))
 
   // Manifold y controlador
   instalar.push({ texto: `Manifold de mezcla aire/agua con ${Math.max(1, n)} salida(s)` })
