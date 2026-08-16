@@ -120,6 +120,7 @@ export default function NavDrawer({ open, onClose }: NavDrawerProps) {
 
   const NavLink = ({ href, label, icon: Icon, desc }: NavItem) => {
     const active = isActive(href)
+    const feat = href === "/instalacion"
     const badge = badges[href]
     return (
       <Link
@@ -127,31 +128,31 @@ export default function NavDrawer({ open, onClose }: NavDrawerProps) {
         onClick={onClose}
         className="nav-drawer-item-enter flex items-center gap-3 px-3 py-2.5 rounded-lg group relative"
         style={{
-          color: active ? "#FFFFFF" : "rgba(255,255,255,0.55)",
-          background: active ? "rgba(3,105,161,0.25)" : "transparent",
-          border: active ? "1px solid rgba(3,105,161,0.30)" : "1px solid transparent",
+          color: active ? "#FFFFFF" : feat ? "#6EE7B7" : "rgba(255,255,255,0.55)",
+          background: active ? "rgba(3,105,161,0.25)" : feat ? "rgba(16,185,129,0.10)" : "transparent",
+          border: active ? "1px solid rgba(3,105,161,0.30)" : feat ? "1px solid rgba(16,185,129,0.35)" : "1px solid transparent",
           transition: "all 150ms ease",
         }}
         onMouseEnter={e => {
           if (!active) {
-            ;(e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"
-            ;(e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.88)"
-            ;(e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.06)"
+            ;(e.currentTarget as HTMLElement).style.background = feat ? "rgba(16,185,129,0.18)" : "rgba(255,255,255,0.06)"
+            ;(e.currentTarget as HTMLElement).style.color = feat ? "#A7F3D0" : "rgba(255,255,255,0.88)"
+            ;(e.currentTarget as HTMLElement).style.borderColor = feat ? "rgba(16,185,129,0.45)" : "rgba(255,255,255,0.06)"
           }
         }}
         onMouseLeave={e => {
           if (!active) {
-            ;(e.currentTarget as HTMLElement).style.background = "transparent"
-            ;(e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"
-            ;(e.currentTarget as HTMLElement).style.borderColor = "transparent"
+            ;(e.currentTarget as HTMLElement).style.background = feat ? "rgba(16,185,129,0.10)" : "transparent"
+            ;(e.currentTarget as HTMLElement).style.color = feat ? "#6EE7B7" : "rgba(255,255,255,0.55)"
+            ;(e.currentTarget as HTMLElement).style.borderColor = feat ? "rgba(16,185,129,0.35)" : "transparent"
           }
         }}
       >
         {/* Left accent */}
-        {active && (
+        {(active || feat) && (
           <span
             className="absolute left-0 top-1/2 -translate-y-1/2 rounded-r-full"
-            style={{ width: "3px", height: "18px", background: "#0369A1" }}
+            style={{ width: "3px", height: "18px", background: active ? "#0369A1" : "#10B981" }}
           />
         )}
 
@@ -159,12 +160,12 @@ export default function NavDrawer({ open, onClose }: NavDrawerProps) {
         <div
           className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
           style={{
-            background: active ? "rgba(3,105,161,0.30)" : "rgba(255,255,255,0.06)",
+            background: active ? "rgba(3,105,161,0.30)" : feat ? "rgba(16,185,129,0.20)" : "rgba(255,255,255,0.06)",
             transition: "background 150ms",
           }}
         >
-          <Icon size={14} strokeWidth={active ? 2.2 : 1.8}
-            style={{ color: active ? "#7DD3FC" : "inherit" }} />
+          <Icon size={14} strokeWidth={active || feat ? 2.2 : 1.8}
+            style={{ color: active ? "#7DD3FC" : feat ? "#34D399" : "inherit" }} />
         </div>
 
         {/* Text */}
@@ -179,7 +180,20 @@ export default function NavDrawer({ open, onClose }: NavDrawerProps) {
         </div>
 
         {/* Badge o chevron */}
-        {badge != null && badge > 0 ? (
+        {feat ? (
+          <span
+            className="text-[9px] font-bold rounded-full h-5 flex items-center justify-center px-2 shrink-0"
+            style={{
+              background: "rgba(16,185,129,0.22)",
+              color: "#6EE7B7",
+              border: "1px solid rgba(16,185,129,0.40)",
+              fontFamily: "Fira Code, monospace",
+              letterSpacing: "0.05em",
+            }}
+          >
+            NUEVO
+          </span>
+        ) : badge != null && badge > 0 ? (
           <span
             className="text-[10px] font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1 shrink-0"
             style={{
