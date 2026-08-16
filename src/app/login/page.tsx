@@ -82,7 +82,7 @@ export default function LoginPage() {
         <div className="mt-auto mb-10">
           <h1 className="text-4xl font-black leading-tight mb-4 text-white">
             Control total de<br />
-            <span style={{ color: "#7DD3FC" }}>mantenimiento</span>{" "}
+            mantenimiento{" "}
             y operaciones
           </h1>
         </div>
