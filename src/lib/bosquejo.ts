@@ -132,7 +132,7 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
     <rect x="0" y="0" width="${W}" height="${H}" rx="12" fill="#f8fafc"/>
     ${leg}${etiqAire}${etiqAgua}
     ${svgAire}${svgAgua}${manifold}${boquillas}${controlador}
-    <text x="${nzX - 8}" y="${H - 12}" font-size="9.5" fill="#94a3b8" text-anchor="end">Nota 3 :El alcance de nube se ha tomado, instalando las boquillas a 2m sobre el nivel del suelo.</text>
+    <text x="${nzX - 8}" y="${H - 12}" font-size="9.5" fill="#94a3b8" text-anchor="end">Nota :El alcance de nube se ha tomado, instalando las boquillas a 2m sobre el nivel del suelo.</text>
     <text x="${x0}" y="${H - 12}" font-size="9.5" fill="#94a3b8">Esquema referencial de conexión · no es plano de ingeniería</text>
   </svg>`
 }
