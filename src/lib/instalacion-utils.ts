@@ -3,6 +3,7 @@
 // electroválvulas EV, bomba STAIRS SBI 4-16 y válvula solenoide.
 
 export type BoquillaTipo = "0.8" | "1" | "auto"
+export type SistemaBoquilla = "turbofog" | "mhky"
 export type Objetivo = "alcance" | "fina" | "ahorro"
 
 export interface FilaTurbofog {
@@ -93,6 +94,73 @@ export const DEFAULTS = {
   margenValvula: 1.2, // 20% de margen al dimensionar electroválvula
 }
 
+// ── Catálogo de estanques (fichas Bioplastic / Minserco / Tupel) ─────────────
+export interface Estanque { litros: number; modelo: string; forma: "horizontal" | "vertical"; medidas: string }
+export const ESTANQUES: Estanque[] = [
+  { litros: 1100,  modelo: "Estanque horizontal 1.100 L",            forma: "horizontal", medidas: "1,17 × 1,60 × 1,0 m" },
+  { litros: 5000,  modelo: "Estanque horizontal 5.000 L",            forma: "horizontal", medidas: "1,55 × 2,85 m · Ø1,43 m" },
+  { litros: 10000, modelo: "Estanque vertical 10.000 L (EVS10000)",  forma: "vertical",   medidas: "Ø2,5 × 2,1 m" },
+  { litros: 30000, modelo: "Estanque vertical 30.000 L (Tupel)",     forma: "vertical",   medidas: "Ø3,36 × 3,8 m" },
+]
+export function estanquePorLitros(l?: number): Estanque {
+  return ESTANQUES.find(e => e.litros === l) ?? ESTANQUES[0]
+}
+
+// ── Catálogo de bombas (presión aprox = altura manométrica / 10,2) ───────────
+export interface Bomba { modelo: string; hp: number; kw: number; caudalMaxLmin: number; presionMaxBar: number; uso: string }
+export const BOMBAS: Bomba[] = [
+  { modelo: "STAIRS SBI 4-16",         hp: 1.5, kw: 1.1, caudalMaxLmin: 83,   presionMaxBar: 5.5, uso: "booster multietapa" },
+  { modelo: "REGGIO STO 150",          hp: 1.5, kw: 1.1, caudalMaxLmin: 160,  presionMaxBar: 4.8, uso: "multietapa alta presión" },
+  { modelo: "REGGIO STO 200",          hp: 2.0, kw: 1.5, caudalMaxLmin: 160,  presionMaxBar: 6.0, uso: "multietapa alta presión" },
+  { modelo: "REGGIO STO 300",          hp: 3.0, kw: 2.2, caudalMaxLmin: 160,  presionMaxBar: 7.3, uso: "multietapa alta presión" },
+  { modelo: "REGGIO SCF (centrífuga)", hp: 3.0, kw: 2.2, caudalMaxLmin: 1200, presionMaxBar: 1.8, uso: "alto caudal / baja presión (trasvasije)" },
+]
+// Elige la bomba más chica que cubra el caudal y la presión pedidos (excluye la centrífuga de baja presión salvo que se pida por caudal).
+export function elegirBomba(caudalLmin: number, presionBar: number): Bomba {
+  const apta = BOMBAS.filter(b => b.caudalMaxLmin >= caudalLmin && b.presionMaxBar >= presionBar)
+                     .sort((a, b) => a.caudalMaxLmin - b.caudalMaxLmin || a.hp - b.hp)
+  return apta[0] ?? BOMBAS[BOMBAS.length - 1]
+}
+export function bombaPorModelo(m?: string): Bomba | null {
+  if (!m || m === "auto") return null
+  return BOMBAS.find(b => b.modelo === m) ?? null
+}
+
+// ── Modelos reales de cada componente (fichas técnicas entregadas) ───────────
+export const COMPONENTES = {
+  compresor:        "Compresor de tornillo KRATTO (inverter MAM-6080)",
+  compresorPresion: "6–8 bar",
+  generador:        "Generador diésel 14 kVA trifásico (13 kVA nom · 380V · autonomía >12 h)",
+  filtroAire:       "Filtro de aire comprimido FRL-QBM1 (micro-automación)",
+  filtroAgua:       "Filtro de línea RBM (cartucho 800 µm)",
+  regulador:        "Reductor de presión RBM Rinox",
+  solenoide:        'Válvula solenoide Minserco ½" NPT (bronce · filtro 20 µm · 230V · RS232)',
+  controlador:      "Tablero MAXIFOG 30S / T-PCB02 (nodo de monitoreo)",
+  sensorPresion:    "Sensor de presión HK1100C (0–12 bar · 5V · G¼)",
+  interruptorNivel: "Interruptor de nivel Exceline GFE-MV (flotante IP68)",
+}
+
+// Regla RBM Rinox: la relación presión entrada/salida no debe superar 2,5 (cavitación).
+export const RBM_RATIO_MAX = 2.5
+
+// ── Boquilla MHKY 3/8 (cono 65°, solo-agua). Caudal L/min por código y presión (bar) ──
+export interface FilaMHKY { codigo: string; pasoMm: number; cap: Record<number, number> }
+export const MHKY: FilaMHKY[] = [
+  { codigo: "6503", pasoMm: 1.1, cap: { 1: 0.68, 1.5: 0.83, 2: 0.97, 3: 1.2, 4: 1.4, 5: 1.5, 6: 1.7, 7: 1.8, 10: 2.2 } },
+  { codigo: "6505", pasoMm: 1.4, cap: { 1: 1.1,  1.5: 1.3,  2: 1.6,  3: 2.0, 4: 2.3, 5: 2.5, 6: 2.8, 7: 3.0, 10: 3.6 } },
+  { codigo: "6506", pasoMm: 1.6, cap: { 1: 1.4,  1.5: 1.7,  2: 1.9,  3: 2.4, 4: 2.7, 5: 3.1, 6: 3.3, 7: 3.6, 10: 4.3 } },
+  { codigo: "6508", pasoMm: 1.8, cap: { 1: 1.8,  1.5: 2.2,  2: 2.6,  3: 3.2, 4: 3.6, 5: 4.1, 6: 4.5, 7: 4.8, 10: 5.8 } },
+  { codigo: "6510", pasoMm: 2.0, cap: { 1: 2.3,  1.5: 2.8,  2: 3.2,  3: 3.9, 4: 4.6, 5: 5.1, 6: 5.6, 7: 6.0, 10: 7.2 } },
+  { codigo: "6515", pasoMm: 2.4, cap: { 1: 3.4,  1.5: 4.2,  2: 4.8,  3: 5.9, 4: 6.6, 5: 7.6, 6: 8.4, 7: 9.0, 10: 10.8 } },
+  { codigo: "6520", pasoMm: 2.8, cap: { 1: 4.6,  1.5: 5.6,  2: 6.5,  3: 7.9, 4: 9.1, 5: 10.2, 6: 11.2, 7: 12.1, 10: 14.4 } },
+]
+const MHKY_PRESIONES = [1, 1.5, 2, 3, 4, 5, 6, 7, 10]
+export function mhkyCaudal(f: FilaMHKY, presion: number): number {
+  // caudal a la mayor presión tabulada que no supere la disponible (mín 1 bar)
+  const p = MHKY_PRESIONES.filter(x => x <= presion + 1e-6).pop() ?? 1
+  return f.cap[p]
+}
+
 function elegirEV(flujoLmin: number): FilaEV {
   const req = flujoLmin * DEFAULTS.margenValvula
   const ev = TABLA_EV.find(e => e.capacidadLmin >= req)
@@ -105,10 +173,15 @@ export interface EntradaInstalacion {
   nBoquillas: number
   boquillaTipo: BoquillaTipo
   objetivo: Objetivo
-  aireEnPlanta?: boolean   // ¿la planta cuenta con aire comprimido? (default true)
-  aguaEnPlanta?: boolean   // ¿la planta cuenta con agua? (default true)
-  largoCorrea?: number     // m (opcional, para sugerir N)
-  espaciamiento?: number   // m entre boquillas (opcional)
+  sistema?: SistemaBoquilla   // "turbofog" (aire-agua) | "mhky" (solo-agua). default turbofog
+  mhkyCodigo?: string         // código MHKY forzado (opcional; si no, auto por objetivo)
+  aireEnPlanta?: boolean      // ¿la planta cuenta con aire comprimido? (default true)
+  aguaEnPlanta?: boolean      // ¿la planta cuenta con agua? (default true)
+  energiaEnPlanta?: boolean   // ¿hay energía eléctrica en planta? (default true)
+  estanqueLitros?: number     // estanque elegido por el técnico (L). default 1100
+  bombaModelo?: string        // bomba forzada por el técnico ("auto" = automática)
+  largoCorrea?: number        // m (opcional, para sugerir N)
+  espaciamiento?: number      // m entre boquillas (opcional)
 }
 
 export interface ItemReco { texto: string; detalle?: string }
@@ -130,6 +203,11 @@ export interface Recomendacion {
   advertencias: string[]
   aireEnPlanta: boolean
   aguaEnPlanta: boolean
+  energiaEnPlanta: boolean
+  sistema: SistemaBoquilla
+  boquillaModelo: string
+  estanque: Estanque
+  bomba: Bomba | null
 }
 
 function tabla(tipo: "0.8" | "1"): FilaTurbofog[] {
@@ -151,141 +229,198 @@ function mejorFila(tipo: "0.8" | "1", pAire: number, pAgua: number, obj: Objetiv
 function valvulaPara(linea: string, flujoLmin: number, ev: FilaEV): ItemReco {
   const pequenas = ["EV04", "EV06", "EV08"] // hasta ½" -> válvula solenoide Minserco
   if (pequenas.includes(ev.codigo)) {
-    return { texto: `Válvula solenoide ${linea} Minserco ½" NPT (${DEFAULTS.voltaje})`, detalle: `caudal ${flujoLmin.toFixed(1)} L/min · filtro interno 20 µm · comunica a nodo (RS232)` }
+    return { texto: `Válvula solenoide ${linea} Minserco ½" NPT (bronce · 230V)`, detalle: `caudal ${flujoLmin.toFixed(1)} L/min · filtro interno 20 µm · Pmáx 20 bar · RS232 a nodo` }
   }
   return { texto: `Electroválvula ${linea} ${ev.codigo} (${ev.medida}) ${DEFAULTS.voltaje}`, detalle: `capacidad ${ev.capacidadLmin} L/min · bobina BB220CA + tripolar TP8W` }
 }
 
+// ── Fuente de agua (bomba + estanque) según necesidad. Devuelve la bomba elegida (o null). ──
+function fuenteAgua(
+  ctx: { aguaEnPlanta: boolean; presionAgua: number; setAgua: number; estanque: Estanque; bombaForzada: Bomba | null; caudalLmin: number },
+  instalar: ItemReco[], noInstalar: ItemReco[], advertencias: string[],
+): Bomba | null {
+  const { aguaEnPlanta, presionAgua, setAgua, estanque, bombaForzada, caudalLmin } = ctx
+  const needPump = !aguaEnPlanta || presionAgua < setAgua - 1e-6
+  if (!needPump) {
+    noInstalar.push({ texto: "Bomba booster / estanque", detalle: `hay agua en planta con presión suficiente (${presionAgua} bar >= ${setAgua} bar)` })
+    return null
+  }
+  const bomba = bombaForzada ?? elegirBomba(caudalLmin, setAgua)
+  const ok = bomba.caudalMaxLmin >= caudalLmin && bomba.presionMaxBar >= setAgua - 1e-6
+  const motivo = !aguaEnPlanta ? "no hay agua en planta: almacenar y presurizar" : `presión de agua insuficiente (${presionAgua} < ${setAgua} bar)`
+  instalar.push({
+    texto: `${estanque.modelo} + bomba ${bomba.modelo}`,
+    detalle: `${motivo} a ${setAgua} bar · bomba ${bomba.hp} HP hasta ${bomba.caudalMaxLmin} L/min y ${bomba.presionMaxBar} bar · ${estanque.medidas}`,
+  })
+  if (!ok) advertencias.push(`La bomba ${bomba.modelo} (${bomba.caudalMaxLmin} L/min · ${bomba.presionMaxBar} bar) queda corta para ${caudalLmin.toFixed(1)} L/min a ${setAgua} bar. Elige otra bomba del catálogo.`)
+  return bomba
+}
+
+// ── Regulador de agua con regla RBM Rinox (ratio entrada/salida <= 2,5). ──
+function reguladorAgua(presionDisp: number, set: number, instalar: ItemReco[]) {
+  if (presionDisp <= set + 0.05) return
+  const ratio = presionDisp / set
+  if (ratio > RBM_RATIO_MAX) {
+    instalar.push({ texto: `2x ${COMPONENTES.regulador} en serie`, detalle: `relación ${presionDisp}/${set} = ${ratio.toFixed(1)} > 2,5: se reparte en dos reductores para evitar cavitación` })
+  } else {
+    instalar.push({ texto: COMPONENTES.regulador, detalle: `ajustar a ${set} bar (disponible ${presionDisp} bar)` })
+  }
+}
+
+// ── Energía, controlador e instrumentación (común a ambos sistemas). ──
+function energiaYControl(energiaEnPlanta: boolean, cargaKw: number, hayBomba: boolean, instalar: ItemReco[], noInstalar: ItemReco[]) {
+  if (!energiaEnPlanta) {
+    instalar.push({ texto: COMPONENTES.generador, detalle: `no hay energía en planta: alimenta bombas/compresor y control (carga estimada ~${cargaKw.toFixed(1)} kW)` })
+  } else {
+    noInstalar.push({ texto: "Generador", detalle: "hay energía eléctrica en planta" })
+  }
+  instalar.push({ texto: COMPONENTES.controlador, detalle: "comanda las electroválvulas y reporta estado (RS232)" })
+  instalar.push({ texto: COMPONENTES.sensorPresion, detalle: "monitorea la presión de línea" })
+  if (hayBomba) instalar.push({ texto: COMPONENTES.interruptorNivel, detalle: "protege la bomba de operar en vacío (nivel de estanque)" })
+}
+
+interface Ctx { aireEnPlanta: boolean; aguaEnPlanta: boolean; energiaEnPlanta: boolean; estanque: Estanque; bombaForzada: Bomba | null }
+
 export function recomendar(e: EntradaInstalacion): Recomendacion {
+  const sistema: SistemaBoquilla = e.sistema === "mhky" ? "mhky" : "turbofog"
+  const ctx: Ctx = {
+    aireEnPlanta: e.aireEnPlanta !== false,
+    aguaEnPlanta: e.aguaEnPlanta !== false,
+    energiaEnPlanta: e.energiaEnPlanta !== false,
+    estanque: estanquePorLitros(e.estanqueLitros ?? 1100),
+    bombaForzada: bombaPorModelo(e.bombaModelo),
+  }
+  return sistema === "mhky" ? recomendarMHKY(e, ctx) : recomendarTurbofog(e, ctx)
+}
+
+// ══ Sistema Turbofog (aire-agua) ═══════════════════════════════════════════════
+function recomendarTurbofog(e: EntradaInstalacion, ctx: Ctx): Recomendacion {
+  const { aireEnPlanta, aguaEnPlanta, energiaEnPlanta, estanque, bombaForzada } = ctx
   const advertencias: string[] = []
   const instalar: ItemReco[] = []
   const noInstalar: ItemReco[] = []
 
   const n = Math.max(0, Math.floor(e.nBoquillas || 0))
+  const nSugerido = (e.largoCorrea && e.espaciamiento && e.espaciamiento > 0)
+    ? Math.max(1, Math.ceil(e.largoCorrea / e.espaciamiento)) : null
 
-  // Sugerencia de N° de boquillas según largo/espaciamiento
-  let nSugerido: number | null = null
-  if (e.largoCorrea && e.espaciamiento && e.espaciamiento > 0) {
-    nSugerido = Math.max(1, Math.ceil(e.largoCorrea / e.espaciamiento))
-  }
-
-  // Elegir tipo de boquilla
-  let tipo: "0.8" | "1" = e.boquillaTipo === "1" ? "1" : "0.8"
-  if (e.boquillaTipo === "auto") tipo = "0.8"
-
-  // ¿La planta cuenta con aire y/o agua? Si no, la fuente (compresor / estanque+bomba)
-  // provee la presión de trabajo, así que para elegir el punto se usa todo el rango de tabla.
-  const aireEnPlanta = e.aireEnPlanta !== false
-  const aguaEnPlanta = e.aguaEnPlanta !== false
+  const tipo: "0.8" | "1" = e.boquillaTipo === "1" ? "1" : "0.8"
   const effAire = aireEnPlanta ? e.presionAire : 2.5
   const effAgua = aguaEnPlanta ? e.presionAgua : 6
+  const fila = mejorFila(tipo, effAire, effAgua, e.objetivo)
+  const boquillaModelo = `Turbofog Ø${tipo}mm`
 
-  let fila = mejorFila(tipo, effAire, effAgua, e.objetivo)
-
-  // Si la seleccionada no alcanza pero la otra sí, avisar
   if (!fila) {
     const otra = tipo === "0.8" ? "1" : "0.8"
-    const filaOtra = mejorFila(otra as "0.8" | "1", effAire, effAgua, e.objetivo)
-    if (filaOtra) advertencias.push(`Con la boquilla Ø${tipo}mm las presiones disponibles no alcanzan una posición de trabajo válida; la boquilla Ø${otra}mm sí funcionaría.`)
-  }
-
-  if (!fila) {
-    // No hay punto de trabajo alcanzable: falta presión
+    if (mejorFila(otra as "0.8" | "1", effAire, effAgua, e.objetivo)) {
+      advertencias.push(`Con la boquilla Ø${tipo}mm las presiones disponibles no alcanzan una posición de trabajo válida; la boquilla Ø${otra}mm sí funcionaría.`)
+    }
     const minAgua = Math.min(...tabla(tipo).map(f => f.pAgua))
     const minAire = Math.min(...tabla(tipo).map(f => f.pAire))
-    if (e.presionAgua < minAgua) {
-      advertencias.push(`Presión de agua insuficiente: se necesitan al menos ${minAgua} bar en la boquilla (disponible ${e.presionAgua} bar).`)
-      instalar.push({ texto: `Bomba booster ${DEFAULTS.bombaModelo} + estanque ${DEFAULTS.estanqueLitros} L`, detalle: "para elevar la presión de agua hasta el rango de trabajo" })
-    }
-    if (e.presionAire < minAire) {
-      advertencias.push(`Presión de aire insuficiente: se necesitan al menos ${minAire} bar en la boquilla (disponible ${e.presionAire} bar).`)
-      instalar.push({ texto: "Compresor de mayor presión/caudal", detalle: `mínimo ${minAire} bar en la línea de aire` })
-    }
+    if (e.presionAgua < minAgua) advertencias.push(`Presión de agua insuficiente: se necesitan al menos ${minAgua} bar en la boquilla (disponible ${e.presionAgua} bar).`)
+    if (e.presionAire < minAire) advertencias.push(`Presión de aire insuficiente: se necesitan al menos ${minAire} bar en la boquilla (disponible ${e.presionAire} bar).`)
     return {
       ok: false, boquillaElegida: tipo, fila: null,
       aguaTotalLmin: 0, aireTotalM3h: 0, aporteFrioTotal: 0,
       nSugerido, setAgua: null, setAire: null, evAgua: null, evAire: null,
       instalar, noInstalar, advertencias,
-      aireEnPlanta, aguaEnPlanta,
+      aireEnPlanta, aguaEnPlanta, energiaEnPlanta, sistema: "turbofog",
+      boquillaModelo, estanque, bomba: null,
     }
   }
 
-  // Consumos totales
   const aguaTotalLmin = +(n * fila.aguaLh / 60).toFixed(2)
   const aireTotalM3h = +(n * fila.aireM3h).toFixed(2)
   const aireTotalLmin = aireTotalM3h * 1000 / 60
-  // Aporte de frío aprox: 539 kcal por kg de agua evaporada (1 l ≈ 1 kg)
   const aporteFrioTotal = Math.round(n * fila.aguaLh * 539)
 
-  // Boquillas
   instalar.push({ texto: `${n} boquilla(s) Turbofog Ø${tipo}mm con válvula antigoteo`, detalle: `consumo total ${aguaTotalLmin} L/min de agua y ${aireTotalM3h} m³/h de aire` })
 
-  // Regulador de agua (solo si hay agua en planta y la presión sobra)
-  if (aguaEnPlanta && e.presionAgua > fila.pAgua + 0.05) {
-    instalar.push({ texto: "Regulador de presión de agua", detalle: `ajustar a ${fila.pAgua} bar (disponible ${e.presionAgua} bar)` })
-  }
+  if (aguaEnPlanta) reguladorAgua(e.presionAgua, fila.pAgua, instalar)
 
-  // Fuente de aire: compresor si NO hay aire en planta; si hay y sobra, regulador
   if (!aireEnPlanta) {
-    instalar.push({ texto: "Compresor de aire", detalle: `no hay aire en planta: debe entregar ${fila.pAire} bar y ~${aireTotalM3h} m³/h` })
+    instalar.push({ texto: COMPONENTES.compresor, detalle: `no hay aire en planta: entrega ${COMPONENTES.compresorPresion} y ~${aireTotalM3h} m³/h (ajustar a ${fila.pAire} bar)` })
   } else if (e.presionAire > fila.pAire + 0.05) {
-    instalar.push({ texto: "Regulador de presión de aire", detalle: `ajustar a ${fila.pAire} bar (disponible ${e.presionAire} bar)` })
+    instalar.push({ texto: `${COMPONENTES.regulador.replace("RBM Rinox", "de aire")} `.trim(), detalle: `ajustar a ${fila.pAire} bar (disponible ${e.presionAire} bar)` })
   }
 
-  // Filtros estándar
-  instalar.push({ texto: "Filtro de aire de línea", detalle: "protege las boquillas y la válvula" })
-  instalar.push({ texto: "Filtro de agua de línea", detalle: "la válvula solenoide trae filtro interno de 20 µm (ficha técnica)" })
+  instalar.push({ texto: COMPONENTES.filtroAire, detalle: "protege boquillas y válvula en la línea de aire" })
+  instalar.push({ texto: COMPONENTES.filtroAgua, detalle: "la válvula solenoide trae además filtro interno de 20 µm" })
 
-  // Válvulas de línea (agua y aire)
   const evAgua = elegirEV(aguaTotalLmin)
   const evAire = elegirEV(aireTotalLmin)
   instalar.push(valvulaPara("agua", aguaTotalLmin, evAgua))
   instalar.push(valvulaPara("aire", aireTotalLmin, evAire))
 
-  // Manifold y controlador
   instalar.push({ texto: `Manifold de mezcla aire/agua con ${Math.max(1, n)} salida(s)` })
-  instalar.push({ texto: `Controlador / nodo de monitoreo ${DEFAULTS.voltaje}`, detalle: "comanda las electroválvulas y reporta estado" })
 
-  // Fuente de agua
-  const bombaOk = aguaTotalLmin <= DEFAULTS.bombaCaudalLmin
-  const hayBomba = !aguaEnPlanta || e.presionAgua < fila.pAgua - 1e-6
-  if (!aguaEnPlanta) {
-    if (bombaOk) {
-      instalar.push({ texto: `Estanque de agua ${DEFAULTS.estanqueLitros} L + bomba ${DEFAULTS.bombaModelo}`, detalle: `no hay agua en planta: almacenar y presurizar a ${fila.pAgua} bar · ${DEFAULTS.bombaCaudalLmin} L/min` })
-    } else {
-      instalar.push({ texto: `Estanque de agua + bomba de mayor caudal (>${aguaTotalLmin} L/min)`, detalle: `la ${DEFAULTS.bombaModelo} (${DEFAULTS.bombaCaudalLmin} L/min) queda corta` })
-      advertencias.push(`El caudal total (${aguaTotalLmin} L/min) supera la capacidad de la bomba ${DEFAULTS.bombaModelo} (${DEFAULTS.bombaCaudalLmin} L/min).`)
-    }
-  } else if (e.presionAgua < fila.pAgua - 1e-6) {
-    if (bombaOk) {
-      instalar.push({ texto: `Bomba booster ${DEFAULTS.bombaModelo} + estanque ${DEFAULTS.estanqueLitros} L`, detalle: `presión de agua insuficiente (${e.presionAgua} < ${fila.pAgua} bar); entrega ${DEFAULTS.bombaCaudalLmin} L/min` })
-    } else {
-      instalar.push({ texto: `Bomba de mayor caudal (>${aguaTotalLmin} L/min) + estanque`, detalle: `la ${DEFAULTS.bombaModelo} (${DEFAULTS.bombaCaudalLmin} L/min) queda corta` })
-      advertencias.push(`El caudal total (${aguaTotalLmin} L/min) supera la capacidad de la bomba ${DEFAULTS.bombaModelo} (${DEFAULTS.bombaCaudalLmin} L/min).`)
-    }
-  } else {
-    noInstalar.push({ texto: "Bomba booster / estanque", detalle: `hay agua en planta con presión suficiente (${e.presionAgua} bar ≥ ${fila.pAgua} bar)` })
-  }
-
-  // Compresor: no hace falta si hay aire en planta con presión suficiente
+  const bomba = fuenteAgua({ aguaEnPlanta, presionAgua: e.presionAgua, setAgua: fila.pAgua, estanque, bombaForzada, caudalLmin: aguaTotalLmin }, instalar, noInstalar, advertencias)
   if (aireEnPlanta && e.presionAire >= fila.pAire) {
-    noInstalar.push({ texto: "Compresor", detalle: `hay aire en planta suficiente (${e.presionAire} bar ≥ ${fila.pAire} bar de trabajo)` })
+    noInstalar.push({ texto: "Compresor", detalle: `hay aire en planta suficiente (${e.presionAire} bar >= ${fila.pAire} bar de trabajo)` })
   }
 
-  // Boquillas extra por caudal (informativo respecto a bomba)
-  if (hayBomba && bombaOk) {
-    const margen = DEFAULTS.bombaCaudalLmin - aguaTotalLmin
-    const extra = Math.floor(margen / (fila.aguaLh / 60))
-    if (extra > 0) noInstalar.push({ texto: `Boquillas adicionales`, detalle: `con la bomba caben hasta ~${extra} boquilla(s) más antes de saturar el caudal` })
-  }
+  const cargaKw = (bomba?.kw ?? 0) + (!aireEnPlanta ? 7.5 : 0)
+  energiaYControl(energiaEnPlanta, cargaKw, bomba != null, instalar, noInstalar)
 
   return {
     ok: true, boquillaElegida: tipo, fila,
     aguaTotalLmin, aireTotalM3h, aporteFrioTotal,
-    nSugerido,
-    setAgua: fila.pAgua, setAire: fila.pAire,
-    evAgua, evAire,
+    nSugerido, setAgua: fila.pAgua, setAire: fila.pAire, evAgua, evAire,
     instalar, noInstalar, advertencias,
-    aireEnPlanta, aguaEnPlanta,
+    aireEnPlanta, aguaEnPlanta, energiaEnPlanta, sistema: "turbofog",
+    boquillaModelo, estanque, bomba,
+  }
+}
+
+// ══ Sistema MHKY (solo-agua) ══════════════════════════════════════════════════
+function mhkyAuto(obj: Objetivo): FilaMHKY {
+  const code = obj === "fina" ? "6503" : obj === "ahorro" ? "6505" : "6515"
+  return MHKY.find(m => m.codigo === code) ?? MHKY.find(m => m.codigo === "6510")!
+}
+
+function recomendarMHKY(e: EntradaInstalacion, ctx: Ctx): Recomendacion {
+  const { aguaEnPlanta, energiaEnPlanta, estanque, bombaForzada } = ctx
+  const advertencias: string[] = []
+  const instalar: ItemReco[] = []
+  const noInstalar: ItemReco[] = []
+
+  const n = Math.max(0, Math.floor(e.nBoquillas || 0))
+  const nSugerido = (e.largoCorrea && e.espaciamiento && e.espaciamiento > 0)
+    ? Math.max(1, Math.ceil(e.largoCorrea / e.espaciamiento)) : null
+
+  const fila = (e.mhkyCodigo && MHKY.find(m => m.codigo === e.mhkyCodigo)) || mhkyAuto(e.objetivo)
+  const boquillaModelo = `MHKY ${fila.codigo} (cono 65°)`
+  // Presión de trabajo: la disponible si hay agua; si no, la bomba la fija en 4 bar.
+  const setAgua = aguaEnPlanta ? Math.max(1, e.presionAgua) : 4
+  const perNozzle = mhkyCaudal(fila, setAgua)
+  const aguaTotalLmin = +(n * perNozzle).toFixed(2)
+  const aguaLh = perNozzle * 60
+  const aporteFrioTotal = Math.round(n * aguaLh * 539)
+
+  if (aguaEnPlanta && e.presionAgua < 1) {
+    advertencias.push(`Presión de agua insuficiente para MHKY: se necesita al menos 1 bar (disponible ${e.presionAgua} bar). Requiere bomba.`)
+  }
+
+  instalar.push({ texto: `${n} boquilla(s) MHKY ${fila.codigo} (cono 65°, solo agua)`, detalle: `${perNozzle} L/min c/u a ${setAgua} bar · paso libre ${fila.pasoMm} mm · total ${aguaTotalLmin} L/min` })
+  instalar.push({ texto: COMPONENTES.filtroAgua, detalle: "protege las boquillas MHKY (paso libre pequeño)" })
+
+  const evAgua = elegirEV(aguaTotalLmin)
+  instalar.push(valvulaPara("agua", aguaTotalLmin, evAgua))
+  instalar.push({ texto: `Manifold de agua con ${Math.max(1, n)} salida(s)` })
+
+  const bomba = fuenteAgua({ aguaEnPlanta, presionAgua: e.presionAgua, setAgua, estanque, bombaForzada, caudalLmin: aguaTotalLmin }, instalar, noInstalar, advertencias)
+  noInstalar.push({ texto: "Línea de aire / compresor", detalle: "el sistema MHKY es solo agua (no usa aire comprimido)" })
+
+  const cargaKw = bomba?.kw ?? 0
+  energiaYControl(energiaEnPlanta, cargaKw, bomba != null, instalar, noInstalar)
+
+  const ok = n > 0 && !(aguaEnPlanta && e.presionAgua < 1)
+  return {
+    ok, boquillaElegida: "0.8", fila: null,
+    aguaTotalLmin, aireTotalM3h: 0, aporteFrioTotal,
+    nSugerido, setAgua, setAire: null, evAgua, evAire: null,
+    instalar, noInstalar, advertencias,
+    aireEnPlanta: false, aguaEnPlanta, energiaEnPlanta, sistema: "mhky",
+    boquillaModelo, estanque, bomba,
   }
 }
