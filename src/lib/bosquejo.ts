@@ -107,15 +107,19 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
   }
 
   // Controlador + señales eléctricas a las electroválvulas
-  const ctrlY = 340, ctrlW = 300, ctrlH = 44
+  const ctrlY = 352, ctrlW = 300, ctrlH = 44
   const ctrlX = manifoldX - ctrlW - 20
   const idxA5 = aire.length - 1, idxW5 = agua.length - 1
   const a5cx = x0 + idxA5 * pitch + boxW / 2
   const w5cx = x0 + idxW5 * pitch + boxW / 2
+  const bandaY = (yAire + boxH + yAgua) / 2                 // banda vacía entre aire y agua
+  const gapX = x0 + (nCols - 1) * pitch - (pitch - boxW) / 2 // hueco entre columnas (sin cajas)
+  // La línea de aire baja por el hueco entre columnas para no cruzar la caja de agua.
+  const wireA = mhky ? "" : `<polyline points="${a5cx},${yAire + boxH} ${a5cx},${bandaY} ${gapX},${bandaY} ${gapX},${ctrlY}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3"/>`
+  const wireW = `<line x1="${w5cx}" y1="${yAgua + boxH}" x2="${w5cx}" y2="${ctrlY}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3"/>`
   const controlador = `<rect x="${ctrlX}" y="${ctrlY}" width="${ctrlW}" height="${ctrlH}" rx="9" fill="#f3e8ff" stroke="#a855f7" stroke-width="1.5"/>
     <text x="${ctrlX + ctrlW / 2}" y="${ctrlY + 27}" font-size="12" font-weight="700" fill="#6b21a8" text-anchor="middle">CONTROLADOR · nodo de monitoreo</text>
-    ${mhky ? "" : `<line x1="${a5cx}" y1="${yAire + boxH}" x2="${a5cx}" y2="${ctrlY}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3"/>`}
-    <line x1="${w5cx}" y1="${yAgua}" x2="${w5cx}" y2="${ctrlY}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3"/>`
+    ${wireA}${wireW}`
 
   // Leyenda
   const leg = `<g font-size="11" fill="#475569">
@@ -133,9 +137,9 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
   const genNote = sinEnergia
     ? `<g><rect x="${ctrlX}" y="${ctrlY + ctrlH + 8}" width="${ctrlW}" height="30" rx="7" fill="#fff7ed" stroke="#f97316" stroke-width="1.3"/><text x="${ctrlX + ctrlW / 2}" y="${ctrlY + ctrlH + 27}" font-size="10.5" font-weight="700" fill="#c2410c" text-anchor="middle">+ GENERADOR 14 kVA (sin energía en planta)</text></g>`
     : ""
-  const instrNote = `<text x="${x0}" y="${yAgua + 92}" font-size="9.5" fill="#64748b">Instrumentación: sensor de presión HK1100C + interruptor de nivel Exceline GFE-MV</text>`
+  const instrNote = `<text x="${x0}" y="466" font-size="9.5" fill="#64748b">Instrumentación: sensor de presión HK1100C + interruptor de nivel Exceline GFE-MV</text>`
 
-  const H = 460
+  const H = 500
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;font-family:system-ui,Segoe UI,Arial,sans-serif">
     ${defs}
     <rect x="0" y="0" width="${W}" height="${H}" rx="12" fill="#f8fafc"/>
