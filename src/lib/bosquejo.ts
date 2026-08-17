@@ -24,7 +24,7 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
   const sinAgua = e.aguaEnPlanta === false
   const sinEnergia = r.energiaEnPlanta === false
   const bombaLbl = r.bomba ? r.bomba.modelo.replace("REGGIO ", "").replace("STAIRS ", "") : "SBI 4-16"
-  const estanqueLbl = r.estanque.litros >= 1000 ? `${r.estanque.litros / 1000}k L` : `${r.estanque.litros} L`
+  const estanqueLbl = r.estanque.litros >= 1000 ? `${(r.estanque.litros / 1000).toLocaleString("es-CL")}k L` : `${r.estanque.litros} L`
   const regAgua = !sinAgua && r.setAgua != null && e.presionAgua > (r.setAgua as number) + 0.05
   const regAire = !sinAire && r.setAire != null && e.presionAire > (r.setAire as number) + 0.05
   const necesitaBomba = !sinAgua && r.ok && r.setAgua != null && e.presionAgua < (r.setAgua as number) - 1e-6
