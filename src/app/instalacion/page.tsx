@@ -150,11 +150,13 @@ export default function InstalacionPage() {
                 <option value="no">No (agregar generador)</option>
               </select>
             </div>
-            <div className="space-y-1"><Label>Estanque</Label>
-              <select className={selCls} value={form.estanqueLitros} onChange={e => set("estanqueLitros", e.target.value)}>
-                {ESTANQUES.map(t => <option key={t.litros} value={t.litros}>{t.litros >= 1000 ? `${t.litros / 1000}.000 L` : `${t.litros} L`}</option>)}
-              </select>
-            </div>
+{form.aguaEnPlanta === "no" ? (
+              <div className="space-y-1"><Label>Estanque</Label>
+                <select className={selCls} value={form.estanqueLitros} onChange={e => set("estanqueLitros", e.target.value)}>
+                  {ESTANQUES.map(t => <option key={t.litros} value={t.litros}>{t.litros.toLocaleString("es-CL")} L</option>)}
+                </select>
+              </div>
+            ) : <div />}
           </div>
           <div className="space-y-1"><Label>Bomba</Label>
             <select className={selCls} value={form.bombaModelo} onChange={e => set("bombaModelo", e.target.value)}>
@@ -234,7 +236,7 @@ export default function InstalacionPage() {
                 {reco.aireTotalM3h > 0 && <Chip l="Consumo aire total" v={`${reco.aireTotalM3h} m³/h`} />}
                 <Chip l="Aporte de frío" v={`${reco.aporteFrioTotal.toLocaleString("es-CL")} frig./h`} />
                 {reco.bomba && <Chip l="Bomba" v={reco.bomba.modelo} />}
-                <Chip l="Estanque" v={reco.estanque.litros >= 1000 ? `${reco.estanque.litros / 1000}.000 L` : `${reco.estanque.litros} L`} />
+                {!reco.aguaEnPlanta && <Chip l="Estanque" v={`${reco.estanque.litros.toLocaleString("es-CL")} L`} />}
               </>
             ) : (
               <div className="w-full flex items-center gap-2 text-sm px-3 py-2 rounded-lg" style={{ background: "#fef2f2", color: "#b91c1c" }}>
