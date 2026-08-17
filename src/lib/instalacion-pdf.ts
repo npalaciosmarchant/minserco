@@ -24,7 +24,7 @@ export function imprimirInstalacionPDF(e: EntradaInstalacion, r: Recomendacion, 
     chip("Caudal agua total", `${r.aguaTotalLmin} L/min`),
     r.aireTotalM3h > 0 ? chip("Consumo aire total", `${r.aireTotalM3h} m³/h`) : "",
     r.bomba ? chip("Bomba", r.bomba.modelo) : "",
-    chip("Estanque", r.estanque.litros >= 1000 ? `${r.estanque.litros / 1000}.000 L` : `${r.estanque.litros} L`),
+    r.aguaEnPlanta ? "" : chip("Estanque", `${r.estanque.litros.toLocaleString("es-CL")} L`),
     meta.puntoDescarga ? chip("Punto de descarga", meta.puntoDescarga) : "",
   ].join("")
 
