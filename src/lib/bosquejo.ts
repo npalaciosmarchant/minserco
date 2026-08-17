@@ -19,31 +19,35 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
   const boxW = 116, boxH = 56, pitch = 150, x0 = 16
   const yAire = 96, yAgua = 250
 
+  const mhky = r.sistema === "mhky"
   const sinAire = e.aireEnPlanta === false
   const sinAgua = e.aguaEnPlanta === false
+  const sinEnergia = r.energiaEnPlanta === false
+  const bombaLbl = r.bomba ? r.bomba.modelo.replace("REGGIO ", "").replace("STAIRS ", "") : "SBI 4-16"
+  const estanqueLbl = r.estanque.litros >= 1000 ? `${r.estanque.litros / 1000}k L` : `${r.estanque.litros} L`
   const regAgua = !sinAgua && r.setAgua != null && e.presionAgua > (r.setAgua as number) + 0.05
   const regAire = !sinAire && r.setAire != null && e.presionAire > (r.setAire as number) + 0.05
   const necesitaBomba = !sinAgua && r.ok && r.setAgua != null && e.presionAgua < (r.setAgua as number) - 1e-6
 
-  // Componentes de cada línea (izq → der)
-  const aire: Caja[] = [
+  // Componentes de cada línea (izq → der). El sistema MHKY es solo agua: sin línea de aire.
+  const aire: Caja[] = mhky ? [] : [
     sinAire
-      ? { tag: "A0", label: "Compresor", sub: `${r.setAire ?? "—"} bar`, tipo: "bomba" }
+      ? { tag: "A0", label: "Compresor", sub: "KRATTO 6–8 bar", tipo: "bomba" }
       : { tag: "A1", label: "Toma aire", sub: "acople rápido", tipo: "linea" },
     { tag: "A2", label: "Válv. bola", sub: "corte manual", tipo: "linea" },
-    { tag: "A3", label: "Filtro aire", sub: "de línea", tipo: "linea" },
+    { tag: "A3", label: "Filtro FRL", sub: "aire comprimido", tipo: "linea" },
   ]
-  if (regAire) aire.push({ tag: "A4", label: "Regulador", sub: `ajustar ${r.setAire} bar`, tipo: "linea" })
-  aire.push({ tag: "A5", label: "Válv. solen.", sub: "230V · a nodo", tipo: "linea" })
+  if (!mhky && regAire) aire.push({ tag: "A4", label: "Regulador", sub: `ajustar ${r.setAire} bar`, tipo: "linea" })
+  if (!mhky) aire.push({ tag: "A5", label: "Válv. solen.", sub: "230V · a nodo", tipo: "linea" })
 
   const agua: Caja[] = [
     sinAgua
-      ? { tag: "W0", label: "Estanque+bomba", sub: "SBI 4-16", tipo: "bomba" }
+      ? { tag: "W0", label: `Estanque ${estanqueLbl}`, sub: `+ ${bombaLbl}`, tipo: "bomba" }
       : { tag: "W1", label: "Toma agua", sub: "matriz", tipo: "linea" },
     { tag: "W2", label: "Válv. bola", sub: "corte manual", tipo: "linea" },
   ]
-  if (necesitaBomba) agua.push({ tag: "WB", label: "Bomba", sub: "booster SBI 4-16", tipo: "bomba" })
-  agua.push({ tag: "W3", label: "Filtro agua", sub: "de línea", tipo: "linea" })
+  if (necesitaBomba) agua.push({ tag: "WB", label: "Bomba", sub: `booster ${bombaLbl}`, tipo: "bomba" })
+  agua.push({ tag: "W3", label: "Filtro agua", sub: "línea RBM", tipo: "linea" })
   if (regAgua) agua.push({ tag: "W4", label: "Regulador", sub: `ajustar ${r.setAgua} bar`, tipo: "linea" })
   agua.push({ tag: "W5", label: "Válv. solen.", sub: "230V · a nodo", tipo: "linea" })
 
@@ -73,14 +77,14 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
     return out
   }
 
-  const svgAire = linea(aire, yAire, "#0ea5e9", 'stroke-dasharray="7 4"', "arrAire")
+  const svgAire = mhky ? "" : linea(aire, yAire, "#0ea5e9", 'stroke-dasharray="7 4"', "arrAire")
   const svgAgua = linea(agua, yAgua, "#2563eb", "", "arrAgua")
 
   // Manifold
   const manifoldY = 150, manifoldH = 120
   const manifold = `<rect x="${manifoldX}" y="${manifoldY}" width="${manifoldW}" height="${manifoldH}" rx="10" fill="#0f172a"/>
     <text x="${manifoldX + manifoldW / 2}" y="${manifoldY + 46}" font-size="13" font-weight="800" fill="#ffffff" text-anchor="middle">MANIFOLD</text>
-    <text x="${manifoldX + manifoldW / 2}" y="${manifoldY + 66}" font-size="10.5" fill="#fbbf24" text-anchor="middle">mezcla aire/agua</text>
+    <text x="${manifoldX + manifoldW / 2}" y="${manifoldY + 66}" font-size="10.5" fill="#fbbf24" text-anchor="middle">${mhky ? "distribución agua" : "mezcla aire/agua"}</text>
     <text x="${manifoldX + manifoldW / 2}" y="${manifoldY + 82}" font-size="10.5" fill="#fbbf24" text-anchor="middle">${Math.max(1, e.nBoquillas)} salida(s)</text>`
 
   // Boquillas (máx 5 visibles + resto)
@@ -110,7 +114,7 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
   const w5cx = x0 + idxW5 * pitch + boxW / 2
   const controlador = `<rect x="${ctrlX}" y="${ctrlY}" width="${ctrlW}" height="${ctrlH}" rx="9" fill="#f3e8ff" stroke="#a855f7" stroke-width="1.5"/>
     <text x="${ctrlX + ctrlW / 2}" y="${ctrlY + 27}" font-size="12" font-weight="700" fill="#6b21a8" text-anchor="middle">CONTROLADOR · nodo de monitoreo</text>
-    <line x1="${a5cx}" y1="${yAire + boxH}" x2="${a5cx}" y2="${ctrlY}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3"/>
+    ${mhky ? "" : `<line x1="${a5cx}" y1="${yAire + boxH}" x2="${a5cx}" y2="${ctrlY}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3"/>`}
     <line x1="${w5cx}" y1="${yAgua}" x2="${w5cx}" y2="${ctrlY}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3"/>`
 
   // Leyenda
@@ -123,15 +127,20 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
     <text x="${W - 264}" y="54">Alimentación válvulas 230V</text>
   </g>`
 
-  const etiqAire = `<text x="${x0}" y="${yAire - 12}" font-size="12" font-weight="700" fill="#0ea5e9">LÍNEA DE AIRE</text>`
+  const etiqAire = mhky ? "" : `<text x="${x0}" y="${yAire - 12}" font-size="12" font-weight="700" fill="#0ea5e9">LÍNEA DE AIRE</text>`
   const etiqAgua = `<text x="${x0}" y="${yAgua - 12}" font-size="12" font-weight="700" fill="#2563eb">LÍNEA DE AGUA</text>`
 
-  const H = 420
+  const genNote = sinEnergia
+    ? `<g><rect x="${ctrlX}" y="${ctrlY + ctrlH + 8}" width="${ctrlW}" height="30" rx="7" fill="#fff7ed" stroke="#f97316" stroke-width="1.3"/><text x="${ctrlX + ctrlW / 2}" y="${ctrlY + ctrlH + 27}" font-size="10.5" font-weight="700" fill="#c2410c" text-anchor="middle">+ GENERADOR 14 kVA (sin energía en planta)</text></g>`
+    : ""
+  const instrNote = `<text x="${x0}" y="${yAgua + 92}" font-size="9.5" fill="#64748b">Instrumentación: sensor de presión HK1100C + interruptor de nivel Exceline GFE-MV</text>`
+
+  const H = 460
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;font-family:system-ui,Segoe UI,Arial,sans-serif">
     ${defs}
     <rect x="0" y="0" width="${W}" height="${H}" rx="12" fill="#f8fafc"/>
     ${leg}${etiqAire}${etiqAgua}
-    ${svgAire}${svgAgua}${manifold}${boquillas}${controlador}
+    ${svgAire}${svgAgua}${manifold}${boquillas}${controlador}${genNote}${instrNote}
     <text x="${nzX - 8}" y="${H - 12}" font-size="9.5" fill="#94a3b8" text-anchor="end">Nota :El alcance de nube se ha tomado, instalando las boquillas a 2m sobre el nivel del suelo.</text>
     <text x="${x0}" y="${H - 12}" font-size="9.5" fill="#94a3b8">Esquema referencial de conexión · no es plano de ingeniería</text>
   </svg>`
