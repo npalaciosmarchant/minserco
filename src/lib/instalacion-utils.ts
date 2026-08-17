@@ -247,11 +247,20 @@ function fuenteAgua(
   }
   const bomba = bombaForzada ?? elegirBomba(caudalLmin, setAgua)
   const ok = bomba.caudalMaxLmin >= caudalLmin && bomba.presionMaxBar >= setAgua - 1e-6
-  const motivo = !aguaEnPlanta ? "no hay agua en planta: almacenar y presurizar" : `presión de agua insuficiente (${presionAgua} < ${setAgua} bar)`
-  instalar.push({
-    texto: `${estanque.modelo} + bomba ${bomba.modelo}`,
-    detalle: `${motivo} a ${setAgua} bar · bomba ${bomba.hp} HP hasta ${bomba.caudalMaxLmin} L/min y ${bomba.presionMaxBar} bar · ${estanque.medidas}`,
-  })
+  const spec = `bomba ${bomba.hp} HP hasta ${bomba.caudalMaxLmin} L/min y ${bomba.presionMaxBar} bar`
+  if (!aguaEnPlanta) {
+    // No hay agua: estanque de almacenamiento + bomba que presuriza.
+    instalar.push({
+      texto: `${estanque.modelo} + bomba ${bomba.modelo}`,
+      detalle: `no hay agua en planta: almacenar y presurizar a ${setAgua} bar · ${spec} · ${estanque.medidas}`,
+    })
+  } else {
+    // Hay agua pero con presión insuficiente: bomba booster en línea (sin estanque).
+    instalar.push({
+      texto: `Bomba booster ${bomba.modelo}`,
+      detalle: `presión de agua insuficiente (${presionAgua} < ${setAgua} bar): eleva la presión desde la matriz a ${setAgua} bar · ${spec}`,
+    })
+  }
   if (!ok) advertencias.push(`La bomba ${bomba.modelo} (${bomba.caudalMaxLmin} L/min · ${bomba.presionMaxBar} bar) queda corta para ${caudalLmin.toFixed(1)} L/min a ${setAgua} bar. Elige otra bomba del catálogo.`)
   return bomba
 }
