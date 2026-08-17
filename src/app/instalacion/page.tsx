@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { instalaciones } from "@/lib/store"
 import { Instalacion } from "@/lib/types"
-import { recomendar, EntradaInstalacion, BoquillaTipo, Objetivo } from "@/lib/instalacion-utils"
+import { recomendar, EntradaInstalacion, BoquillaTipo, Objetivo, SistemaBoquilla, ESTANQUES, BOMBAS, MHKY } from "@/lib/instalacion-utils"
 import { bosquejoSVG } from "@/lib/bosquejo"
 import { imprimirInstalacionPDF } from "@/lib/instalacion-pdf"
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,9 @@ interface FormState {
   cliente: string; faena: string; puntoDescarga: string
   presionAire: string; presionAgua: string; nBoquillas: string
   boquillaTipo: BoquillaTipo; objetivo: Objetivo
-  aireEnPlanta: "si" | "no"; aguaEnPlanta: "si" | "no"
+  sistema: SistemaBoquilla; mhkyCodigo: string
+  aireEnPlanta: "si" | "no"; aguaEnPlanta: "si" | "no"; energiaEnPlanta: "si" | "no"
+  estanqueLitros: string; bombaModelo: string
   largoCorrea: string; espaciamiento: string; observaciones: string
 }
 
@@ -26,7 +28,9 @@ function emptyForm(): FormState {
     cliente: "", faena: "", puntoDescarga: "",
     presionAire: "6", presionAgua: "4", nBoquillas: "3",
     boquillaTipo: "auto", objetivo: "alcance",
-    aireEnPlanta: "si", aguaEnPlanta: "si",
+    sistema: "turbofog", mhkyCodigo: "auto",
+    aireEnPlanta: "si", aguaEnPlanta: "si", energiaEnPlanta: "si",
+    estanqueLitros: "1100", bombaModelo: "auto",
     largoCorrea: "", espaciamiento: "", observaciones: "",
   }
 }
@@ -47,8 +51,13 @@ export default function InstalacionPage() {
     nBoquillas: Number(form.nBoquillas) || 0,
     boquillaTipo: form.boquillaTipo,
     objetivo: form.objetivo,
+    sistema: form.sistema,
+    mhkyCodigo: form.mhkyCodigo === "auto" ? undefined : form.mhkyCodigo,
     aireEnPlanta: form.aireEnPlanta === "si",
     aguaEnPlanta: form.aguaEnPlanta === "si",
+    energiaEnPlanta: form.energiaEnPlanta === "si",
+    estanqueLitros: Number(form.estanqueLitros) || 1100,
+    bombaModelo: form.bombaModelo,
     largoCorrea: form.largoCorrea ? Number(form.largoCorrea) : undefined,
     espaciamiento: form.espaciamiento ? Number(form.espaciamiento) : undefined,
   }), [form])
@@ -80,6 +89,11 @@ export default function InstalacionPage() {
       boquillaTipo: (i.boquillaTipo as BoquillaTipo) ?? "auto", objetivo: "alcance",
       aireEnPlanta: (i.resultado as { aireEnPlanta?: boolean } | undefined)?.aireEnPlanta === false ? "no" : "si",
       aguaEnPlanta: (i.resultado as { aguaEnPlanta?: boolean } | undefined)?.aguaEnPlanta === false ? "no" : "si",
+      energiaEnPlanta: (i.resultado as { energiaEnPlanta?: boolean } | undefined)?.energiaEnPlanta === false ? "no" : "si",
+      sistema: (i.resultado as { sistema?: string } | undefined)?.sistema === "mhky" ? "mhky" : "turbofog",
+      mhkyCodigo: "auto",
+      estanqueLitros: (i.resultado as { estanque?: { litros?: number } } | undefined)?.estanque?.litros != null ? String((i.resultado as { estanque?: { litros?: number } }).estanque!.litros) : "1100",
+      bombaModelo: "auto",
       largoCorrea: i.largoCorrea != null ? String(i.largoCorrea) : "",
       espaciamiento: i.espaciamiento != null ? String(i.espaciamiento) : "",
       observaciones: i.observaciones ?? "",
@@ -109,9 +123,15 @@ export default function InstalacionPage() {
         {/* Formulario */}
         <div className="glass-section p-4 space-y-3 self-start">
           <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Datos en terreno</div>
+          <div className="space-y-1"><Label>Sistema de boquilla</Label>
+            <select className={selCls} value={form.sistema} onChange={e => set("sistema", e.target.value)}>
+              <option value="turbofog">Turbofog (aire + agua)</option>
+              <option value="mhky">MHKY (solo agua)</option>
+            </select>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1"><Label>¿Aire en planta?</Label>
-              <select className={selCls} value={form.aireEnPlanta} onChange={e => set("aireEnPlanta", e.target.value)}>
+              <select className={selCls} value={form.aireEnPlanta} disabled={form.sistema === "mhky"} onChange={e => set("aireEnPlanta", e.target.value)}>
                 <option value="si">Sí</option>
                 <option value="no">No (agregar compresor)</option>
               </select>
@@ -124,7 +144,26 @@ export default function InstalacionPage() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1"><Label>Presión aire (bar)</Label><Input type="number" step="0.1" min="0" value={form.presionAire} disabled={form.aireEnPlanta === "no"} onChange={e => set("presionAire", e.target.value)} /></div>
+            <div className="space-y-1"><Label>¿Energía en planta?</Label>
+              <select className={selCls} value={form.energiaEnPlanta} onChange={e => set("energiaEnPlanta", e.target.value)}>
+                <option value="si">Sí</option>
+                <option value="no">No (agregar generador)</option>
+              </select>
+            </div>
+            <div className="space-y-1"><Label>Estanque</Label>
+              <select className={selCls} value={form.estanqueLitros} onChange={e => set("estanqueLitros", e.target.value)}>
+                {ESTANQUES.map(t => <option key={t.litros} value={t.litros}>{t.litros >= 1000 ? `${t.litros / 1000}.000 L` : `${t.litros} L`}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="space-y-1"><Label>Bomba</Label>
+            <select className={selCls} value={form.bombaModelo} onChange={e => set("bombaModelo", e.target.value)}>
+              <option value="auto">Automática (según caudal/presión)</option>
+              {BOMBAS.map(b => <option key={b.modelo} value={b.modelo}>{b.modelo}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1"><Label>Presión aire (bar)</Label><Input type="number" step="0.1" min="0" value={form.presionAire} disabled={form.aireEnPlanta === "no" || form.sistema === "mhky"} onChange={e => set("presionAire", e.target.value)} /></div>
             <div className="space-y-1"><Label>Presión agua (bar)</Label><Input type="number" step="0.1" min="0" value={form.presionAgua} disabled={form.aguaEnPlanta === "no"} onChange={e => set("presionAgua", e.target.value)} /></div>
           </div>
           <div className="space-y-1"><Label>N° de boquillas</Label><Input type="number" min="1" value={form.nBoquillas} onChange={e => set("nBoquillas", e.target.value)} /></div>
@@ -138,11 +177,18 @@ export default function InstalacionPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1"><Label>Boquilla</Label>
-              <select className={selCls} value={form.boquillaTipo} onChange={e => set("boquillaTipo", e.target.value)}>
-                <option value="auto">Automática</option>
-                <option value="0.8">Ø 0,8 mm</option>
-                <option value="1">Ø 1 mm</option>
-              </select>
+              {form.sistema === "mhky" ? (
+                <select className={selCls} value={form.mhkyCodigo} onChange={e => set("mhkyCodigo", e.target.value)}>
+                  <option value="auto">Automática (según prioridad)</option>
+                  {MHKY.map(m => <option key={m.codigo} value={m.codigo}>MHKY {m.codigo}</option>)}
+                </select>
+              ) : (
+                <select className={selCls} value={form.boquillaTipo} onChange={e => set("boquillaTipo", e.target.value)}>
+                  <option value="auto">Automática</option>
+                  <option value="0.8">Ø 0,8 mm</option>
+                  <option value="1">Ø 1 mm</option>
+                </select>
+              )}
             </div>
             <div className="space-y-1"><Label>Prioridad</Label>
               <select className={selCls} value={form.objetivo} onChange={e => set("objetivo", e.target.value)}>
@@ -176,15 +222,19 @@ export default function InstalacionPage() {
         {/* Resultado */}
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            {reco.fila ? (
+            {reco.ok ? (
               <>
-                <Chip l="Boquilla elegida" v={`Ø${reco.boquillaElegida}mm`} />
-                <Chip l="Punto de trabajo" v={`aire ${reco.fila.pAire} · agua ${reco.fila.pAgua} bar`} />
-                <Chip l="Alcance de nube" v={`${reco.fila.alcanceM} m`} />
-                <Chip l="Tamaño de gota" v={`${reco.fila.gotaUm} µm`} />
+                <Chip l="Boquilla elegida" v={reco.boquillaModelo} />
+                {reco.fila
+                  ? <Chip l="Punto de trabajo" v={`aire ${reco.fila.pAire} · agua ${reco.fila.pAgua} bar`} />
+                  : <Chip l="Presión de trabajo" v={`agua ${reco.setAgua} bar`} />}
+                {reco.fila && <Chip l="Alcance de nube" v={`${reco.fila.alcanceM} m`} />}
+                {reco.fila && <Chip l="Tamaño de gota" v={`${reco.fila.gotaUm} µm`} />}
                 <Chip l="Caudal agua total" v={`${reco.aguaTotalLmin} L/min`} />
-                <Chip l="Consumo aire total" v={`${reco.aireTotalM3h} m³/h`} />
+                {reco.aireTotalM3h > 0 && <Chip l="Consumo aire total" v={`${reco.aireTotalM3h} m³/h`} />}
                 <Chip l="Aporte de frío" v={`${reco.aporteFrioTotal.toLocaleString("es-CL")} frig./h`} />
+                {reco.bomba && <Chip l="Bomba" v={reco.bomba.modelo} />}
+                <Chip l="Estanque" v={reco.estanque.litros >= 1000 ? `${reco.estanque.litros / 1000}.000 L` : `${reco.estanque.litros} L`} />
               </>
             ) : (
               <div className="w-full flex items-center gap-2 text-sm px-3 py-2 rounded-lg" style={{ background: "#fef2f2", color: "#b91c1c" }}>
