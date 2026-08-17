@@ -18,19 +18,21 @@ export function imprimirInstalacionPDF(e: EntradaInstalacion, r: Recomendacion, 
   const chip = (l: string, v: string) => `<div class="chip"><div class="chip-l">${esc(l)}</div><div class="chip-v">${esc(v)}</div></div>`
 
   const chips = [
-    chip("Presión aire disponible", `${e.presionAire} bar`),
+    r.sistema === "mhky" ? "" : chip("Presión aire disponible", `${e.presionAire} bar`),
     chip("Presión agua disponible", `${e.presionAgua} bar`),
-    chip("Boquillas", `${e.nBoquillas} · Ø${r.boquillaElegida}mm`),
+    chip("Boquillas", `${e.nBoquillas} · ${r.boquillaModelo}`),
     chip("Caudal agua total", `${r.aguaTotalLmin} L/min`),
-    chip("Consumo aire total", `${r.aireTotalM3h} m³/h`),
+    r.aireTotalM3h > 0 ? chip("Consumo aire total", `${r.aireTotalM3h} m³/h`) : "",
+    r.bomba ? chip("Bomba", r.bomba.modelo) : "",
+    chip("Estanque", r.estanque.litros >= 1000 ? `${r.estanque.litros / 1000}.000 L` : `${r.estanque.litros} L`),
     meta.puntoDescarga ? chip("Punto de descarga", meta.puntoDescarga) : "",
   ].join("")
 
-  const perf = r.fila ? `
+  const perf = r.ok ? `
     <div class="perf">
-      ${chip("Punto de trabajo", `aire ${r.fila.pAire} bar · agua ${r.fila.pAgua} bar`)}
-      ${chip("Alcance de nube", `${r.fila.alcanceM} m`)}
-      ${chip("Tamaño de gota", `${r.fila.gotaUm} µm`)}
+      ${r.fila
+        ? `${chip("Punto de trabajo", `aire ${r.fila.pAire} bar · agua ${r.fila.pAgua} bar`)}${chip("Alcance de nube", `${r.fila.alcanceM} m`)}${chip("Tamaño de gota", `${r.fila.gotaUm} µm`)}`
+        : chip("Presión de trabajo", `agua ${r.setAgua} bar`)}
       ${chip("Aporte de frío", `${r.aporteFrioTotal.toLocaleString("es-CL")} frig./h`)}
     </div>` : `<p class="warn-block">No hay un punto de trabajo válido con las presiones disponibles. Revise las advertencias.</p>`
 
