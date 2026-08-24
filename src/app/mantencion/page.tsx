@@ -323,7 +323,7 @@ export default function MantencionPage() {
                 <select value="" onChange={e => { if (e.target.value) toggleTecnico(e.target.value) }}
                   className="w-full h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none">
                   <option value="">Agregar técnico…</option>
-                  {tecnicosUsuarios.filter(u => u.rol === "tecnico" && !(form.tecnicos ?? []).includes(u.nombre)).map(u => (
+                  {tecnicosUsuarios.filter(u => !(form.tecnicos ?? []).includes(u.nombre)).map(u => (
                     <option key={u.id} value={u.nombre}>{u.nombre}</option>
                   ))}
                 </select>
