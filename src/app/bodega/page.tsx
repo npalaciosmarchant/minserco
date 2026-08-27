@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, ArrowDown, ArrowUp, Package, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
+import { FotoGaleria } from "@/components/ui/FotoGaleria"
+import { fotoSrc } from "@/lib/upload-foto"
 import { ImportarExcel, campo, pareceDescripcion, parseNumCL } from "@/components/ui/ImportarExcel"
 
 const categorias: { value: Categoria; label: string }[] = [
@@ -26,7 +28,7 @@ const categorias: { value: Categoria; label: string }[] = [
 
 const emptyItem = (): Omit<ItemBodega, "id" | "creadoEn" | "actualizadoEn"> => ({
   codigo: "", nombre: "", categoria: "repuesto", descripcion: "", cantidad: 0,
-  cantidadMinima: 1, bodega: "", ubicacion: "", proveedor: "", precioUnitario: undefined, unidad: "unidad",
+  cantidadMinima: 1, bodega: "", ubicacion: "", proveedor: "", precioUnitario: undefined, unidad: "unidad", foto: "",
 })
 
 const emptyMov = (): Omit<MovimientoBodega, "id" | "creadoEn"> => ({
@@ -273,6 +275,7 @@ export default function BodegaPage() {
                   style={{ background: "var(--card)", border: `1px solid ${bajo ? "rgba(248,113,113,0.3)" : "var(--border)"}` }}
                 >
                   <div className="flex items-start justify-between gap-4">
+                    {i.foto && <img src={fotoSrc(i.foto)} alt={i.nombre} className="w-14 h-14 rounded-lg object-cover border shrink-0" style={{ borderColor: "var(--border)" }} />}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <span className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>{i.nombre}</span>
@@ -406,6 +409,7 @@ export default function BodegaPage() {
             </div>
             <div className="space-y-1"><Label>Proveedor</Label><Input value={formItem.proveedor ?? ""} onChange={e => setIS("proveedor", e.target.value)} /></div>
             <div className="space-y-1"><Label>Precio unitario ($)</Label><Input type="number" value={formItem.precioUnitario ?? ""} onChange={e => setIN("precioUnitario", Number(e.target.value))} /></div>
+            <div className="space-y-1"><Label>Foto de referencia</Label><FotoGaleria fotos={formItem.foto ? [formItem.foto] : []} maxFotos={1} onChange={arr => setIS("foto", arr[0] ?? "")} /></div>
             <Button className="w-full" onClick={guardarItem}>{editando ? "Guardar cambios" : "Agregar item"}</Button>
           </div>
         </DialogContent>
@@ -427,6 +431,17 @@ export default function BodegaPage() {
                 </SelectTrigger>
                 <SelectContent>{items.map(i => <SelectItem key={i.id} value={i.id}>{i.nombre} (stock: {i.cantidad})</SelectItem>)}</SelectContent>
               </Select>
+              {(() => { const it = items.find(i => i.id === formMov.itemId); if (!it) return null; return (
+                <div className="flex items-center gap-3 rounded-lg p-2 mt-2" style={{ background: "var(--accent)", border: "1px solid var(--border)" }}>
+                  {it.foto
+                    ? <img src={fotoSrc(it.foto)} alt={it.nombre} className="w-16 h-16 rounded-lg object-cover shrink-0" style={{ border: "1px solid var(--border)" }} />
+                    : <div className="w-16 h-16 rounded-lg flex items-center justify-center shrink-0" style={{ background: "var(--card)", border: "1px solid var(--border)" }}><Package size={20} style={{ color: "var(--muted-foreground)" }} /></div>}
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm truncate" style={{ color: "var(--foreground)" }}>{it.nombre}</div>
+                    <div className="text-xs" style={{ color: "var(--muted-foreground)" }}>{it.codigo} · stock: {it.cantidad} {it.unidad}</div>
+                  </div>
+                </div>
+              ); })()}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
