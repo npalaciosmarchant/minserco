@@ -123,6 +123,7 @@ export interface ItemBodega {
   proveedor?: string
   precioUnitario?: number
   unidad: string
+  foto?: string              // URL de foto de referencia (Supabase Storage)
   creadoEn: string
   actualizadoEn: string
 }
