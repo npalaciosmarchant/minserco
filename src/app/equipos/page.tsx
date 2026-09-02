@@ -13,11 +13,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, Package, CalendarDays, MapPin } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
 import { ArchivosField } from "@/components/ui/ArchivosField"
+import { FotoGaleria } from "@/components/ui/FotoGaleria"
+import { fotoSrc } from "@/lib/upload-foto"
 import { ImportarExcel, campo, pareceDescripcion } from "@/components/ui/ImportarExcel"
 
 const empty = (): Omit<Equipo, "id" | "creadoEn"> => ({
   nombre: "", numeroSerie: "", tipo: "preventivo", marca: "", modelo: "",
-  ubicacion: "", frecuencia: "ninguna", activo: true, notas: "",
+  ubicacion: "", frecuencia: "ninguna", activo: true, notas: "", foto: "",
   planos: [], instructivos: [], fichasTecnicas: [], insumos: [], informes: [],
 })
 
@@ -115,6 +117,7 @@ export default function EquiposPage() {
               onMouseLeave={ev => (ev.currentTarget.style.background = "transparent")}
             >
               <div className="flex items-start justify-between gap-4">
+                {e.foto && <img src={fotoSrc(e.foto)} alt={e.nombre} className="w-14 h-14 rounded-lg object-cover border shrink-0" style={{ borderColor: "var(--border)" }} />}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
                     <span className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>{e.nombre}</span>
@@ -171,6 +174,10 @@ export default function EquiposPage() {
               </div>
             </div>
             <div className="space-y-1"><Label>Notas</Label><Textarea value={form.notas ?? ""} onChange={e => set("notas", e.target.value)} rows={2} /></div>
+            <div className="space-y-1">
+              <Label>Foto de referencia</Label>
+              <FotoGaleria fotos={form.foto ? [form.foto] : []} maxFotos={1} onChange={arr => set("foto", arr[0] ?? "")} />
+            </div>
             <div className="pt-2 border-t" style={{ borderColor: "var(--border)" }}>
               <div className="text-xs font-semibold mb-2" style={{ color: "var(--muted-foreground)" }}>ARCHIVOS DEL EQUIPO</div>
               <div className="space-y-3">
