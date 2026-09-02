@@ -41,11 +41,8 @@ const nav: NavItem[] = [
 
 const TECNICO_ROUTES = [
   "/mantencion", "/reparacion", "/clientes", "/ordenes",
-  "/gastos", "/informes-entrega",
+  "/gastos", "/informes-entrega", "/instalacion",
 ]
-
-// Módulo en desarrollo: solo visible para esta cuenta hasta su lanzamiento
-const INSTALACION_EMAIL = "n.palacios.marchant@gmail.com"
 
 const SB = {
   bg:            "#0e1a35",
@@ -92,11 +89,7 @@ export default function Sidebar() {
   }
 
   const esAdmin = user?.rol === "admin"
-  const esNicolas = (user?.email ?? "").toLowerCase() === INSTALACION_EMAIL.toLowerCase()
-  const visibleNav = nav.filter(item => {
-    if (item.href === "/instalacion") return esNicolas
-    return esAdmin ? true : TECNICO_ROUTES.includes(item.href)
-  })
+  const visibleNav = nav.filter(item => esAdmin ? true : TECNICO_ROUTES.includes(item.href))
 
   function handleLogout() {
     logout()
