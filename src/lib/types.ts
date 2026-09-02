@@ -39,6 +39,7 @@ export interface Equipo {
   proximaMantencion?: string
   activo: boolean
   notas?: string
+  foto?: string              // URL de foto de referencia (Supabase Storage)
   planos?: { url: string; nombre: string }[]
   instructivos?: { url: string; nombre: string }[]
   fichasTecnicas?: { url: string; nombre: string }[]
@@ -354,10 +355,18 @@ export type EstadoGasto = "borrador" | "enviado" | "aprobado" | "rechazado"
 
 export type TipoDocumentoGasto = "boleta" | "factura" | "otro"
 
+// Tipos de gasto personalizados (además de las categorías fijas de arriba)
+export interface TipoGasto {
+  id: string
+  nombre: string
+  descripcion?: string
+  creadoEn: string
+}
+
 export interface Gasto {
   id: string
   fecha: string
-  categoria: CategoriaGasto
+  categoria: string           // categoría fija (CategoriaGasto) o nombre de un TipoGasto personalizado
   descripcion: string
   monto: number
   moneda: "CLP" | "USD"

@@ -16,7 +16,7 @@ import {
   Mantencion, Proyecto, Reparacion, ItemBodega, MovimientoBodega, Bodega,
   Importacion, ContratoArriendo, PagoArriendo, ClienteEquipo,
   Cotizacion, OrdenTrabajo, Tecnico, AsignacionTecnico,
-  Usuario, Proveedor, Gasto, InformeEntrega, AlertaConfig,
+  Usuario, Proveedor, Gasto, TipoGasto, InformeEntrega, AlertaConfig,
   Equipo, Notificacion,
   DocumentoAdmin, Reunion, VisitaTecnica, Licitacion,
   Nodo, Tarea, Pago, Instalacion,
@@ -164,6 +164,7 @@ export async function syncFromSupabase() {
     { sbTable: "asignaciones_tecnico", lsKey: "asignaciones"  },
     { sbTable: "proveedores",        lsKey: "proveedores"     },
     { sbTable: "gastos",             lsKey: "gastos"          },
+    { sbTable: "tipos_gasto",        lsKey: "tiposGasto"      },
     { sbTable: "informes_entrega",   lsKey: "informesEntrega" },
     { sbTable: "alertas_config",     lsKey: "alertasConfig"   },
     { sbTable: "equipos",            lsKey: "equipos"         },
@@ -550,6 +551,24 @@ export const gastos = {
   delete: (id: string) => {
     lsSet("gastos", gastos.getAll().filter(g => g.id !== id))
     syncUp("gastos", { id }, "delete")
+  },
+}
+
+export const tiposGasto = {
+  getAll: (): TipoGasto[] => lsGet("tiposGasto"),
+  add: (t: Omit<TipoGasto, "id" | "creadoEn">): TipoGasto => {
+    const item: TipoGasto = { ...t, id: getId(), creadoEn: new Date().toISOString() }
+    lsSet("tiposGasto", [...tiposGasto.getAll(), item])
+    syncUp("tipos_gasto", item as unknown as Record<string, unknown>, "upsert")
+    return item
+  },
+  update: (id: string, changes: Partial<TipoGasto>) => {
+    lsSet("tiposGasto", tiposGasto.getAll().map(t => t.id === id ? { ...t, ...changes } : t))
+    syncUp("tipos_gasto", { id, ...changes } as Record<string, unknown>, "upsert")
+  },
+  delete: (id: string) => {
+    lsSet("tiposGasto", tiposGasto.getAll().filter(t => t.id !== id))
+    syncUp("tipos_gasto", { id }, "delete")
   },
 }
 
