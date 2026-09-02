@@ -27,6 +27,8 @@ export function FotoGaleria({ fotos = [], onChange, maxFotos = 20, readOnly = fa
         nuevas.push(url)
       }
       onChange([...fotos, ...nuevas])
+    } catch (e) {
+      alert("No se pudo subir la foto: " + (e instanceof Error ? e.message : String(e)))
     } finally {
       setCargando(false)
       if (fileRef.current) fileRef.current.value = ""
