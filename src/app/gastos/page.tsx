@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import { gastos } from "@/lib/store"
-import { Gasto, CategoriaGasto, EstadoGasto, TipoDocumentoGasto } from "@/lib/types"
+import { gastos, tiposGasto } from "@/lib/store"
+import { Gasto, CategoriaGasto, TipoGasto, EstadoGasto, TipoDocumentoGasto } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import {
   Plus, Pencil, Trash2, Receipt, CheckCircle2, Clock,
-  XCircle, Send, Upload, Maximize2, FileImage, FileText, X, Download,
+  XCircle, Send, Upload, Maximize2, FileImage, FileText, X, Download, Tag,
 } from "lucide-react"
 import { imprimirGastosPDF } from "@/lib/gastos-pdf"
 import { subirArchivo } from "@/lib/upload-archivo"
@@ -28,6 +28,16 @@ const categoriaCfg: Record<CategoriaGasto, { label: string; color: string; bg: s
   combustible:  { label: "Combustible",  color: "#ea580c", bg: "#fff7ed" },
   alojamiento:  { label: "Alojamiento",  color: "#059669", bg: "#f0fdf4" },
   otro:         { label: "Otro",         color: "#64748b", bg: "#f8fafc" },
+}
+
+// Info visual de una categoría: usa la config fija de arriba si es una de las 7 base,
+// o busca el tipo personalizado creado por el usuario; si no encuentra nada, usa un estilo neutro.
+function catInfo(categoria: string, tipos: TipoGasto[]): { label: string; color: string; bg: string } {
+  const fija = (categoriaCfg as Record<string, { label: string; color: string; bg: string }>)[categoria]
+  if (fija) return fija
+  const custom = tipos.find(t => t.nombre === categoria)
+  if (custom) return { label: custom.nombre, color: "#6366f1", bg: "#eef2ff" }
+  return { label: categoria || "Sin categoría", color: "#64748b", bg: "#f8fafc" }
 }
 
 const estadoCfg: Record<EstadoGasto, { label: string; color: string; bg: string; Icon: React.ElementType }> = {
@@ -109,15 +119,38 @@ export default function GastosPage() {
   const [editando, setEditando] = useState<Gasto | null>(null)
   const [form, setForm] = useState(emptyForm())
   const [filtroEstado, setFiltroEstado] = useState<EstadoGasto | "todos">("todos")
-  const [filtroCategoria, setFiltroCategoria] = useState<CategoriaGasto | "todos">("todos")
+  const [filtroCategoria, setFiltroCategoria] = useState<string>("todos")
   const [visorAdjunto, setVisorAdjunto] = useState<Gasto | null>(null)
   const [subiendo, setSubiendo] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [dateRange, setDateRange] = useState<DateRange>({ from: "", to: "" })
 
-  const cargar = () => setLista(gastos.getAll().slice().reverse())
+  const [tiposList, setTiposList] = useState<TipoGasto[]>([])
+  const [openTipos, setOpenTipos] = useState(false)
+  const [formTipo, setFormTipo] = useState({ nombre: "", descripcion: "" })
+
+  const cargar = () => {
+    setLista(gastos.getAll().slice().reverse())
+    setTiposList(tiposGasto.getAll())
+  }
   useEffect(() => { cargar() }, [])
+
+  function agregarTipo() {
+    const nom = formTipo.nombre.trim()
+    if (!nom) return
+    tiposGasto.add({ nombre: nom, descripcion: formTipo.descripcion.trim() || undefined })
+    setFormTipo({ nombre: "", descripcion: "" }); cargar()
+  }
+  function renombrarTipo(t: TipoGasto) {
+    const nom = prompt("Nuevo nombre del tipo de gasto:", t.nombre)
+    if (nom && nom.trim()) { tiposGasto.update(t.id, { nombre: nom.trim() }); cargar() }
+  }
+  function eliminarTipo(id: string) {
+    if (confirm("¿Eliminar este tipo de gasto? Los gastos ya registrados con este tipo no se modifican.")) {
+      tiposGasto.delete(id); cargar()
+    }
+  }
 
   function abrir(g?: Gasto) {
     if (g) { setEditando(g); const { id, creadoEn, ...r } = g; setForm(r) }
@@ -207,6 +240,7 @@ export default function GastosPage() {
               <Download size={14} /> Exportar PDF
             </button>
           )}
+          <button className="btn-ghost" onClick={() => setOpenTipos(true)}><Tag size={13} /> Tipos de Gasto</button>
           <button className="btn-accent" onClick={() => abrir()}><Plus size={14} /> Nuevo Gasto</button>
         </div>
       }
@@ -232,10 +266,13 @@ export default function GastosPage() {
           ))}
         </select>
         <select className="h-8 px-2 text-sm rounded-lg border border-gray-200 bg-white text-gray-700"
-          value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value as CategoriaGasto | "todos")}>
+          value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)}>
           <option value="todos">Todas las categorías</option>
           {(Object.keys(categoriaCfg) as CategoriaGasto[]).map(c => (
             <option key={c} value={c}>{categoriaCfg[c].label}</option>
+          ))}
+          {tiposList.map(t => (
+            <option key={t.id} value={t.nombre}>{t.nombre}</option>
           ))}
         </select>
         {filtrada.length > 0 && (
@@ -251,7 +288,7 @@ export default function GastosPage() {
           <div className="empty-state"><Receipt size={40} /><p>No hay gastos registrados</p></div>
         ) : (
           paged.map((g, i) => {
-            const cat = categoriaCfg[g.categoria]
+            const cat = catInfo(g.categoria, tiposList)
             const est = estadoCfg[g.estado]
             const EstIcon = est.Icon
             const tipoDoc = tipoDocCfg[g.tipoDocumento ?? "otro"]
@@ -358,8 +395,12 @@ export default function GastosPage() {
               <div className="space-y-1"><Label>Categoría</Label>
                 <Select value={form.categoria} onValueChange={v => setS("categoria", v ?? "")}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{(Object.keys(categoriaCfg) as CategoriaGasto[]).map(c =>
-                    <SelectItem key={c} value={c}>{categoriaCfg[c].label}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    {(Object.keys(categoriaCfg) as CategoriaGasto[]).map(c =>
+                      <SelectItem key={c} value={c}>{categoriaCfg[c].label}</SelectItem>)}
+                    {tiposList.map(t =>
+                      <SelectItem key={t.id} value={t.nombre}>{t.nombre}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
             </div>
@@ -476,6 +517,31 @@ export default function GastosPage() {
                 rows={2} placeholder="Detalles adicionales..." /></div>
 
             <Button className="w-full" onClick={guardar}>{editando ? "Guardar cambios" : "Crear gasto"}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Tipos de Gasto */}
+      <Dialog open={openTipos} onOpenChange={setOpenTipos}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Tipos de Gasto</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-xs text-gray-500">Además de las categorías base, crea los tipos de gasto que necesites y luego asígnalos a cada gasto.</p>
+            <div className="flex gap-2">
+              <Input placeholder="Nombre del tipo (ej: Peajes)" value={formTipo.nombre} onChange={e => setFormTipo(f => ({ ...f, nombre: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") agregarTipo() }} />
+              <Button onClick={agregarTipo}><Plus size={14} /> Agregar</Button>
+            </div>
+            <div className="space-y-1.5 max-h-72 overflow-y-auto">
+              {tiposList.length === 0 && <div className="text-sm text-center py-6 text-gray-500">Aún no hay tipos personalizados. Crea el primero arriba.</div>}
+              {tiposList.map(t => (
+                <div key={t.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
+                  <span className="flex-1 text-sm font-medium text-gray-900">{t.nombre}</span>
+                  <span className="text-xs text-gray-500">{lista.filter(g => g.categoria === t.nombre).length} gastos</span>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => renombrarTipo(t)}><Pencil size={12} /></Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => eliminarTipo(t.id)}><Trash2 size={12} /></Button>
+                </div>
+              ))}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
