@@ -100,11 +100,7 @@ export default function NavDrawer({ open, onClose }: NavDrawerProps) {
   }
 
   const esAdmin = user?.rol === "admin"
-  const visibleNav = nav.filter(item => {
-    // Módulo Instalación: en desarrollo, visible solo para la cuenta autorizada (ver canAccess)
-    if (item.href === "/instalacion") return canAccess(user, item.href)
-    return esAdmin || TECNICO_ROUTES.includes(item.href) || canAccess(user, item.href)
-  })
+  const visibleNav = nav.filter(item => esAdmin || TECNICO_ROUTES.includes(item.href) || canAccess(user, item.href))
 
   const ungrouped = visibleNav.filter(i => !i.group)
 
