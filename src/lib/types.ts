@@ -435,6 +435,8 @@ export interface NotificacionEmailConfig {
 // ── Reloj de Asistencia ────────────────────────────────────────────
 export type UbicacionAsistencia = "oficina" | "terreno" | "viaje"
 
+export type FuenteGeo = "gps" | "ip"
+
 export interface Asistencia {
   id: string
   usuarioId: string
@@ -446,6 +448,17 @@ export interface Asistencia {
   ubicacionSalida?: UbicacionAsistencia
   tarde: boolean              // true si horaEntrada > horaIngreso configurada
   creadoEn: string
+  // Geolocalización de la marcación (solo se muestra al administrador)
+  geoEntradaLat?: number
+  geoEntradaLng?: number
+  geoEntradaPrecision?: number   // metros de precisión (solo fuente "gps")
+  geoEntradaLugar?: string       // ciudad/sector (solo fuente "ip")
+  geoEntradaFuente?: FuenteGeo
+  geoSalidaLat?: number
+  geoSalidaLng?: number
+  geoSalidaPrecision?: number
+  geoSalidaLugar?: string
+  geoSalidaFuente?: FuenteGeo
 }
 
 export interface AsistenciaConfig {

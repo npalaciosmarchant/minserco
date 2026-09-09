@@ -87,6 +87,10 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   usuarioNombre:"usuario_nombre", horaEntrada:"hora_entrada", horaSalida:"hora_salida",
   ubicacionEntrada:"ubicacion_entrada", ubicacionSalida:"ubicacion_salida",
   horaIngreso:"hora_ingreso",
+  geoEntradaLat:"geo_entrada_lat", geoEntradaLng:"geo_entrada_lng",
+  geoEntradaPrecision:"geo_entrada_precision", geoEntradaLugar:"geo_entrada_lugar", geoEntradaFuente:"geo_entrada_fuente",
+  geoSalidaLat:"geo_salida_lat", geoSalidaLng:"geo_salida_lng",
+  geoSalidaPrecision:"geo_salida_precision", geoSalidaLugar:"geo_salida_lugar", geoSalidaFuente:"geo_salida_fuente",
 }
 
 const SNAKE_TO_CAMEL = Object.fromEntries(
