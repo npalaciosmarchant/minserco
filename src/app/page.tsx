@@ -17,6 +17,7 @@ import {
 import Link from "next/link"
 import { useAuth } from "@/lib/auth"
 import { StorageMeter } from "@/components/StorageMeter"
+import { MarcarAsistencia } from "@/components/MarcarAsistencia"
 
 /* ── Bar Chart SVG ── */
 function BarChartSVG({ data }: { data: { label: string; value: number; color: string }[] }) {
@@ -334,6 +335,9 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* ── Marcación de asistencia ── */}
+      <MarcarAsistencia />
 
       {/* ── Almacenamiento ── */}
       <StorageMeter />
