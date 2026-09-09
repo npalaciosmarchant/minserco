@@ -9,11 +9,16 @@ import PageShell from "@/components/layout/PageShell"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Clock, Save, AlertTriangle, CalendarDays, Users, CheckCircle2, MapPin, BellRing, X, ExternalLink } from "lucide-react"
+import { Clock, Save, AlertTriangle, CalendarDays, Users, CheckCircle2, MapPin, BellRing, X, ExternalLink, Pencil, Trash2 } from "lucide-react"
 
 const UBICACION_LABEL: Record<UbicacionAsistencia, string> = {
   oficina: "Oficina", terreno: "Visita a Terreno", viaje: "Viaje",
 }
+
+// Editar/eliminar una marcación es una acción sensible (podría usarse para
+// falsear asistencia). Se restringe explícitamente a estas dos personas,
+// independiente de quién más tenga rol "admin" a futuro.
+const ADMINS_EDICION_ASISTENCIA = ["n.palacios.marchant@gmail.com", "sergioalbornoz@minserco.cl"]
 
 function hoyISO() {
   return new Date().toISOString().slice(0, 10)
@@ -56,6 +61,11 @@ export default function AsistenciaAdminPage() {
   const [notifs, setNotifs] = useState<Notificacion[]>([])
   const [geoModal, setGeoModal] = useState<GeoModalData | null>(null)
   const [lugarCache, setLugarCache] = useState<Record<string, string>>({})
+  const [editando, setEditando] = useState<Asistencia | null>(null)
+  const [editHoraEntrada, setEditHoraEntrada] = useState("")
+  const [editHoraSalida, setEditHoraSalida] = useState("")
+
+  const puedeEditar = !!user?.email && ADMINS_EDICION_ASISTENCIA.includes(user.email)
 
   useEffect(() => {
     if (user && user.rol !== "admin") { router.push("/"); return }
@@ -83,6 +93,32 @@ export default function AsistenciaAdminPage() {
     asistenciaConfig.set(horaIngreso)
     setGuardado(true)
     setTimeout(() => setGuardado(false), 2000)
+  }
+
+  function abrirEditar(a: Asistencia) {
+    if (!puedeEditar) return
+    setEditando(a)
+    setEditHoraEntrada(a.horaEntrada ?? "")
+    setEditHoraSalida(a.horaSalida ?? "")
+  }
+
+  function guardarEdicion() {
+    if (!editando || !puedeEditar) return
+    const tarde = editHoraEntrada ? editHoraEntrada > horaIngreso : false
+    asistencias.update(editando.id, {
+      horaEntrada: editHoraEntrada,
+      horaSalida: editHoraSalida,
+      tarde,
+    })
+    cargar()
+    setEditando(null)
+  }
+
+  function eliminarRegistro(a: Asistencia) {
+    if (!puedeEditar) return
+    if (!confirm(`¿Eliminar la marcación de ${a.usuarioNombre} del ${a.fecha}? Esta acción no se puede deshacer.`)) return
+    asistencias.delete(a.id)
+    cargar()
   }
 
   const usuariosList = usuarios.getAll()
@@ -221,6 +257,9 @@ export default function AsistenciaAdminPage() {
                     <th className="text-left py-2.5 px-4 font-medium" style={{ color: "var(--ds-fg-subtle)" }}>Entrada</th>
                     <th className="text-left py-2.5 px-4 font-medium" style={{ color: "var(--ds-fg-subtle)" }}>Salida</th>
                     <th className="text-left py-2.5 px-4 font-medium" style={{ color: "var(--ds-fg-subtle)" }}>Estado</th>
+                    {puedeEditar && (
+                      <th className="text-left py-2.5 px-4 font-medium" style={{ color: "var(--ds-fg-subtle)" }}>Acciones</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -273,6 +312,28 @@ export default function AsistenciaAdminPage() {
                           </span>
                         )}
                       </td>
+                      {puedeEditar && (
+                        <td className="py-2.5 px-4">
+                          <div className="flex items-center gap-1">
+                            <button
+                              title="Modificar hora"
+                              onClick={() => abrirEditar(a)}
+                              className="inline-flex items-center justify-center w-7 h-7 rounded-md"
+                              style={{ background: "#DBEAFE", color: "#0369A1" }}
+                            >
+                              <Pencil size={12} />
+                            </button>
+                            <button
+                              title="Eliminar marcación"
+                              onClick={() => eliminarRegistro(a)}
+                              className="inline-flex items-center justify-center w-7 h-7 rounded-md"
+                              style={{ background: "#FEE2E2", color: "#dc2626" }}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -338,6 +399,64 @@ export default function AsistenciaAdminPage() {
                 <Button onClick={() => setGeoModal(null)} className="h-8 px-3">
                   <X size={13} /> Cerrar
                 </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal: modificar/eliminar hora de una marcación (solo Nicolas/Sergio) ── */}
+      <Dialog open={!!editando} onOpenChange={o => !o && setEditando(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil size={15} style={{ color: "#0369A1" }} />
+              {editando?.usuarioNombre} · {editando?.fecha}
+            </DialogTitle>
+          </DialogHeader>
+          {editando && (
+            <div className="space-y-3">
+              <p className="text-[12px]" style={{ color: "var(--ds-fg-subtle)" }}>
+                Deja un campo vacío para eliminar esa marca.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[12px] font-medium" style={{ color: "var(--ds-fg-muted)" }}>Hora entrada</label>
+                  <input
+                    type="time"
+                    value={editHoraEntrada}
+                    onChange={e => setEditHoraEntrada(e.target.value)}
+                    className="h-9 px-3 rounded-lg text-[13px] border w-full"
+                    style={{ border: "1px solid var(--ds-border)", color: "var(--ds-fg)", background: "var(--ds-surface)", fontFamily: "Fira Code, monospace" }}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[12px] font-medium" style={{ color: "var(--ds-fg-muted)" }}>Hora salida</label>
+                  <input
+                    type="time"
+                    value={editHoraSalida}
+                    onChange={e => setEditHoraSalida(e.target.value)}
+                    className="h-9 px-3 rounded-lg text-[13px] border w-full"
+                    style={{ border: "1px solid var(--ds-border)", color: "var(--ds-fg)", background: "var(--ds-surface)", fontFamily: "Fira Code, monospace" }}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-1">
+                <button
+                  onClick={() => { setEditando(null); eliminarRegistro(editando) }}
+                  className="text-[12px] font-medium inline-flex items-center gap-1"
+                  style={{ color: "#dc2626" }}
+                >
+                  <Trash2 size={12} /> Eliminar marcación completa
+                </button>
+                <div className="flex items-center gap-2">
+                  <Button onClick={() => setEditando(null)} className="h-8 px-3" style={{ background: "var(--ds-surface)", color: "var(--ds-fg)", border: "1px solid var(--ds-border)" }}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={guardarEdicion} className="h-8 px-3">
+                    <Save size={13} /> Guardar
+                  </Button>
+                </div>
               </div>
             </div>
           )}
