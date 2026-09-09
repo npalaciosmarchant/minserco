@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth"
-import { asistencias, asistenciaConfig, usuarios } from "@/lib/store"
-import { Asistencia, UbicacionAsistencia } from "@/lib/types"
+import { asistencias, asistenciaConfig, usuarios, notificaciones } from "@/lib/store"
+import { Asistencia, Notificacion, UbicacionAsistencia } from "@/lib/types"
 import PageShell from "@/components/layout/PageShell"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { Clock, Save, AlertTriangle, CalendarDays, Users, CheckCircle2 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Clock, Save, AlertTriangle, CalendarDays, Users, CheckCircle2, MapPin, BellRing, X, ExternalLink } from "lucide-react"
 
 const UBICACION_LABEL: Record<UbicacionAsistencia, string> = {
   oficina: "Oficina", terreno: "Visita a Terreno", viaje: "Viaje",
@@ -16,6 +17,31 @@ const UBICACION_LABEL: Record<UbicacionAsistencia, string> = {
 
 function hoyISO() {
   return new Date().toISOString().slice(0, 10)
+}
+
+interface GeoModalData {
+  usuario: string
+  tipo: "Entrada" | "Salida"
+  hora: string
+  lat: number
+  lng: number
+  precision?: number
+  lugar?: string
+  fuente?: "gps" | "ip"
+}
+
+// Reverse geocoding client-side, gratis y sin API key (BigDataCloud) — solo
+// para presentación al administrador, nunca se guarda en el registro.
+async function reverseGeocode(lat: number, lng: number): Promise<string | undefined> {
+  try {
+    const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=es`)
+    if (!r.ok) return undefined
+    const d = await r.json()
+    const partes = [d.locality, d.city, d.principalSubdivision, d.countryName].filter(Boolean)
+    return partes.length > 0 ? Array.from(new Set(partes)).join(", ") : undefined
+  } catch {
+    return undefined
+  }
 }
 
 export default function AsistenciaAdminPage() {
@@ -27,6 +53,9 @@ export default function AsistenciaAdminPage() {
   const [guardado, setGuardado] = useState(false)
   const [filtroFecha, setFiltroFecha] = useState(hoyISO())
   const [filtroUsuario, setFiltroUsuario] = useState("todos")
+  const [notifs, setNotifs] = useState<Notificacion[]>([])
+  const [geoModal, setGeoModal] = useState<GeoModalData | null>(null)
+  const [lugarCache, setLugarCache] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (user && user.rol !== "admin") { router.push("/"); return }
@@ -35,8 +64,20 @@ export default function AsistenciaAdminPage() {
   const cargar = () => {
     setLista(asistencias.getAll().slice().reverse())
     setHoraIngreso(asistenciaConfig.get().horaIngreso)
+    setNotifs(notificaciones.getAll().filter(n => n.tipo === "asistencia_sin_gps" && !n.leida).slice().reverse())
   }
   useEffect(() => { cargar() }, [])
+
+  function abrirGeo(usuario: string, tipo: "Entrada" | "Salida", hora: string, lat?: number, lng?: number, precision?: number, lugar?: string, fuente?: "gps" | "ip") {
+    if (lat == null || lng == null) return
+    setGeoModal({ usuario, tipo, hora, lat, lng, precision, lugar, fuente })
+    const key = `${lat},${lng}`
+    if (!lugar && !lugarCache[key]) {
+      reverseGeocode(lat, lng).then(res => {
+        if (res) setLugarCache(prev => ({ ...prev, [key]: res }))
+      })
+    }
+  }
 
   function guardarConfig() {
     asistenciaConfig.set(horaIngreso)
@@ -55,10 +96,12 @@ export default function AsistenciaAdminPage() {
   const hoy = hoyISO()
   const registrosHoy = lista.filter(a => a.fecha === hoy)
   const tardanzasHoy = registrosHoy.filter(a => a.tarde).length
+  const sinGpsHoy = registrosHoy.filter(a => a.geoEntradaFuente === "ip" || a.geoSalidaFuente === "ip").length
 
   const stats = [
     { label: "Marcaciones hoy", value: registrosHoy.length },
     { label: "Tardanzas hoy", value: tardanzasHoy, color: tardanzasHoy > 0 ? "#dc2626" : "#059669" },
+    { label: "Sin GPS hoy", value: sinGpsHoy, color: sinGpsHoy > 0 ? "#dc2626" : "#059669" },
   ]
 
   if (user && user.rol !== "admin") return null
@@ -72,6 +115,44 @@ export default function AsistenciaAdminPage() {
       stats={stats}
     >
       <div className="space-y-6 max-w-5xl">
+        {/* ── Notificaciones: marcaciones sin GPS ── */}
+        {notifs.length > 0 && (
+          <div className="ds-card p-5" style={{ border: "1px solid #FCA5A540" }}>
+            <div className="flex items-center gap-2 mb-3">
+              <BellRing size={15} style={{ color: "#dc2626" }} />
+              <span className="text-[13px] font-semibold" style={{ color: "var(--ds-fg)" }}>
+                Notificaciones · Marcaciones sin GPS ({notifs.length})
+              </span>
+            </div>
+            <div className="space-y-2">
+              {notifs.map(n => (
+                <div
+                  key={n.id}
+                  className="flex items-start justify-between gap-3 p-2.5 rounded-lg"
+                  style={{ background: "#FEF2F2" }}
+                >
+                  <div className="min-w-0">
+                    <div className="text-[12px] font-medium" style={{ color: "#991B1B" }}>{n.titulo}</div>
+                    {n.mensaje && (
+                      <div className="text-[11px] mt-0.5" style={{ color: "#b91c1c" }}>{n.mensaje}</div>
+                    )}
+                    <div className="text-[10px] mt-0.5" style={{ color: "var(--ds-fg-subtle)" }}>
+                      {new Date(n.creadoEn).toLocaleString("es-CL")}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { notificaciones.marcarLeida(n.id); cargar() }}
+                    className="shrink-0 text-[11px] font-medium px-2 py-1 rounded-md"
+                    style={{ color: "#991B1B", border: "1px solid #FCA5A5" }}
+                  >
+                    Marcar leída
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── Configuración ── */}
         <div className="ds-card p-5 max-w-md">
           <div className="flex items-center gap-2 mb-3">
@@ -148,10 +229,38 @@ export default function AsistenciaAdminPage() {
                       <td className="py-2.5 px-4 font-medium" style={{ color: "var(--ds-fg)" }}>{a.usuarioNombre}</td>
                       <td className="py-2.5 px-4" style={{ color: "var(--ds-fg-subtle)", fontFamily: "Fira Code, monospace" }}>{a.fecha}</td>
                       <td className="py-2.5 px-4" style={{ color: "var(--ds-fg-subtle)" }}>
-                        {a.horaEntrada ? `${a.horaEntrada} · ${UBICACION_LABEL[a.ubicacionEntrada!]}` : "—"}
+                        {a.horaEntrada ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            {a.horaEntrada} · {UBICACION_LABEL[a.ubicacionEntrada!]}
+                            {a.geoEntradaLat != null && (
+                              <button
+                                title={a.geoEntradaFuente === "ip" ? "Ubicación aproximada (IP)" : "Ver ubicación GPS"}
+                                onClick={() => abrirGeo(a.usuarioNombre, "Entrada", a.horaEntrada!, a.geoEntradaLat, a.geoEntradaLng, a.geoEntradaPrecision, a.geoEntradaLugar, a.geoEntradaFuente)}
+                                className="inline-flex items-center justify-center w-5 h-5 rounded-md shrink-0"
+                                style={{ background: a.geoEntradaFuente === "ip" ? "#FEE2E2" : "#DBEAFE", color: a.geoEntradaFuente === "ip" ? "#dc2626" : "#0369A1" }}
+                              >
+                                <MapPin size={11} />
+                              </button>
+                            )}
+                          </span>
+                        ) : "—"}
                       </td>
                       <td className="py-2.5 px-4" style={{ color: "var(--ds-fg-subtle)" }}>
-                        {a.horaSalida ? `${a.horaSalida} · ${UBICACION_LABEL[a.ubicacionSalida!]}` : "—"}
+                        {a.horaSalida ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            {a.horaSalida} · {UBICACION_LABEL[a.ubicacionSalida!]}
+                            {a.geoSalidaLat != null && (
+                              <button
+                                title={a.geoSalidaFuente === "ip" ? "Ubicación aproximada (IP)" : "Ver ubicación GPS"}
+                                onClick={() => abrirGeo(a.usuarioNombre, "Salida", a.horaSalida!, a.geoSalidaLat, a.geoSalidaLng, a.geoSalidaPrecision, a.geoSalidaLugar, a.geoSalidaFuente)}
+                                className="inline-flex items-center justify-center w-5 h-5 rounded-md shrink-0"
+                                style={{ background: a.geoSalidaFuente === "ip" ? "#FEE2E2" : "#DBEAFE", color: a.geoSalidaFuente === "ip" ? "#dc2626" : "#0369A1" }}
+                              >
+                                <MapPin size={11} />
+                              </button>
+                            )}
+                          </span>
+                        ) : "—"}
                       </td>
                       <td className="py-2.5 px-4">
                         {a.tarde ? (
@@ -172,6 +281,68 @@ export default function AsistenciaAdminPage() {
           )}
         </div>
       </div>
+
+      {/* ── Modal: ubicación de la marcación (solo administrador) ── */}
+      <Dialog open={!!geoModal} onOpenChange={o => !o && setGeoModal(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin size={15} style={{ color: "#0369A1" }} />
+              {geoModal?.usuario} · {geoModal?.tipo} {geoModal?.hora}
+            </DialogTitle>
+          </DialogHeader>
+          {geoModal && (
+            <div className="space-y-3">
+              <div
+                className="rounded-lg overflow-hidden"
+                style={{ border: "1px solid var(--ds-border)", height: 260 }}
+              >
+                <iframe
+                  title="Ubicación de la marcación"
+                  className="w-full h-full"
+                  style={{ border: 0 }}
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${geoModal.lng - 0.008}%2C${geoModal.lat - 0.006}%2C${geoModal.lng + 0.008}%2C${geoModal.lat + 0.006}&layer=mapnik&marker=${geoModal.lat}%2C${geoModal.lng}`}
+                />
+              </div>
+
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[13px] font-medium" style={{ color: "var(--ds-fg)" }}>
+                    {geoModal.lugar ?? lugarCache[`${geoModal.lat},${geoModal.lng}`] ?? "Buscando lugar..."}
+                  </div>
+                  <div className="text-[11px] mt-0.5" style={{ color: "var(--ds-fg-subtle)", fontFamily: "Fira Code, monospace" }}>
+                    {geoModal.lat.toFixed(5)}, {geoModal.lng.toFixed(5)}
+                  </div>
+                </div>
+                {geoModal.fuente === "ip" ? (
+                  <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ background: "#FEE2E2", color: "#dc2626" }}>
+                    <AlertTriangle size={10} /> Aprox. por IP
+                  </span>
+                ) : (
+                  <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ background: "#DBEAFE", color: "#0369A1" }}>
+                    <MapPin size={10} /> GPS{geoModal.precision != null ? ` · ±${geoModal.precision}m` : ""}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <a
+                  href={`https://www.google.com/maps?q=${geoModal.lat},${geoModal.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[12px] font-medium"
+                  style={{ color: "#0369A1" }}
+                >
+                  <ExternalLink size={12} /> Abrir en Google Maps
+                </a>
+                <Button onClick={() => setGeoModal(null)} className="h-8 px-3">
+                  <X size={13} /> Cerrar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </PageShell>
   )
 }
