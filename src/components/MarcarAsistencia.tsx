@@ -104,7 +104,7 @@ export function MarcarAsistencia() {
         </div>
         <div>
           <div className="text-[13px] font-semibold" style={{ color: "var(--ds-fg)" }}>
-            Marcación de asistencia de hoy
+            Reloj de asistencia de hoy
           </div>
           {!yaEntrada && (
             <div className="text-[12px] mt-0.5" style={{ color: "var(--ds-fg-subtle)" }}>
