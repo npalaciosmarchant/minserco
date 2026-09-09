@@ -33,25 +33,34 @@ interface GeoResultado {
   precision?: number
   lugar?: string
   fuente?: FuenteGeo
+  motivoFallo?: string   // por qué no se pudo usar GPS (se muestra solo al admin)
 }
 
-async function obtenerUbicacionPorIP(): Promise<GeoResultado> {
+function motivoDeErrorGeo(err: GeolocationPositionError): string {
+  // code 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
+  if (err.code === 1) return "Permiso de ubicación denegado en el navegador"
+  if (err.code === 2) return "Posición no disponible (revisar que la Ubicación esté activada en Windows/macOS, no solo en Chrome)"
+  if (err.code === 3) return "Se agotó el tiempo de espera obteniendo el GPS"
+  return `Error de geolocalización (código ${err.code}: ${err.message || "desconocido"})`
+}
+
+async function obtenerUbicacionPorIP(motivoFallo?: string): Promise<GeoResultado> {
   try {
     const r = await fetch("https://ipapi.co/json/")
     if (!r.ok) throw new Error("ipapi")
     const d = await r.json()
     if (d.latitude == null || d.longitude == null) throw new Error("sin datos")
     const lugar = [d.city, d.region, d.country_name].filter(Boolean).join(", ")
-    return { lat: d.latitude, lng: d.longitude, lugar: lugar || undefined, fuente: "ip" }
+    return { lat: d.latitude, lng: d.longitude, lugar: lugar || undefined, fuente: "ip", motivoFallo }
   } catch {
     try {
       const r = await fetch("https://ipwho.is/")
       const d = await r.json()
       if (!d.success || d.latitude == null) throw new Error("sin datos")
       const lugar = [d.city, d.region, d.country].filter(Boolean).join(", ")
-      return { lat: d.latitude, lng: d.longitude, lugar: lugar || undefined, fuente: "ip" }
+      return { lat: d.latitude, lng: d.longitude, lugar: lugar || undefined, fuente: "ip", motivoFallo }
     } catch {
-      return {}
+      return { motivoFallo }
     }
   }
 }
@@ -59,7 +68,7 @@ async function obtenerUbicacionPorIP(): Promise<GeoResultado> {
 function obtenerUbicacion(): Promise<GeoResultado> {
   return new Promise(resolve => {
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
-      obtenerUbicacionPorIP().then(resolve)
+      obtenerUbicacionPorIP("Este navegador no soporta geolocalización").then(resolve)
       return
     }
     navigator.geolocation.getCurrentPosition(
@@ -69,19 +78,21 @@ function obtenerUbicacion(): Promise<GeoResultado> {
         precision: Math.round(pos.coords.accuracy),
         fuente: "gps",
       }),
-      () => { obtenerUbicacionPorIP().then(resolve) },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      err => { obtenerUbicacionPorIP(motivoDeErrorGeo(err)).then(resolve) },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     )
   })
 }
 
-function notificarAdminSinGPS(nombre: string, tipoMarca: "entrada" | "salida", lugar?: string) {
+function notificarAdminSinGPS(nombre: string, tipoMarca: "entrada" | "salida", lugar?: string, motivoFallo?: string) {
+  const partes = [
+    motivoFallo ? `Motivo: ${motivoFallo}.` : null,
+    lugar ? `Ubicación aproximada por IP: ${lugar}.` : "No fue posible determinar una ubicación aproximada.",
+  ].filter(Boolean)
   notificaciones.add({
     tipo: "asistencia_sin_gps",
     titulo: `${nombre} marcó ${tipoMarca === "entrada" ? "entrada" : "salida"} sin permiso de GPS`,
-    mensaje: lugar
-      ? `Ubicación aproximada por IP: ${lugar}`
-      : "No fue posible determinar una ubicación aproximada.",
+    mensaje: partes.join(" "),
     leida: false,
   })
 }
@@ -159,7 +170,7 @@ export function MarcarAsistencia() {
         })
       }
       cargar()
-      if (geo.fuente === "ip") notificarAdminSinGPS(user.nombre, "entrada", geo.lugar)
+      if (geo.fuente === "ip") notificarAdminSinGPS(user.nombre, "entrada", geo.lugar, geo.motivoFallo)
       if (tarde) {
         setAviso(`Marcaste tu entrada a las ${horaMarcada}, después de las ${horaIngreso} definidas por el administrador.`)
       } else {
@@ -168,7 +179,7 @@ export function MarcarAsistencia() {
     } else {
       if (registro) asistencias.update(registro.id, { horaSalida: horaMarcada, ubicacionSalida: ubicacion, ...geoFields })
       cargar()
-      if (geo.fuente === "ip") notificarAdminSinGPS(user.nombre, "salida", geo.lugar)
+      if (geo.fuente === "ip") notificarAdminSinGPS(user.nombre, "salida", geo.lugar, geo.motivoFallo)
       setOpen(false)
     }
   }
