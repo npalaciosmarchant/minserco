@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { asistencias, asistenciaConfig } from "@/lib/store"
-import { Asistencia, UbicacionAsistencia } from "@/lib/types"
+import { useEffect, useRef, useState } from "react"
+import { asistencias, asistenciaConfig, notificaciones } from "@/lib/store"
+import { Asistencia, FuenteGeo, UbicacionAsistencia } from "@/lib/types"
 import { useAuth } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -26,6 +26,66 @@ function hoyISO() {
   return new Date().toISOString().slice(0, 10)
 }
 
+// ── Geolocalización silenciosa (nunca se muestra al usuario que marca) ──────
+interface GeoResultado {
+  lat?: number
+  lng?: number
+  precision?: number
+  lugar?: string
+  fuente?: FuenteGeo
+}
+
+async function obtenerUbicacionPorIP(): Promise<GeoResultado> {
+  try {
+    const r = await fetch("https://ipapi.co/json/")
+    if (!r.ok) throw new Error("ipapi")
+    const d = await r.json()
+    if (d.latitude == null || d.longitude == null) throw new Error("sin datos")
+    const lugar = [d.city, d.region, d.country_name].filter(Boolean).join(", ")
+    return { lat: d.latitude, lng: d.longitude, lugar: lugar || undefined, fuente: "ip" }
+  } catch {
+    try {
+      const r = await fetch("https://ipwho.is/")
+      const d = await r.json()
+      if (!d.success || d.latitude == null) throw new Error("sin datos")
+      const lugar = [d.city, d.region, d.country].filter(Boolean).join(", ")
+      return { lat: d.latitude, lng: d.longitude, lugar: lugar || undefined, fuente: "ip" }
+    } catch {
+      return {}
+    }
+  }
+}
+
+function obtenerUbicacion(): Promise<GeoResultado> {
+  return new Promise(resolve => {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      obtenerUbicacionPorIP().then(resolve)
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        precision: Math.round(pos.coords.accuracy),
+        fuente: "gps",
+      }),
+      () => { obtenerUbicacionPorIP().then(resolve) },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    )
+  })
+}
+
+function notificarAdminSinGPS(nombre: string, tipoMarca: "entrada" | "salida", lugar?: string) {
+  notificaciones.add({
+    tipo: "asistencia_sin_gps",
+    titulo: `${nombre} marcó ${tipoMarca === "entrada" ? "entrada" : "salida"} sin permiso de GPS`,
+    mensaje: lugar
+      ? `Ubicación aproximada por IP: ${lugar}`
+      : "No fue posible determinar una ubicación aproximada.",
+    leida: false,
+  })
+}
+
 export function MarcarAsistencia() {
   const { user } = useAuth()
   const [registro, setRegistro] = useState<Asistencia | undefined>(undefined)
@@ -35,6 +95,8 @@ export function MarcarAsistencia() {
   const [ubicacion, setUbicacion] = useState<UbicacionAsistencia>("oficina")
   const [aviso, setAviso] = useState<string | null>(null)
   const [hora, setHora] = useState(horaActual())
+  const [guardando, setGuardando] = useState(false)
+  const geoPendiente = useRef<Promise<GeoResultado> | null>(null)
 
   const cargar = () => {
     if (!user) return
@@ -51,16 +113,40 @@ export function MarcarAsistencia() {
     setUbicacion((m === "entrada" ? registro?.ubicacionEntrada : registro?.ubicacionSalida) ?? "oficina")
     setAviso(null)
     setHora(horaActual())
+    // Se solicita/obtiene la ubicación apenas se abre el diálogo (con gesto del
+    // usuario ya presente) para que esté lista cuando confirme. Nunca se muestra
+    // en esta pantalla: solo queda disponible para el administrador.
+    geoPendiente.current = obtenerUbicacion()
     setOpen(true)
   }
 
-  function confirmar() {
+  async function confirmar() {
     if (!user) return
+    setGuardando(true)
     const horaMarcada = horaActual()
+    const geo = (await geoPendiente.current) ?? {}
+    setGuardando(false)
+
+    const geoFields = modo === "entrada"
+      ? {
+          geoEntradaLat: geo.lat,
+          geoEntradaLng: geo.lng,
+          geoEntradaPrecision: geo.precision,
+          geoEntradaLugar: geo.lugar,
+          geoEntradaFuente: geo.fuente,
+        }
+      : {
+          geoSalidaLat: geo.lat,
+          geoSalidaLng: geo.lng,
+          geoSalidaPrecision: geo.precision,
+          geoSalidaLugar: geo.lugar,
+          geoSalidaFuente: geo.fuente,
+        }
+
     if (modo === "entrada") {
       const tarde = horaMarcada > horaIngreso
       if (registro) {
-        asistencias.update(registro.id, { horaEntrada: horaMarcada, ubicacionEntrada: ubicacion, tarde })
+        asistencias.update(registro.id, { horaEntrada: horaMarcada, ubicacionEntrada: ubicacion, tarde, ...geoFields })
       } else {
         asistencias.add({
           usuarioId: user.id,
@@ -69,17 +155,20 @@ export function MarcarAsistencia() {
           horaEntrada: horaMarcada,
           ubicacionEntrada: ubicacion,
           tarde,
+          ...geoFields,
         })
       }
       cargar()
+      if (geo.fuente === "ip") notificarAdminSinGPS(user.nombre, "entrada", geo.lugar)
       if (tarde) {
         setAviso(`Marcaste tu entrada a las ${horaMarcada}, después de las ${horaIngreso} definidas por el administrador.`)
       } else {
         setOpen(false)
       }
     } else {
-      if (registro) asistencias.update(registro.id, { horaSalida: horaMarcada, ubicacionSalida: ubicacion })
+      if (registro) asistencias.update(registro.id, { horaSalida: horaMarcada, ubicacionSalida: ubicacion, ...geoFields })
       cargar()
+      if (geo.fuente === "ip") notificarAdminSinGPS(user.nombre, "salida", geo.lugar)
       setOpen(false)
     }
   }
@@ -173,8 +262,12 @@ export function MarcarAsistencia() {
               </div>
             )}
 
-            <Button className="w-full" onClick={aviso ? () => setOpen(false) : confirmar}>
-              {aviso ? "Entendido" : (modo === "entrada" ? "Confirmar Entrada" : "Confirmar Salida")}
+            <Button className="w-full" disabled={guardando} onClick={aviso ? () => setOpen(false) : confirmar}>
+              {aviso
+                ? "Entendido"
+                : guardando
+                  ? "Guardando..."
+                  : (modo === "entrada" ? "Confirmar Entrada" : "Confirmar Salida")}
             </Button>
           </div>
         </DialogContent>
