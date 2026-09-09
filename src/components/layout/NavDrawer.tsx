@@ -8,7 +8,7 @@ import {
   FileText, ClipboardList, Calendar,
   BarChart3, ShieldCheck, LogOut, HardHat,
   Building2, ChevronRight, Receipt, ClipboardCheck, Wallet,
-  FolderOpen, CalendarClock, MapPin, Gavel, Radio, ListTodo, Droplets,
+  FolderOpen, CalendarClock, MapPin, Gavel, Radio, ListTodo, Droplets, Clock,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { mantenciones, bodega, reparaciones, contratos } from "@/lib/store"
@@ -50,7 +50,7 @@ const nav: NavItem[] = [
   { href: "/pagos",        label: "Pagos",              icon: Wallet,        group: "Comercial",     desc: "Pagos y vencimientos" },
 ]
 
-const TECNICO_ROUTES = ["/mantencion", "/equipos", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega"]
+const TECNICO_ROUTES = ["/", "/mantencion", "/equipos", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega"]
 
 const groups = ["Operaciones", "Terreno", "Comercial", "Logística", "Documentos", "Administrativo"]
 
@@ -261,6 +261,12 @@ export default function NavDrawer({ open, onClose }: NavDrawerProps) {
               label="Gestión de Usuarios"
               icon={ShieldCheck}
               desc="Usuarios y permisos"
+            />
+            <NavLink
+              href="/admin/asistencia"
+              label="Reloj de Asistencia"
+              icon={Clock}
+              desc="Hora de ingreso e historial"
             />
           </div>
         )}

@@ -7,7 +7,7 @@ import {
   LayoutDashboard, KeyRound, Activity, Users,
   FileText, ClipboardList, CalendarDays, Calendar, BarChart3, ShieldCheck,
   LogOut, HardHat, Building2, ChevronRight, Receipt, ClipboardCheck,
-  CheckSquare, History, Bell, Droplets,
+  CheckSquare, History, Bell, Droplets, Clock,
 } from "lucide-react"
 import Image from "next/image"
 import { useEffect, useState } from "react"
@@ -37,10 +37,11 @@ const nav: NavItem[] = [
   { href: "/informes-entrega", label: "Informes Entrega",   icon: ClipboardCheck,group: "Documentos" },
   { href: "/checklist",        label: "Checklist Equipos",  icon: CheckSquare,   group: "Documentos" },
   { href: "/admin/alertas",    label: "Config. Alertas",    icon: Bell,          group: "Admin" },
+  { href: "/admin/asistencia", label: "Reloj de Asistencia",icon: Clock,         group: "Admin" },
 ]
 
 const TECNICO_ROUTES = [
-  "/mantencion", "/reparacion", "/clientes", "/ordenes",
+  "/", "/mantencion", "/reparacion", "/clientes", "/ordenes",
   "/gastos", "/informes-entrega", "/instalacion",
 ]
 
