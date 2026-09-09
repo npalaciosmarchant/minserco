@@ -20,6 +20,7 @@ import {
   Equipo, Notificacion,
   DocumentoAdmin, Reunion, VisitaTecnica, Licitacion,
   Nodo, Tarea, Pago, Instalacion,
+  Asistencia, AsistenciaConfig,
 } from "./types"
 
 // ── localStorage helpers (API pública sin cambios) ────────────────────────────
@@ -83,6 +84,9 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   fichasTecnicas:"fichas_tecnicas", numeroSim:"numero_sim",
   puntoDescarga:"punto_descarga", presionAire:"presion_aire", presionAgua:"presion_agua",
   nBoquillas:"n_boquillas", boquillaTipo:"boquilla_tipo", largoCorrea:"largo_correa",
+  usuarioNombre:"usuario_nombre", horaEntrada:"hora_entrada", horaSalida:"hora_salida",
+  ubicacionEntrada:"ubicacion_entrada", ubicacionSalida:"ubicacion_salida",
+  horaIngreso:"hora_ingreso",
 }
 
 const SNAKE_TO_CAMEL = Object.fromEntries(
@@ -178,6 +182,8 @@ export async function syncFromSupabase() {
     { sbTable: "tareas",             lsKey: "tareas"          },
     { sbTable: "pagos",              lsKey: "pagos"           },
     { sbTable: "instalaciones",      lsKey: "instalaciones"   },
+    { sbTable: "asistencias",        lsKey: "asistencias"     },
+    { sbTable: "asistencia_config",  lsKey: "asistenciaConfig"},
   ]
 
   await Promise.all(tables.map(async ({ sbTable, lsKey }) => {
@@ -815,5 +821,44 @@ export const instalaciones = {
   delete: (id: string) => {
     lsSet("instalaciones", instalaciones.getAll().filter(i => i.id !== id))
     syncUp("instalaciones", { id }, "delete")
+  },
+}
+
+// ── RELOJ DE ASISTENCIA ───────────────────────────────────────────────────────
+
+export const asistencias = {
+  getAll: (): Asistencia[] => lsGet("asistencias"),
+  getHoy: (usuarioId: string): Asistencia | undefined => {
+    const hoy = new Date().toISOString().slice(0, 10)
+    return asistencias.getAll().find(a => a.usuarioId === usuarioId && a.fecha === hoy)
+  },
+  add: (a: Omit<Asistencia, "id" | "creadoEn">): Asistencia => {
+    const item: Asistencia = { ...a, id: getId(), creadoEn: new Date().toISOString() }
+    lsSet("asistencias", [...asistencias.getAll(), item])
+    syncUp("asistencias", item as unknown as Record<string, unknown>, "upsert")
+    return item
+  },
+  update: (id: string, changes: Partial<Asistencia>) => {
+    lsSet("asistencias", asistencias.getAll().map(a => a.id === id ? { ...a, ...changes } : a))
+    syncUp("asistencias", { id, ...changes } as Record<string, unknown>, "upsert")
+  },
+  delete: (id: string) => {
+    lsSet("asistencias", asistencias.getAll().filter(a => a.id !== id))
+    syncUp("asistencias", { id }, "delete")
+  },
+}
+
+const ASISTENCIA_CONFIG_ID = "global"
+const ASISTENCIA_CONFIG_DEFAULT: AsistenciaConfig = { id: ASISTENCIA_CONFIG_ID, horaIngreso: "08:00" }
+
+export const asistenciaConfig = {
+  get: (): AsistenciaConfig => {
+    const rows = lsGet<AsistenciaConfig>("asistenciaConfig")
+    return rows[0] ?? ASISTENCIA_CONFIG_DEFAULT
+  },
+  set: (horaIngreso: string) => {
+    const cfg: AsistenciaConfig = { id: ASISTENCIA_CONFIG_ID, horaIngreso }
+    lsSet("asistenciaConfig", [cfg])
+    syncUp("asistencia_config", cfg as unknown as Record<string, unknown>, "upsert")
   },
 }

@@ -432,6 +432,27 @@ export interface NotificacionEmailConfig {
   urgentesInmediato: boolean
 }
 
+// ── Reloj de Asistencia ────────────────────────────────────────────
+export type UbicacionAsistencia = "oficina" | "terreno" | "viaje"
+
+export interface Asistencia {
+  id: string
+  usuarioId: string
+  usuarioNombre: string
+  fecha: string               // YYYY-MM-DD
+  horaEntrada?: string        // HH:MM
+  horaSalida?: string         // HH:MM
+  ubicacionEntrada?: UbicacionAsistencia
+  ubicacionSalida?: UbicacionAsistencia
+  tarde: boolean              // true si horaEntrada > horaIngreso configurada
+  creadoEn: string
+}
+
+export interface AsistenciaConfig {
+  id: string                  // fila única "global"
+  horaIngreso: string         // HH:MM, definida por el administrador
+}
+
 
 // ── SECCIÓN ADMINISTRATIVA ────────────────────────────────────────────────────
 export type EstadoDocumento = "pendiente" | "presentado" | "aprobado" | "rechazado"

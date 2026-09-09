@@ -173,7 +173,7 @@ export function useAuth() {
 }
 
 // Rutas accesibles por técnicos sin permisos asignados (fallback)
-const TECNICO_RUTAS_DEFAULT = ["/mantencion", "/equipos", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega", "/instalacion"]
+const TECNICO_RUTAS_DEFAULT = ["/", "/mantencion", "/equipos", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega", "/instalacion"]
 
 export function canAccess(user: Usuario | null, pathname: string): boolean {
   if (!user) return false
