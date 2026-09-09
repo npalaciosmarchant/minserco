@@ -133,8 +133,29 @@ async function syncUp(table: string, row: Record<string, unknown>, op: "upsert" 
     const sb = getSupabase()
     if (op === "delete") {
       await sb.from(table).delete().eq("id", row.id as string)
-    } else {
-      await sb.from(table).upsert(toSnake(row), { onConflict: "id" })
+      return
+    }
+    const snake = toSnake(row)
+    const { id, ...rest } = snake
+    if (!id) {
+      await sb.from(table).upsert(snake, { onConflict: "id" })
+      return
+    }
+    // Los .update(...) del store solo mandan los campos que cambiaron (no la fila
+    // completa). Si se hiciera upsert() directo, Postgres intenta un INSERT y
+    // falla si falta alguna columna NOT NULL de la tabla (ej. "titulo" en
+    // notificaciones, "fecha" en asistencias) — el error queda silenciado por el
+    // catch de abajo y el cambio nunca llega a la base. Por eso primero se intenta
+    // un UPDATE real (que solo toca las columnas enviadas); si no existía la fila
+    // (alta nueva), ahí sí se hace upsert con el objeto completo.
+    const { data: updated, error: updErr } = await sb
+      .from(table)
+      .update(rest)
+      .eq("id", id as string)
+      .select("id")
+    if (updErr) throw updErr
+    if (!updated || updated.length === 0) {
+      await sb.from(table).upsert(snake, { onConflict: "id" })
     }
   } catch (e) {
     console.warn(`[store] Supabase sync error (${table}):`, e)
