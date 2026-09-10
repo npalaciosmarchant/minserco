@@ -1,17 +1,23 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { instalaciones } from "@/lib/store"
-import { Instalacion } from "@/lib/types"
-import { recomendar, EntradaInstalacion, BoquillaTipo, Objetivo, SistemaBoquilla, ESTANQUES, BOMBAS, MHKY } from "@/lib/instalacion-utils"
-import { bosquejoSVG } from "@/lib/bosquejo"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { instalaciones, bodega } from "@/lib/store"
+import { Instalacion, ItemBodega } from "@/lib/types"
+import { recomendar, EntradaInstalacion, BoquillaTipo, Objetivo, SistemaBoquilla, ESTANQUES, BOMBAS, MHKY, ItemReco } from "@/lib/instalacion-utils"
+import { bosquejoSVG, STOCK_COLOR, STOCK_LABEL } from "@/lib/bosquejo"
+import { construirCtxBosquejo, buscarEnBodega } from "@/lib/instalacion-bodega"
 import { imprimirInstalacionPDF } from "@/lib/instalacion-pdf"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Droplets, Plus, Printer, Save, Trash2, Pencil, AlertTriangle, CheckCircle2, XCircle, Wand2 } from "lucide-react"
+import { Droplets, Plus, Printer, Save, Trash2, Pencil, AlertTriangle, CheckCircle2, XCircle, Wand2, X, Package } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
+
+function cssEscapeTag(tag: string): string {
+  if (typeof window !== "undefined" && window.CSS?.escape) return window.CSS.escape(tag)
+  return tag.replace(/[^a-zA-Z0-9_-]/g, "\\$&")
+}
 
 interface FormState {
   cliente: string; faena: string; puntoDescarga: string
@@ -41,6 +47,10 @@ export default function InstalacionPage() {
   const [lista, setLista] = useState<Instalacion[]>(() => instalaciones.getAll().slice().reverse())
   const [editando, setEditando] = useState<Instalacion | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm())
+  const [bodegaItems] = useState<ItemBodega[]>(() => bodega.getAll())
+  const [hoverTag, setHoverTag] = useState<string | null>(null)
+  const [detalleTag, setDetalleTag] = useState<string | null>(null)
+  const diagramRef = useRef<HTMLDivElement>(null)
 
   const cargar = () => setLista(instalaciones.getAll().slice().reverse())
   const set = (k: keyof FormState, v: string) => setForm(f => ({ ...f, [k]: v }) as FormState)
@@ -63,7 +73,59 @@ export default function InstalacionPage() {
   }), [form])
 
   const reco = useMemo(() => recomendar(entrada), [entrada])
-  const svg = useMemo(() => bosquejoSVG(entrada, reco), [entrada, reco])
+  const ctxBosquejo = useMemo(
+    () => construirCtxBosquejo(bodegaItems, typeof window !== "undefined" ? window.location.origin : ""),
+    [bodegaItems],
+  )
+  const svg = useMemo(() => bosquejoSVG(entrada, reco, ctxBosquejo), [entrada, reco, ctxBosquejo])
+
+  // Interactividad del bosquejo: click abre una ficha de detalle, hover resalta
+  // la caja del dibujo y el ítem correspondiente en las listas (y viceversa).
+  useEffect(() => {
+    const root = diagramRef.current
+    if (!root) return
+    function tagDe(ev: Event): string | null {
+      const target = ev.target as HTMLElement | null
+      const el = target?.closest?.("[data-tag]") as HTMLElement | null
+      return el?.getAttribute("data-tag") ?? null
+    }
+    function onOver(ev: Event) { setHoverTag(tagDe(ev)) }
+    function onOut() { setHoverTag(null) }
+    function onClick(ev: Event) {
+      const tag = tagDe(ev)
+      if (!tag) return
+      ev.preventDefault()
+      setDetalleTag(tag)
+    }
+    root.addEventListener("mouseover", onOver)
+    root.addEventListener("mouseout", onOut)
+    root.addEventListener("click", onClick)
+    return () => {
+      root.removeEventListener("mouseover", onOver)
+      root.removeEventListener("mouseout", onOut)
+      root.removeEventListener("click", onClick)
+    }
+  }, [svg])
+
+  // Sincroniza el resaltado visual de la caja del bosquejo con hoverTag
+  // (venga del propio dibujo o de pasar el mouse por una fila de las listas).
+  useEffect(() => {
+    const root = diagramRef.current
+    if (!root) return
+    root.querySelectorAll(".ins-hover").forEach(el => el.classList.remove("ins-hover"))
+    if (hoverTag) {
+      root.querySelectorAll(`[data-tag="${cssEscapeTag(hoverTag)}"]`).forEach(el => el.classList.add("ins-hover"))
+    }
+  }, [hoverTag, svg])
+
+  const detalleItems: ItemReco[] = useMemo(
+    () => detalleTag ? [...reco.instalar, ...reco.noInstalar].filter(it => it.cajaTags?.includes(detalleTag)) : [],
+    [detalleTag, reco],
+  )
+  const detalleMatch = useMemo(
+    () => detalleTag ? buscarEnBodega(detalleTag, bodegaItems) : null,
+    [detalleTag, bodegaItems],
+  )
 
   function nuevo() { setEditando(null); setForm(emptyForm()) }
 
@@ -246,20 +308,29 @@ export default function InstalacionPage() {
           </div>
 
           <div className="glass-section p-3">
-            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "var(--muted-foreground)" }}>Bosquejo de instalación</div>
-            <div dangerouslySetInnerHTML={{ __html: svg }} />
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Bosquejo de instalación</div>
+              <div className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>Pasa el mouse o haz clic en una caja para ver el detalle</div>
+            </div>
+            <div ref={diagramRef} dangerouslySetInnerHTML={{ __html: svg }} />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="rounded-xl p-4" style={{ background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
               <div className="flex items-center gap-1.5 text-sm font-bold mb-2" style={{ color: "#059669" }}><CheckCircle2 size={15} /> SE DEBE INSTALAR</div>
               <ul className="space-y-2">
-                {reco.instalar.map((it, i) => (
-                  <li key={i} className="text-xs" style={{ color: "#065f46" }}>
-                    <span className="font-semibold">✓ {it.texto}</span>
-                    {it.detalle && <span className="block ml-4" style={{ color: "#16a34a" }}>{it.detalle}</span>}
-                  </li>
-                ))}
+                {reco.instalar.map((it, i) => {
+                  const tag = it.cajaTags?.[0]
+                  const activo = !!tag && hoverTag === tag
+                  return (
+                    <li key={i} className="text-xs rounded-md -mx-1.5 px-1.5 py-0.5 transition-colors" style={{ color: "#065f46", background: activo ? "#bbf7d0" : "transparent", cursor: tag ? "pointer" : "default" }}
+                      onMouseEnter={() => tag && setHoverTag(tag)} onMouseLeave={() => setHoverTag(null)}
+                      onClick={() => tag && setDetalleTag(tag)}>
+                      <span className="font-semibold">✓ {it.texto}</span>
+                      {it.detalle && <span className="block ml-4" style={{ color: "#16a34a" }}>{it.detalle}</span>}
+                    </li>
+                  )
+                })}
               </ul>
             </div>
             <div className="rounded-xl p-4" style={{ background: "#fef2f2", border: "1px solid #fecaca" }}>
@@ -312,6 +383,60 @@ export default function InstalacionPage() {
           </div>
         )}
       </div>
+
+      {detalleTag && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(15,23,42,.55)" }} onClick={() => setDetalleTag(null)}>
+          <div className="glass-section max-w-md w-full p-5 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="text-sm font-bold" style={{ color: "var(--foreground)" }}>Componente {detalleTag}</div>
+              <button onClick={() => setDetalleTag(null)} className="opacity-70 hover:opacity-100"><X size={16} /></button>
+            </div>
+
+            {detalleItems.length === 0 ? (
+              <div className="text-xs" style={{ color: "var(--muted-foreground)" }}>Sin detalle adicional para este componente.</div>
+            ) : (
+              <div className="space-y-2 mb-3">
+                {detalleItems.map((it, i) => (
+                  <div key={i}>
+                    <div className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{it.texto}</div>
+                    {it.detalle && <div className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>{it.detalle}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="pt-3 mt-1 border-t" style={{ borderColor: "var(--border)" }}>
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--muted-foreground)" }}>
+                <Package size={12} /> Bodega
+              </div>
+              {detalleMatch?.item ? (
+                <div className="flex gap-3">
+                  {detalleMatch.item.foto ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={detalleMatch.item.foto} alt={detalleMatch.item.nombre} className="w-16 h-16 rounded-lg object-cover border shrink-0" style={{ borderColor: "var(--border)" }} />
+                  ) : null}
+                  <div className="text-xs space-y-1 min-w-0">
+                    <div className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{detalleMatch.item.nombre}</div>
+                    <div style={{ color: "var(--muted-foreground)" }}>
+                      Código {detalleMatch.item.codigo} · {detalleMatch.item.cantidad} {detalleMatch.item.unidad} en {detalleMatch.item.ubicacion || "bodega"}
+                    </div>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: STOCK_COLOR[detalleMatch.estado] + "22", color: STOCK_COLOR[detalleMatch.estado] }}>
+                      ● {STOCK_LABEL[detalleMatch.estado]}
+                    </span>
+                    <a href={`/bodega?buscar=${encodeURIComponent(detalleMatch.item.codigo || detalleMatch.item.nombre)}`} target="_blank" rel="noopener noreferrer" className="block underline text-[11px]" style={{ color: "#1d4ed8" }}>
+                      Ver en bodega →
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                  No se encontró un ítem coincidente en bodega. Ficha técnica y foto no disponibles aún.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </PageShell>
   )
 }
