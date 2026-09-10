@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Pencil, Trash2, Package, CalendarDays, MapPin } from "lucide-react"
+import { Plus, Pencil, Trash2, Package, CalendarDays, MapPin, Search } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
 import { ArchivosField } from "@/components/ui/ArchivosField"
 import { FotoGaleria } from "@/components/ui/FotoGaleria"
@@ -28,19 +28,31 @@ export default function EquiposPage() {
   const [open, setOpen] = useState(false)
   const [editando, setEditando] = useState<Equipo | null>(null)
   const [form, setForm] = useState(empty())
+  const [busqueda, setBusqueda] = useState("")
 
   const cargar = () => setLista(equiposStore.getAll().slice().reverse())
   useEffect(() => { cargar() }, [])
 
   // Deep-link ?id=... (ej. desde el bosquejo de instalación / informe PDF): abre
-  // directo la ficha de ese equipo (foto, fichas técnicas, etc.).
+  // directo la ficha de ese equipo (foto, fichas técnicas, etc.) una sola vez —
+  // se limpia el parámetro de la URL para que no se reabra en cada visita/recarga.
   useEffect(() => {
     if (typeof window === "undefined") return
-    const id = new URLSearchParams(window.location.search).get("id")
+    const params = new URLSearchParams(window.location.search)
+    const id = params.get("id")
     if (!id) return
+    window.history.replaceState(null, "", window.location.pathname)
     const match = equiposStore.getAll().find(e => e.id === id)
     if (match) abrir(match)
   }, [])
+
+  const filtrada = lista.filter(e => {
+    const q = busqueda.trim().toLowerCase()
+    if (!q) return true
+    return [e.nombre, e.numeroSerie, e.marca, e.modelo, e.tipo, e.ubicacion]
+      .filter(Boolean)
+      .some(v => String(v).toLowerCase().includes(q))
+  })
 
   function abrir(e?: Equipo) {
     if (e) { setEditando(e); const { id, creadoEn, ...r } = e; setForm({ ...empty(), ...r }) }
@@ -116,13 +128,25 @@ export default function EquiposPage() {
         </div>
       }
     >
+      <div className="relative mb-3">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted-foreground)" }} />
+        <Input
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
+          placeholder="Buscar por nombre, N° serie, marca, modelo o ubicación..."
+          className="pl-9"
+        />
+      </div>
+
       <div className="glass-section overflow-hidden">
         {lista.length === 0 ? (
           <div className="empty-state"><Package size={40} /><p>No hay equipos. Agrega el primero para usarlo en Mantención.</p></div>
+        ) : filtrada.length === 0 ? (
+          <div className="empty-state"><Package size={40} /><p>No se encontraron equipos para &quot;{busqueda}&quot;.</p></div>
         ) : (
-          lista.map((e, i) => (
+          filtrada.map((e, i) => (
             <div key={e.id} className="group"
-              style={{ borderBottom: i < lista.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none", padding: "14px 16px" }}
+              style={{ borderBottom: i < filtrada.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none", padding: "14px 16px" }}
               onMouseEnter={ev => (ev.currentTarget.style.background = "rgba(0,0,0,0.025)")}
               onMouseLeave={ev => (ev.currentTarget.style.background = "transparent")}
             >
