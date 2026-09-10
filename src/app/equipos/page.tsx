@@ -32,6 +32,16 @@ export default function EquiposPage() {
   const cargar = () => setLista(equiposStore.getAll().slice().reverse())
   useEffect(() => { cargar() }, [])
 
+  // Deep-link ?id=... (ej. desde el bosquejo de instalación / informe PDF): abre
+  // directo la ficha de ese equipo (foto, fichas técnicas, etc.).
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const id = new URLSearchParams(window.location.search).get("id")
+    if (!id) return
+    const match = equiposStore.getAll().find(e => e.id === id)
+    if (match) abrir(match)
+  }, [])
+
   function abrir(e?: Equipo) {
     if (e) { setEditando(e); const { id, creadoEn, ...r } = e; setForm({ ...empty(), ...r }) }
     else { setEditando(null); setForm(empty()) }
