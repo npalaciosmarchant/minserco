@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { instalaciones, bodega, equipos } from "@/lib/store"
 import { Instalacion, ItemBodega, Equipo } from "@/lib/types"
 import { recomendar, EntradaInstalacion, BoquillaTipo, Objetivo, SistemaBoquilla, ESTANQUES, BOMBAS, MHKY, ItemReco } from "@/lib/instalacion-utils"
-import { bosquejoSVG, STOCK_COLOR, STOCK_LABEL } from "@/lib/bosquejo"
+import { bosquejoSVG, dimensionesBosquejo, ordenTags, STOCK_COLOR, STOCK_LABEL } from "@/lib/bosquejo"
 import { construirCtxBosquejo, buscarComponente, normalizarCajaTag } from "@/lib/instalacion-bodega"
 import { imprimirInstalacionPDF } from "@/lib/instalacion-pdf"
 import { fotoSrc } from "@/lib/upload-foto"
@@ -12,12 +12,32 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Droplets, Plus, Printer, Save, Trash2, Pencil, AlertTriangle, CheckCircle2, XCircle, Wand2, X, Package, Wrench } from "lucide-react"
+import {
+  Droplets, Plus, Printer, Save, Trash2, Pencil, AlertTriangle, CheckCircle2, XCircle, Wand2, X, Package, Wrench,
+  ZoomIn, ZoomOut, Maximize2, Play, Pause, SkipBack, SkipForward, Square,
+} from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
 
 function cssEscapeTag(tag: string): string {
   if (typeof window !== "undefined" && window.CSS?.escape) return window.CSS.escape(tag)
   return tag.replace(/[^a-zA-Z0-9_-]/g, "\\$&")
+}
+
+// Ancho base (sin escalar) del "stage" del bosquejo dentro del visor de zoom/pan.
+const STAGE_BASE_W = 900
+const VIEWPORT_H = 520
+const ZOOM_MIN = 0.35
+const ZOOM_MAX = 3
+const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z))
+
+function ZBtn({ onClick, title, disabled, children }: { onClick: () => void; title: string; disabled?: boolean; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} title={title} disabled={disabled}
+      className="p-1.5 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-black/5"
+      style={{ color: "var(--foreground)" }}>
+      {children}
+    </button>
+  )
 }
 
 interface FormState {
@@ -54,6 +74,25 @@ export default function InstalacionPage() {
   const [detalleTag, setDetalleTag] = useState<string | null>(null)
   const diagramRef = useRef<HTMLDivElement>(null)
 
+  // Zoom / pan del bosquejo (útil sobre todo con muchas boquillas o en celular).
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [dragging, setDragging] = useState(false)
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const zoomRef = useRef(zoom)
+  const panRef = useRef(pan)
+  const suppressClickRef = useRef(false)
+  const dragRef = useRef<{ id: number; startX: number; startY: number; startPanX: number; startPanY: number; moved: boolean } | null>(null)
+  const pinchRef = useRef<{ dist: number; zoom: number; midX: number; midY: number } | null>(null)
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map())
+  useEffect(() => { zoomRef.current = zoom }, [zoom])
+  useEffect(() => { panRef.current = pan }, [pan])
+
+  // Modo "explicar paso a paso": resalta secuencialmente cada componente del bosquejo.
+  const [tourActive, setTourActive] = useState(false)
+  const [tourIdx, setTourIdx] = useState(0)
+  const [tourPaused, setTourPaused] = useState(false)
+
   const cargar = () => setLista(instalaciones.getAll().slice().reverse())
   const set = (k: keyof FormState, v: string) => setForm(f => ({ ...f, [k]: v }) as FormState)
 
@@ -80,9 +119,11 @@ export default function InstalacionPage() {
     [bodegaItems, equiposItems],
   )
   const svg = useMemo(() => bosquejoSVG(entrada, reco, ctxBosquejo), [entrada, reco, ctxBosquejo])
+  const pasos = useMemo(() => ordenTags(entrada, reco), [entrada, reco])
 
   // Interactividad del bosquejo: click abre una ficha de detalle, hover resalta
   // la caja del dibujo y el ítem correspondiente en las listas (y viceversa).
+  // Durante el tour "paso a paso" el resaltado lo maneja el tour, no el mouse.
   useEffect(() => {
     const root = diagramRef.current
     if (!root) return
@@ -91,9 +132,11 @@ export default function InstalacionPage() {
       const el = target?.closest?.("[data-tag]") as HTMLElement | null
       return el?.getAttribute("data-tag") ?? null
     }
-    function onOver(ev: Event) { const t = tagDe(ev); setHoverTag(t ? normalizarCajaTag(t) : null) }
-    function onOut() { setHoverTag(null) }
+    function onOver(ev: Event) { if (tourActive) return; const t = tagDe(ev); setHoverTag(t ? normalizarCajaTag(t) : null) }
+    function onOut() { if (tourActive) return; setHoverTag(null) }
     function onClick(ev: Event) {
+      if (tourActive) return
+      if (suppressClickRef.current) { suppressClickRef.current = false; return }
       const tag = tagDe(ev)
       if (!tag) return
       ev.preventDefault()
@@ -107,18 +150,165 @@ export default function InstalacionPage() {
       root.removeEventListener("mouseout", onOut)
       root.removeEventListener("click", onClick)
     }
-  }, [svg])
+  }, [svg, tourActive])
 
-  // Sincroniza el resaltado visual de la caja del bosquejo con hoverTag
-  // (venga del propio dibujo o de pasar el mouse por una fila de las listas).
+  // Zoom con rueda/trackpad sobre el visor — se registra una sola vez con un
+  // listener nativo no-pasivo para poder cancelar el scroll de la página.
+  useEffect(() => {
+    const el = viewportRef.current
+    if (!el) return
+    function onWheelNative(ev: WheelEvent) {
+      ev.preventDefault()
+      const rect = el!.getBoundingClientRect()
+      const cx = ev.clientX - rect.left
+      const cy = ev.clientY - rect.top
+      const factor = ev.deltaY < 0 ? 1.12 : 1 / 1.12
+      const z = zoomRef.current, p = panRef.current
+      const nz = clampZoom(z * factor)
+      const actual = nz / z
+      setPan({ x: cx - (cx - p.x) * actual, y: cy - (cy - p.y) * actual })
+      setZoom(nz)
+    }
+    el.addEventListener("wheel", onWheelNative, { passive: false })
+    return () => el.removeEventListener("wheel", onWheelNative)
+  }, [])
+
+  function zoomButton(factor: number) {
+    const el = viewportRef.current
+    const cx = el ? el.clientWidth / 2 : 0
+    const cy = el ? el.clientHeight / 2 : 0
+    const z = zoomRef.current, p = panRef.current
+    const nz = clampZoom(z * factor)
+    const actual = nz / z
+    setPan({ x: cx - (cx - p.x) * actual, y: cy - (cy - p.y) * actual })
+    setZoom(nz)
+  }
+
+  function fitView() {
+    const dim = dimensionesBosquejo(entrada)
+    const el = viewportRef.current
+    const vpW = el?.clientWidth ?? STAGE_BASE_W
+    const vpH = el?.clientHeight ?? VIEWPORT_H
+    const naturalH = STAGE_BASE_W * (dim.height / dim.width)
+    const fitZoom = clampZoom(Math.min(vpW / STAGE_BASE_W, vpH / naturalH))
+    setZoom(fitZoom)
+    setPan({ x: (vpW - STAGE_BASE_W * fitZoom) / 2, y: (vpH - naturalH * fitZoom) / 2 })
+  }
+
+  // Ajusta el zoom inicial una sola vez al montar (ej. útil si hay muchas boquillas).
+  useEffect(() => { fitView() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function onPointerDown(ev: React.PointerEvent) {
+    (ev.target as HTMLElement).setPointerCapture?.(ev.pointerId)
+    pointersRef.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY })
+    if (pointersRef.current.size === 1) {
+      dragRef.current = { id: ev.pointerId, startX: ev.clientX, startY: ev.clientY, startPanX: panRef.current.x, startPanY: panRef.current.y, moved: false }
+    } else if (pointersRef.current.size === 2) {
+      dragRef.current = null
+      const pts = Array.from(pointersRef.current.values())
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+      const midX = (pts[0].x + pts[1].x) / 2, midY = (pts[0].y + pts[1].y) / 2
+      pinchRef.current = { dist, zoom: zoomRef.current, midX, midY }
+    }
+  }
+
+  function onPointerMove(ev: React.PointerEvent) {
+    if (!pointersRef.current.has(ev.pointerId)) return
+    pointersRef.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY })
+    if (pointersRef.current.size === 2 && pinchRef.current) {
+      const pts = Array.from(pointersRef.current.values())
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+      const factor = dist / (pinchRef.current.dist || 1)
+      const rect = viewportRef.current?.getBoundingClientRect()
+      const cx = pinchRef.current.midX - (rect?.left ?? 0)
+      const cy = pinchRef.current.midY - (rect?.top ?? 0)
+      const nz = clampZoom(pinchRef.current.zoom * factor)
+      const actual = nz / zoomRef.current
+      const p = panRef.current
+      setPan({ x: cx - (cx - p.x) * actual, y: cy - (cy - p.y) * actual })
+      setZoom(nz)
+      return
+    }
+    if (dragRef.current && dragRef.current.id === ev.pointerId) {
+      const dx = ev.clientX - dragRef.current.startX
+      const dy = ev.clientY - dragRef.current.startY
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) { dragRef.current.moved = true; setDragging(true) }
+      if (dragRef.current.moved) setPan({ x: dragRef.current.startPanX + dx, y: dragRef.current.startPanY + dy })
+    }
+  }
+
+  function onPointerUp(ev: React.PointerEvent) {
+    pointersRef.current.delete(ev.pointerId)
+    if (pointersRef.current.size < 2) pinchRef.current = null
+    if (dragRef.current?.id === ev.pointerId) {
+      if (dragRef.current.moved) suppressClickRef.current = true
+      dragRef.current = null
+      setDragging(false)
+    }
+  }
+
+  // Avance automático del tour (~2.2s por paso, se autopausa al llegar al último).
+  const tourIdxRef = useRef(tourIdx)
+  useEffect(() => { tourIdxRef.current = tourIdx }, [tourIdx])
+  useEffect(() => {
+    if (!tourActive || tourPaused || pasos.length === 0) return
+    const id = setInterval(() => {
+      const next = tourIdxRef.current + 1 < pasos.length ? tourIdxRef.current + 1 : tourIdxRef.current
+      setTourIdx(next)
+      if (next === pasos.length - 1) setTourPaused(true)
+    }, 2200)
+    return () => clearInterval(id)
+  }, [tourActive, tourPaused, pasos.length])
+
+  // El paso activo del tour maneja el resaltado (deriva sobre hoverTag, sin efecto).
+  const effectiveHoverTag = tourActive && pasos[tourIdx] ? normalizarCajaTag(pasos[tourIdx].tag) : hoverTag
+
+  // Centra automáticamente en el visor la caja resaltada por el paso actual
+  // (requiere medir el DOM ya renderizado, por eso va en un efecto).
+  useEffect(() => {
+    if (!tourActive) return
+    const paso = pasos[tourIdx]
+    if (!paso || !diagramRef.current || !viewportRef.current) return
+    const tag = normalizarCajaTag(paso.tag)
+    const el = diagramRef.current.querySelector(`[data-tag="${cssEscapeTag(tag)}"]`)
+    if (!el) return
+    const elRect = el.getBoundingClientRect()
+    const vpRect = viewportRef.current.getBoundingClientRect()
+    const exCenter = elRect.left + elRect.width / 2 - vpRect.left
+    const eyCenter = elRect.top + elRect.height / 2 - vpRect.top
+    const z = zoomRef.current, p = panRef.current
+    const localX = (exCenter - p.x) / z
+    const localY = (eyCenter - p.y) / z
+    setPan({ x: vpRect.width / 2 - localX * z, y: vpRect.height / 2 - localY * z })
+  }, [tourActive, tourIdx, pasos])
+
+  // Cancela el tour si cambian los datos ingresados (los pasos ya no calzarían).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset intencional al cambiar `entrada`
+    setTourActive(false); setTourIdx(0); setTourPaused(false)
+  }, [entrada])
+
+  function tourStart() { setTourActive(true); setTourIdx(0); setTourPaused(false) }
+  function tourStop() { setTourActive(false); setTourPaused(false); setTourIdx(0) }
+  function tourPrev() { setTourPaused(true); setTourIdx(i => Math.max(0, i - 1)) }
+  function tourNext() { setTourPaused(true); setTourIdx(i => Math.min(pasos.length - 1, i + 1)) }
+
+  const tourKey = tourActive && pasos[tourIdx] ? normalizarCajaTag(pasos[tourIdx].tag) : null
+  const tourItems: ItemReco[] = useMemo(
+    () => tourKey ? [...reco.instalar, ...reco.noInstalar].filter(it => it.cajaTags?.includes(tourKey)) : [],
+    [tourKey, reco],
+  )
+
+  // Sincroniza el resaltado visual de la caja del bosquejo con el tag activo
+  // (mouse sobre el dibujo, fila de las listas, o paso actual del tour).
   useEffect(() => {
     const root = diagramRef.current
     if (!root) return
     root.querySelectorAll(".ins-hover").forEach(el => el.classList.remove("ins-hover"))
-    if (hoverTag) {
-      root.querySelectorAll(`[data-tag="${cssEscapeTag(hoverTag)}"]`).forEach(el => el.classList.add("ins-hover"))
+    if (effectiveHoverTag) {
+      root.querySelectorAll(`[data-tag="${cssEscapeTag(effectiveHoverTag)}"]`).forEach(el => el.classList.add("ins-hover"))
     }
-  }, [hoverTag, svg])
+  }, [effectiveHoverTag, svg])
 
   const detalleKey = detalleTag ? normalizarCajaTag(detalleTag) : null
   const detalleItems: ItemReco[] = useMemo(
@@ -311,11 +501,46 @@ export default function InstalacionPage() {
           </div>
 
           <div className="glass-section p-3">
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
               <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Bosquejo de instalación</div>
-              <div className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>Pasa el mouse o haz clic en una caja para ver el detalle</div>
+              <div className="flex items-center gap-1">
+                <ZBtn onClick={() => zoomButton(1 / 1.25)} title="Alejar"><ZoomOut size={14} /></ZBtn>
+                <span className="text-[10px] tabular-nums w-9 text-center select-none" style={{ color: "var(--muted-foreground)" }}>{Math.round(zoom * 100)}%</span>
+                <ZBtn onClick={() => zoomButton(1.25)} title="Acercar"><ZoomIn size={14} /></ZBtn>
+                <ZBtn onClick={fitView} title="Ajustar a la ventana"><Maximize2 size={14} /></ZBtn>
+                <div className="w-px h-4 mx-1" style={{ background: "var(--border)" }} />
+                {!tourActive ? (
+                  <button type="button" onClick={tourStart}
+                    className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1.5 rounded-md hover:bg-black/5" style={{ color: "#1d4ed8" }}>
+                    <Play size={12} /> Explicar paso a paso
+                  </button>
+                ) : (
+                  <>
+                    <ZBtn onClick={tourPrev} title="Paso anterior" disabled={tourIdx === 0}><SkipBack size={14} /></ZBtn>
+                    <ZBtn onClick={() => setTourPaused(p => !p)} title={tourPaused ? "Reanudar" : "Pausar"}>{tourPaused ? <Play size={14} /> : <Pause size={14} />}</ZBtn>
+                    <ZBtn onClick={tourNext} title="Paso siguiente" disabled={tourIdx === pasos.length - 1}><SkipForward size={14} /></ZBtn>
+                    <ZBtn onClick={tourStop} title="Detener recorrido"><Square size={13} /></ZBtn>
+                  </>
+                )}
+              </div>
             </div>
-            <div ref={diagramRef} dangerouslySetInnerHTML={{ __html: svg }} />
+
+            {tourActive && pasos[tourIdx] && (
+              <div className="mb-2 rounded-lg px-3 py-2 text-xs" style={{ background: "#eff6ff", color: "#1d4ed8" }}>
+                <span className="font-semibold">Paso {tourIdx + 1}/{pasos.length} · {pasos[tourIdx].titulo}</span>
+                {tourItems[0]?.detalle && <span className="block mt-0.5" style={{ color: "#1e40af" }}>{tourItems[0].detalle}</span>}
+              </div>
+            )}
+
+            <div ref={viewportRef}
+              className="relative overflow-hidden rounded-lg touch-none select-none"
+              style={{ height: VIEWPORT_H, background: "#f8fafc", border: "1px solid var(--border)", cursor: dragging ? "grabbing" : "grab" }}
+              onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onPointerLeave={onPointerUp}>
+              <div style={{ position: "absolute", left: 0, top: 0, width: STAGE_BASE_W, transformOrigin: "0 0", transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
+                <div ref={diagramRef} dangerouslySetInnerHTML={{ __html: svg }} />
+              </div>
+            </div>
+            <div className="text-[10px] mt-1" style={{ color: "var(--muted-foreground)" }}>Pasa el mouse, haz clic, arrastra o usa la rueda/pellizco para navegar el dibujo</div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -324,11 +549,11 @@ export default function InstalacionPage() {
               <ul className="space-y-2">
                 {reco.instalar.map((it, i) => {
                   const tag = it.cajaTags?.[0]
-                  const activo = !!tag && hoverTag === tag
+                  const activo = !!tag && effectiveHoverTag === tag
                   return (
-                    <li key={i} className="text-xs rounded-md -mx-1.5 px-1.5 py-0.5 transition-colors" style={{ color: "#065f46", background: activo ? "#bbf7d0" : "transparent", cursor: tag ? "pointer" : "default" }}
-                      onMouseEnter={() => tag && setHoverTag(tag)} onMouseLeave={() => setHoverTag(null)}
-                      onClick={() => tag && setDetalleTag(tag)}>
+                    <li key={i} className="text-xs rounded-md -mx-1.5 px-1.5 py-0.5 transition-colors" style={{ color: "#065f46", background: activo ? "#bbf7d0" : "transparent", cursor: tag && !tourActive ? "pointer" : "default" }}
+                      onMouseEnter={() => !tourActive && tag && setHoverTag(tag)} onMouseLeave={() => !tourActive && setHoverTag(null)}
+                      onClick={() => !tourActive && tag && setDetalleTag(tag)}>
                       <span className="font-semibold">✓ {it.texto}</span>
                       {it.detalle && <span className="block ml-4" style={{ color: "#16a34a" }}>{it.detalle}</span>}
                     </li>
