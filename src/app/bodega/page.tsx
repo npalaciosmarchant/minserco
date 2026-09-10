@@ -47,6 +47,13 @@ export default function BodegaPage() {
   const [busqueda, setBusqueda] = useState("")
   const [stockAbierto, setStockAbierto] = useState(false)
   const [bodegasList, setBodegasList] = useState<Bodega[]>([])
+
+  // Deep-link ?buscar=... (ej. desde el bosquejo de instalación / informe PDF).
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const q = new URLSearchParams(window.location.search).get("buscar")
+    if (q) setBusqueda(q)
+  }, [])
   const [filtroBodega, setFiltroBodega] = useState<string>("todas")
   const [openBodegas, setOpenBodegas] = useState(false)
   const [formBodega, setFormBodega] = useState({ nombre: "", descripcion: "" })
