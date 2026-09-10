@@ -1,17 +1,18 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { instalaciones, bodega } from "@/lib/store"
-import { Instalacion, ItemBodega } from "@/lib/types"
+import { instalaciones, bodega, equipos } from "@/lib/store"
+import { Instalacion, ItemBodega, Equipo } from "@/lib/types"
 import { recomendar, EntradaInstalacion, BoquillaTipo, Objetivo, SistemaBoquilla, ESTANQUES, BOMBAS, MHKY, ItemReco } from "@/lib/instalacion-utils"
 import { bosquejoSVG, STOCK_COLOR, STOCK_LABEL } from "@/lib/bosquejo"
-import { construirCtxBosquejo, buscarEnBodega } from "@/lib/instalacion-bodega"
+import { construirCtxBosquejo, buscarComponente, normalizarCajaTag } from "@/lib/instalacion-bodega"
 import { imprimirInstalacionPDF } from "@/lib/instalacion-pdf"
+import { fotoSrc } from "@/lib/upload-foto"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Droplets, Plus, Printer, Save, Trash2, Pencil, AlertTriangle, CheckCircle2, XCircle, Wand2, X, Package } from "lucide-react"
+import { Droplets, Plus, Printer, Save, Trash2, Pencil, AlertTriangle, CheckCircle2, XCircle, Wand2, X, Package, Wrench } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
 
 function cssEscapeTag(tag: string): string {
@@ -48,6 +49,7 @@ export default function InstalacionPage() {
   const [editando, setEditando] = useState<Instalacion | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm())
   const [bodegaItems] = useState<ItemBodega[]>(() => bodega.getAll())
+  const [equiposItems] = useState<Equipo[]>(() => equipos.getAll())
   const [hoverTag, setHoverTag] = useState<string | null>(null)
   const [detalleTag, setDetalleTag] = useState<string | null>(null)
   const diagramRef = useRef<HTMLDivElement>(null)
@@ -74,8 +76,8 @@ export default function InstalacionPage() {
 
   const reco = useMemo(() => recomendar(entrada), [entrada])
   const ctxBosquejo = useMemo(
-    () => construirCtxBosquejo(bodegaItems, typeof window !== "undefined" ? window.location.origin : ""),
-    [bodegaItems],
+    () => construirCtxBosquejo(bodegaItems, equiposItems, typeof window !== "undefined" ? window.location.origin : ""),
+    [bodegaItems, equiposItems],
   )
   const svg = useMemo(() => bosquejoSVG(entrada, reco, ctxBosquejo), [entrada, reco, ctxBosquejo])
 
@@ -89,7 +91,7 @@ export default function InstalacionPage() {
       const el = target?.closest?.("[data-tag]") as HTMLElement | null
       return el?.getAttribute("data-tag") ?? null
     }
-    function onOver(ev: Event) { setHoverTag(tagDe(ev)) }
+    function onOver(ev: Event) { const t = tagDe(ev); setHoverTag(t ? normalizarCajaTag(t) : null) }
     function onOut() { setHoverTag(null) }
     function onClick(ev: Event) {
       const tag = tagDe(ev)
@@ -118,13 +120,14 @@ export default function InstalacionPage() {
     }
   }, [hoverTag, svg])
 
+  const detalleKey = detalleTag ? normalizarCajaTag(detalleTag) : null
   const detalleItems: ItemReco[] = useMemo(
-    () => detalleTag ? [...reco.instalar, ...reco.noInstalar].filter(it => it.cajaTags?.includes(detalleTag)) : [],
-    [detalleTag, reco],
+    () => detalleKey ? [...reco.instalar, ...reco.noInstalar].filter(it => it.cajaTags?.includes(detalleKey)) : [],
+    [detalleKey, reco],
   )
   const detalleMatch = useMemo(
-    () => detalleTag ? buscarEnBodega(detalleTag, bodegaItems) : null,
-    [detalleTag, bodegaItems],
+    () => detalleKey ? buscarComponente(detalleKey, bodegaItems, equiposItems) : null,
+    [detalleKey, bodegaItems, equiposItems],
   )
 
   function nuevo() { setEditando(null); setForm(emptyForm()) }
@@ -409,31 +412,70 @@ export default function InstalacionPage() {
               <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--muted-foreground)" }}>
                 <Package size={12} /> Bodega
               </div>
-              {detalleMatch?.item ? (
+              {detalleMatch?.bodega ? (
                 <div className="flex gap-3">
-                  {detalleMatch.item.foto ? (
+                  {detalleMatch.bodega.item.foto ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={detalleMatch.item.foto} alt={detalleMatch.item.nombre} className="w-16 h-16 rounded-lg object-cover border shrink-0" style={{ borderColor: "var(--border)" }} />
+                    <img src={fotoSrc(detalleMatch.bodega.item.foto)} alt={detalleMatch.bodega.item.nombre} className="w-16 h-16 rounded-lg object-cover border shrink-0" style={{ borderColor: "var(--border)" }} />
                   ) : null}
                   <div className="text-xs space-y-1 min-w-0">
-                    <div className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{detalleMatch.item.nombre}</div>
+                    <div className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{detalleMatch.bodega.item.nombre}</div>
                     <div style={{ color: "var(--muted-foreground)" }}>
-                      Código {detalleMatch.item.codigo} · {detalleMatch.item.cantidad} {detalleMatch.item.unidad} en {detalleMatch.item.ubicacion || "bodega"}
+                      Código {detalleMatch.bodega.item.codigo} · {detalleMatch.bodega.item.cantidad} {detalleMatch.bodega.item.unidad} en {detalleMatch.bodega.item.ubicacion || "bodega"}
                     </div>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: STOCK_COLOR[detalleMatch.estado] + "22", color: STOCK_COLOR[detalleMatch.estado] }}>
-                      ● {STOCK_LABEL[detalleMatch.estado]}
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: STOCK_COLOR[detalleMatch.bodega.estado] + "22", color: STOCK_COLOR[detalleMatch.bodega.estado] }}>
+                      ● {STOCK_LABEL[detalleMatch.bodega.estado]}
                     </span>
-                    <a href={`/bodega?buscar=${encodeURIComponent(detalleMatch.item.codigo || detalleMatch.item.nombre)}`} target="_blank" rel="noopener noreferrer" className="block underline text-[11px]" style={{ color: "#1d4ed8" }}>
+                    <a href={`/bodega?buscar=${encodeURIComponent(detalleMatch.bodega.item.codigo || detalleMatch.bodega.item.nombre)}`} target="_blank" rel="noopener noreferrer" className="block underline text-[11px]" style={{ color: "#1d4ed8" }}>
                       Ver en bodega →
                     </a>
                   </div>
                 </div>
               ) : (
                 <div className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-                  No se encontró un ítem coincidente en bodega. Ficha técnica y foto no disponibles aún.
+                  No se encontró un ítem coincidente en bodega.
                 </div>
               )}
             </div>
+
+            {detalleMatch?.equipo && (
+              <div className="pt-3 mt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--muted-foreground)" }}>
+                  <Wrench size={12} /> Equipos
+                </div>
+                <div className="flex gap-3">
+                  {detalleMatch.equipo.foto ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={fotoSrc(detalleMatch.equipo.foto)} alt={detalleMatch.equipo.nombre} className="w-16 h-16 rounded-lg object-cover border shrink-0" style={{ borderColor: "var(--border)" }} />
+                  ) : null}
+                  <div className="text-xs space-y-1 min-w-0">
+                    <div className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{detalleMatch.equipo.nombre}</div>
+                    <div style={{ color: "var(--muted-foreground)" }}>
+                      {[detalleMatch.equipo.marca, detalleMatch.equipo.modelo].filter(Boolean).join(" ") || "—"}
+                      {detalleMatch.equipo.numeroSerie ? ` · SN ${detalleMatch.equipo.numeroSerie}` : ""}
+                    </div>
+                    {detalleMatch.equipo.fichasTecnicas && detalleMatch.equipo.fichasTecnicas.length > 0 && (
+                      <div className="flex flex-col gap-0.5">
+                        {detalleMatch.equipo.fichasTecnicas.map((f, i) => (
+                          <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "#1d4ed8" }}>
+                            📄 {f.nombre || "Ficha técnica"}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                    <a href={`/equipos?id=${encodeURIComponent(detalleMatch.equipo.id)}`} target="_blank" rel="noopener noreferrer" className="block underline text-[11px]" style={{ color: "#1d4ed8" }}>
+                      Ver en equipos →
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!detalleMatch?.bodega && !detalleMatch?.equipo && (
+              <div className="text-[11px] mt-2" style={{ color: "var(--muted-foreground)" }}>
+                Ficha técnica y foto no disponibles aún.
+              </div>
+            )}
           </div>
         </div>
       )}
