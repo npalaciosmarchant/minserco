@@ -5,8 +5,10 @@ import { EntradaInstalacion, Recomendacion } from "./instalacion-utils"
 
 interface Caja { tag: string; label: string; sub?: string; tipo: "linea" | "bomba" }
 
-// Estado de stock (cruce con el módulo de bodega) para pintar cada caja del bosquejo.
-export type EstadoStock = "en-stock" | "stock-bajo" | "sin-stock" | "no-encontrado"
+// Estado de stock/registro (cruce con los módulos de bodega y equipos) para pintar
+// cada caja del bosquejo. "registrado" = no hay stock del repuesto en bodega, pero
+// el componente existe como activo físico registrado en Equipos.
+export type EstadoStock = "en-stock" | "stock-bajo" | "sin-stock" | "registrado" | "no-encontrado"
 
 export interface BosquejoCtx {
   stockPorTag?: Record<string, { estado: EstadoStock }>
@@ -17,6 +19,7 @@ export const STOCK_COLOR: Record<EstadoStock, string> = {
   "en-stock": "#16a34a",
   "stock-bajo": "#f59e0b",
   "sin-stock": "#dc2626",
+  "registrado": "#2563eb",
   "no-encontrado": "#94a3b8",
 }
 
@@ -24,7 +27,8 @@ export const STOCK_LABEL: Record<EstadoStock, string> = {
   "en-stock": "En stock",
   "stock-bajo": "Stock bajo",
   "sin-stock": "Sin stock",
-  "no-encontrado": "No en bodega",
+  "registrado": "Equipo registrado",
+  "no-encontrado": "No encontrado",
 }
 
 function escAttr(s: string): string {
