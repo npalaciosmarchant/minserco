@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import ExcelJS from "exceljs"
 import { useAuth } from "@/lib/auth"
 import { asistencias, asistenciaConfig, usuarios, notificaciones } from "@/lib/store"
 import { Asistencia, Notificacion, UbicacionAsistencia } from "@/lib/types"
@@ -9,7 +10,7 @@ import PageShell from "@/components/layout/PageShell"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Clock, Save, AlertTriangle, CalendarDays, Users, CheckCircle2, MapPin, BellRing, X, ExternalLink, Pencil, Trash2 } from "lucide-react"
+import { Clock, Save, AlertTriangle, CalendarDays, Users, CheckCircle2, MapPin, BellRing, X, ExternalLink, Pencil, Trash2, Download } from "lucide-react"
 
 const UBICACION_LABEL: Record<UbicacionAsistencia, string> = {
   oficina: "Oficina", terreno: "Visita a Terreno", viaje: "Viaje",
@@ -49,6 +50,19 @@ async function reverseGeocode(lat: number, lng: number): Promise<string | undefi
   }
 }
 
+const AZUL = "FF1A3673"
+
+async function descargarXlsx(wb: ExcelJS.Workbook, nombre: string) {
+  const buf = await wb.xlsx.writeBuffer()
+  const blob = new Blob([buf as BlobPart], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = nombre
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function AsistenciaAdminPage() {
   const { user } = useAuth()
   const router = useRouter()
@@ -64,6 +78,7 @@ export default function AsistenciaAdminPage() {
   const [editando, setEditando] = useState<Asistencia | null>(null)
   const [editHoraEntrada, setEditHoraEntrada] = useState("")
   const [editHoraSalida, setEditHoraSalida] = useState("")
+  const [descargando, setDescargando] = useState(false)
 
   const puedeEditar = !!user?.email && ADMINS_EDICION_ASISTENCIA.includes(user.email)
 
@@ -128,6 +143,99 @@ export default function AsistenciaAdminPage() {
     if (filtroUsuario !== "todos" && a.usuarioId !== filtroUsuario) return false
     return true
   })
+
+  // Resuelve el nombre de lugar de una marca GPS: usa el que ya viene guardado
+  // (marcas por IP), o lo busca por reverse-geocoding y lo cachea para no
+  // repetir la consulta si varias filas comparten coordenadas.
+  async function lugarDe(lat?: number, lng?: number, guardado?: string): Promise<string> {
+    if (guardado) return guardado
+    if (lat == null || lng == null) return ""
+    const key = `${lat},${lng}`
+    if (lugarCache[key]) return lugarCache[key]
+    const res = await reverseGeocode(lat, lng)
+    if (res) setLugarCache(prev => ({ ...prev, [key]: res }))
+    return res ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+  }
+
+  async function descargarVitacora() {
+    if (descargando) return
+    setDescargando(true)
+    try {
+      const filas = await Promise.all(
+        filtrada.map(async (a, i) => {
+          const lugarEntrada = a.horaEntrada ? await lugarDe(a.geoEntradaLat, a.geoEntradaLng, a.geoEntradaLugar) : ""
+          const lugarSalida = a.horaSalida ? await lugarDe(a.geoSalidaLat, a.geoSalidaLng, a.geoSalidaLugar) : ""
+          return [
+            i + 1,
+            a.usuarioNombre,
+            a.fecha,
+            a.horaEntrada ?? "",
+            a.horaEntrada ? UBICACION_LABEL[a.ubicacionEntrada!] : "",
+            lugarEntrada,
+            a.geoEntradaFuente === "ip" ? "Aprox. por IP" : a.geoEntradaFuente === "gps" ? "GPS" : "",
+            a.horaSalida ?? "",
+            a.horaSalida ? UBICACION_LABEL[a.ubicacionSalida!] : "",
+            lugarSalida,
+            a.geoSalidaFuente === "ip" ? "Aprox. por IP" : a.geoSalidaFuente === "gps" ? "GPS" : "",
+            a.tarde ? "Tarde" : "A tiempo",
+          ]
+        })
+      )
+
+      const wb = new ExcelJS.Workbook()
+      const ws = wb.addWorksheet("Vitácora")
+      const cols = [
+        { h: "N°", w: 5 }, { h: "Trabajador", w: 24 }, { h: "Fecha", w: 12 },
+        { h: "Hora entrada", w: 12 }, { h: "Ubicación declarada", w: 16 }, { h: "Lugar de marca (entrada)", w: 30 }, { h: "Fuente (entrada)", w: 13 },
+        { h: "Hora salida", w: 12 }, { h: "Ubicación declarada", w: 16 }, { h: "Lugar de marca (salida)", w: 30 }, { h: "Fuente (salida)", w: 13 },
+        { h: "Estado", w: 12 },
+      ]
+      ws.columns = cols.map(c => ({ width: c.w }))
+
+      const rango = filtroFecha
+        ? filtroFecha
+        : "Todas las fechas"
+      const usuarioTitulo = filtroUsuario === "todos" ? "Todo el personal" : usuariosList.find(u => u.id === filtroUsuario)?.nombre ?? "Todo el personal"
+      const tRow = ws.addRow([`VITÁCORA DE ASISTENCIA — ${rango} — ${usuarioTitulo}`])
+      ws.mergeCells(1, 1, 1, cols.length)
+      tRow.getCell(1).font = { bold: true, size: 13, color: { argb: AZUL } }
+      tRow.height = 20
+      ws.addRow([])
+
+      const hRow = ws.addRow(cols.map(c => c.h))
+      hRow.eachCell(cell => {
+        cell.font = { bold: true, color: { argb: "FFFFFFFF" } }
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: AZUL } }
+        cell.alignment = { vertical: "middle", wrapText: true }
+        cell.border = { bottom: { style: "thin", color: { argb: "FFB0B7C3" } } }
+      })
+
+      if (filas.length === 0) {
+        ws.addRow(["Sin marcaciones para este filtro"])
+      } else {
+        filas.forEach(f => ws.addRow(f))
+      }
+
+      ws.addRow([])
+      const rRow = ws.addRow(["RESUMEN"])
+      rRow.getCell(1).font = { bold: true, color: { argb: AZUL } }
+      const conTardanza = filtrada.filter(a => a.tarde).length
+      const sinGps = filtrada.filter(a => a.geoEntradaFuente === "ip" || a.geoSalidaFuente === "ip").length
+      ;[
+        ["Total registros", filtrada.length],
+        ["Tardanzas", conTardanza],
+        ["Marcaciones sin GPS (aprox. por IP)", sinGps],
+      ].forEach(([k, v]) => {
+        const row = ws.addRow([k, v])
+        row.getCell(1).font = { bold: true }
+      })
+
+      const nombreArchivo = `Vitacora_Asistencia_${filtroFecha || "todas"}${filtroUsuario !== "todos" ? "_" + usuarioTitulo.replace(/\s+/g, "") : ""}.xlsx`
+      await descargarXlsx(wb, nombreArchivo)
+    } finally {
+      setDescargando(false)
+    }
+  }
 
   const hoy = hoyISO()
   const registrosHoy = lista.filter(a => a.fecha === hoy)
@@ -241,6 +349,15 @@ export default function AsistenciaAdminPage() {
               </SelectContent>
             </Select>
           </div>
+          <button
+            onClick={descargarVitacora}
+            disabled={descargando || filtrada.length === 0}
+            className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12px] font-semibold disabled:opacity-50"
+            style={{ background: "#1a3673", color: "#ffffff" }}
+          >
+            <Download size={13} />
+            {descargando ? "Generando..." : "Descargar vitácora (Excel)"}
+          </button>
         </div>
 
         {/* ── Tabla ── */}
