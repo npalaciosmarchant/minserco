@@ -2,6 +2,8 @@
 
 import { EntradaInstalacion, Recomendacion } from "./instalacion-utils"
 import { bosquejoSVG } from "./bosquejo"
+import { construirCtxBosquejo } from "./instalacion-bodega"
+import { bodega } from "./store"
 
 interface MetaInst { cliente?: string; faena?: string; puntoDescarga?: string; fecha?: string }
 
@@ -43,7 +45,8 @@ export function imprimirInstalacionPDF(e: EntradaInstalacion, r: Recomendacion, 
     ? `<div class="adv"><h3>Advertencias</h3><ul>${r.advertencias.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div>`
     : ""
 
-  const svg = bosquejoSVG(e, r)
+  const ctxBosquejo = construirCtxBosquejo(bodega.getAll(), window.location.origin)
+  const svg = bosquejoSVG(e, r, ctxBosquejo)
 
   const html = `<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"/>

@@ -5,16 +5,57 @@ import { EntradaInstalacion, Recomendacion } from "./instalacion-utils"
 
 interface Caja { tag: string; label: string; sub?: string; tipo: "linea" | "bomba" }
 
-function caja(x: number, y: number, w: number, h: number, c: Caja): string {
+// Estado de stock (cruce con el módulo de bodega) para pintar cada caja del bosquejo.
+export type EstadoStock = "en-stock" | "stock-bajo" | "sin-stock" | "no-encontrado"
+
+export interface BosquejoCtx {
+  stockPorTag?: Record<string, { estado: EstadoStock }>
+  linkPorTag?: Record<string, string>
+}
+
+export const STOCK_COLOR: Record<EstadoStock, string> = {
+  "en-stock": "#16a34a",
+  "stock-bajo": "#f59e0b",
+  "sin-stock": "#dc2626",
+  "no-encontrado": "#94a3b8",
+}
+
+export const STOCK_LABEL: Record<EstadoStock, string> = {
+  "en-stock": "En stock",
+  "stock-bajo": "Stock bajo",
+  "sin-stock": "Sin stock",
+  "no-encontrado": "No en bodega",
+}
+
+function escAttr(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+}
+
+// Envuelve el contenido de una caja en un grupo interactivo (data-tag) y, si hay link, en <a>.
+function envolver(tag: string, inner: string, ctx?: BosquejoCtx): string {
+  const href = ctx?.linkPorTag?.[tag]
+  const body = href ? `<a href="${escAttr(href)}" target="_blank" rel="noopener">${inner}</a>` : inner
+  return `<g class="ins-caja" data-tag="${escAttr(tag)}" tabindex="0">${body}</g>`
+}
+
+function badgeCircle(x: number, y: number, w: number, tag: string, ctx?: BosquejoCtx): string {
+  const badge = ctx?.stockPorTag?.[tag]
+  if (!badge) return ""
+  const color = STOCK_COLOR[badge.estado]
+  return `<circle cx="${x + w - 9}" cy="${y + 9}" r="6" fill="${color}" stroke="#ffffff" stroke-width="1.5"><title>${STOCK_LABEL[badge.estado]}</title></circle>`
+}
+
+function caja(x: number, y: number, w: number, h: number, c: Caja, ctx?: BosquejoCtx): string {
   const stroke = c.tipo === "bomba" ? "#4f46e5" : "#1d4ed8"
   const fill = c.tipo === "bomba" ? "#eef2ff" : "#ffffff"
   const tag = `<text x="${x + 10}" y="${y + 22}" font-size="12" font-weight="700" fill="#0f172a">${c.tag} · ${c.label}</text>`
   const sub = c.sub ? `<text x="${x + 10}" y="${y + 40}" font-size="10.5" fill="#64748b">${c.sub}</text>` : ""
-  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>${tag}${sub}`
+  const rect = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>${tag}${sub}${badgeCircle(x, y, w, c.tag, ctx)}`
+  return envolver(c.tag, rect, ctx)
 }
 
 
-export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
+export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion, ctx?: BosquejoCtx): string {
   const W = 1200
   const boxW = 116, boxH = 56, pitch = 150, x0 = 16
   const yAire = 96, yAgua = 250
@@ -59,7 +100,13 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
   const defs = `<defs>
     <marker id="arrAire" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0ea5e9"/></marker>
     <marker id="arrAgua" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2563eb"/></marker>
-  </defs>`
+  </defs>
+  <style>
+    .ins-caja rect { transition: stroke-width .12s ease, filter .12s ease; }
+    .ins-caja a, .ins-caja a text { cursor: pointer; }
+    .ins-caja.ins-hover rect, .ins-caja.ins-active rect { stroke-width: 3; }
+    .ins-caja.ins-hover, .ins-caja.ins-active { filter: drop-shadow(0 0 5px rgba(37,99,235,.6)); }
+  </style>`
 
   function linea(items: Caja[], y: number, color: string, dash: string, marker: string): string {
     let out = ""
@@ -69,7 +116,7 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
       if (prevRight >= 0) {
         out += `<line x1="${prevRight}" y1="${y + boxH / 2}" x2="${x}" y2="${y + boxH / 2}" stroke="${color}" stroke-width="2.5" ${dash} marker-end="url(#${marker})"/>`
       }
-      out += caja(x, y, boxW, boxH, c)
+      out += caja(x, y, boxW, boxH, c, ctx)
       prevRight = x + boxW
     })
     // hacia el manifold
@@ -82,10 +129,12 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
 
   // Manifold
   const manifoldY = 150, manifoldH = 120
-  const manifold = `<rect x="${manifoldX}" y="${manifoldY}" width="${manifoldW}" height="${manifoldH}" rx="10" fill="#0f172a"/>
+  const manifoldInner = `<rect x="${manifoldX}" y="${manifoldY}" width="${manifoldW}" height="${manifoldH}" rx="10" fill="#0f172a"/>
     <text x="${manifoldX + manifoldW / 2}" y="${manifoldY + 46}" font-size="13" font-weight="800" fill="#ffffff" text-anchor="middle">MANIFOLD</text>
     <text x="${manifoldX + manifoldW / 2}" y="${manifoldY + 66}" font-size="10.5" fill="#fbbf24" text-anchor="middle">${mhky ? "distribución agua" : "mezcla aire/agua"}</text>
-    <text x="${manifoldX + manifoldW / 2}" y="${manifoldY + 82}" font-size="10.5" fill="#fbbf24" text-anchor="middle">${Math.max(1, e.nBoquillas)} salida(s)</text>`
+    <text x="${manifoldX + manifoldW / 2}" y="${manifoldY + 82}" font-size="10.5" fill="#fbbf24" text-anchor="middle">${Math.max(1, e.nBoquillas)} salida(s)</text>
+    ${badgeCircle(manifoldX, manifoldY, manifoldW, "MANIFOLD", ctx)}`
+  const manifold = envolver("MANIFOLD", manifoldInner, ctx)
 
   // Boquillas (máx 5 visibles + resto)
   const n = Math.max(1, Math.floor(e.nBoquillas || 1))
@@ -94,17 +143,20 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
   const nzW = 108, nzH = 40, nzGap = 14
   const totalNzH = visibles * nzH + (visibles - 1) * nzGap
   const nzY0 = manifoldY + manifoldH / 2 - totalNzH / 2
-  let boquillas = ""
+  let boquillasCajas = ""
   for (let i = 0; i < visibles; i++) {
     const y = nzY0 + i * (nzH + nzGap)
-    boquillas += `<line x1="${manifoldX + manifoldW}" y1="${manifoldY + manifoldH / 2}" x2="${nzX}" y2="${y + nzH / 2}" stroke="#0f172a" stroke-width="2"/>`
-    boquillas += `<rect x="${nzX}" y="${y}" width="${nzW}" height="${nzH}" rx="7" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5"/>`
-    boquillas += `<text x="${nzX + nzW / 2}" y="${y + 17}" font-size="11" font-weight="700" fill="#92400e" text-anchor="middle">N${i + 1}</text>`
-    boquillas += `<text x="${nzX + nzW / 2}" y="${y + 32}" font-size="9.5" fill="#b45309" text-anchor="middle">boq. neblina</text>`
+    const nTag = `N${i + 1}`
+    boquillasCajas += `<line x1="${manifoldX + manifoldW}" y1="${manifoldY + manifoldH / 2}" x2="${nzX}" y2="${y + nzH / 2}" stroke="#0f172a" stroke-width="2"/>`
+    const nzInner = `<rect x="${nzX}" y="${y}" width="${nzW}" height="${nzH}" rx="7" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="${nzX + nzW / 2}" y="${y + 17}" font-size="11" font-weight="700" fill="#92400e" text-anchor="middle">${nTag}</text>
+      <text x="${nzX + nzW / 2}" y="${y + 32}" font-size="9.5" fill="#b45309" text-anchor="middle">boq. neblina</text>`
+    boquillasCajas += envolver(nTag, nzInner, ctx)
   }
   if (n > visibles) {
-    boquillas += `<text x="${nzX + nzW / 2}" y="${nzY0 + totalNzH + 16}" font-size="10.5" font-weight="600" fill="#92400e" text-anchor="middle">+${n - visibles} boquilla(s) más</text>`
+    boquillasCajas += `<text x="${nzX + nzW / 2}" y="${nzY0 + totalNzH + 16}" font-size="10.5" font-weight="600" fill="#92400e" text-anchor="middle">+${n - visibles} boquilla(s) más</text>`
   }
+  const boquillas = envolver("NOZZLES", boquillasCajas, ctx)
 
   // Controlador + señales eléctricas a las electroválvulas
   const ctrlY = 352, ctrlW = 300, ctrlH = 44
@@ -117,9 +169,10 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
   // La línea de aire baja por el hueco entre columnas para no cruzar la caja de agua.
   const wireA = mhky ? "" : `<polyline points="${a5cx},${yAire + boxH} ${a5cx},${bandaY} ${gapX},${bandaY} ${gapX},${ctrlY}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3"/>`
   const wireW = `<line x1="${w5cx}" y1="${yAgua + boxH}" x2="${w5cx}" y2="${ctrlY}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3"/>`
-  const controlador = `<rect x="${ctrlX}" y="${ctrlY}" width="${ctrlW}" height="${ctrlH}" rx="9" fill="#f3e8ff" stroke="#a855f7" stroke-width="1.5"/>
+  const ctrlInner = `<rect x="${ctrlX}" y="${ctrlY}" width="${ctrlW}" height="${ctrlH}" rx="9" fill="#f3e8ff" stroke="#a855f7" stroke-width="1.5"/>
     <text x="${ctrlX + ctrlW / 2}" y="${ctrlY + 27}" font-size="12" font-weight="700" fill="#6b21a8" text-anchor="middle">CONTROLADOR · nodo de monitoreo</text>
-    ${wireA}${wireW}`
+    ${badgeCircle(ctrlX, ctrlY, ctrlW, "CONTROLADOR", ctx)}`
+  const controlador = `${wireA}${wireW}${envolver("CONTROLADOR", ctrlInner, ctx)}`
 
   // Leyenda
   const leg = `<g font-size="11" fill="#475569">
@@ -135,9 +188,9 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion): string {
   const etiqAgua = `<text x="${x0}" y="${yAgua - 12}" font-size="12" font-weight="700" fill="#2563eb">LÍNEA DE AGUA</text>`
 
   const genNote = sinEnergia
-    ? `<g><rect x="${ctrlX}" y="${ctrlY + ctrlH + 8}" width="${ctrlW}" height="30" rx="7" fill="#fff7ed" stroke="#f97316" stroke-width="1.3"/><text x="${ctrlX + ctrlW / 2}" y="${ctrlY + ctrlH + 27}" font-size="10.5" font-weight="700" fill="#c2410c" text-anchor="middle">+ GENERADOR 14 kVA (sin energía en planta)</text></g>`
+    ? envolver("GENERADOR", `<rect x="${ctrlX}" y="${ctrlY + ctrlH + 8}" width="${ctrlW}" height="30" rx="7" fill="#fff7ed" stroke="#f97316" stroke-width="1.3"/><text x="${ctrlX + ctrlW / 2}" y="${ctrlY + ctrlH + 27}" font-size="10.5" font-weight="700" fill="#c2410c" text-anchor="middle">+ GENERADOR 14 kVA (sin energía en planta)</text>${badgeCircle(ctrlX, ctrlY + ctrlH + 8, ctrlW, "GENERADOR", ctx)}`, ctx)
     : ""
-  const instrNote = `<text x="${x0}" y="466" font-size="9.5" fill="#64748b">Instrumentación: sensor de presión HK1100C + interruptor de nivel Exceline GFE-MV</text>`
+  const instrNote = envolver("INSTRUMENTACION", `<text x="${x0}" y="466" font-size="9.5" fill="#64748b">Instrumentación: sensor de presión HK1100C + interruptor de nivel Exceline GFE-MV</text>`, ctx)
 
   const H = 500
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;font-family:system-ui,Segoe UI,Arial,sans-serif">

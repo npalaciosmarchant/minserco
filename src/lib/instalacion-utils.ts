@@ -184,7 +184,9 @@ export interface EntradaInstalacion {
   espaciamiento?: number      // m entre boquillas (opcional)
 }
 
-export interface ItemReco { texto: string; detalle?: string }
+// cajaTags: tags de las cajas del bosquejo (bosquejo.ts) a las que corresponde este ítem,
+// para poder resaltar el dibujo al pasar el mouse por la lista y viceversa.
+export interface ItemReco { texto: string; detalle?: string; cajaTags?: string[] }
 
 export interface Recomendacion {
   ok: boolean
@@ -226,12 +228,12 @@ function mejorFila(tipo: "0.8" | "1", pAire: number, pAgua: number, obj: Objetiv
   return sorted[0]
 }
 
-function valvulaPara(linea: string, flujoLmin: number, ev: FilaEV): ItemReco {
+function valvulaPara(linea: string, flujoLmin: number, ev: FilaEV, cajaTags: string[]): ItemReco {
   const pequenas = ["EV04", "EV06", "EV08"] // hasta ½" -> válvula solenoide Minserco
   if (pequenas.includes(ev.codigo)) {
-    return { texto: `Válvula solenoide ${linea} Minserco ½" NPT (bronce · 230V)`, detalle: `caudal ${flujoLmin.toFixed(1)} L/min · filtro interno 20 µm · Pmáx 20 bar · RS232 a nodo` }
+    return { texto: `Válvula solenoide ${linea} Minserco ½" NPT (bronce · 230V)`, detalle: `caudal ${flujoLmin.toFixed(1)} L/min · filtro interno 20 µm · Pmáx 20 bar · RS232 a nodo`, cajaTags }
   }
-  return { texto: `Electroválvula ${linea} ${ev.codigo} (${ev.medida}) ${DEFAULTS.voltaje}`, detalle: `capacidad ${ev.capacidadLmin} L/min · bobina BB220CA + tripolar TP8W` }
+  return { texto: `Electroválvula ${linea} ${ev.codigo} (${ev.medida}) ${DEFAULTS.voltaje}`, detalle: `capacidad ${ev.capacidadLmin} L/min · bobina BB220CA + tripolar TP8W`, cajaTags }
 }
 
 // ── Fuente de agua (bomba + estanque) según necesidad. Devuelve la bomba elegida (o null). ──
@@ -253,12 +255,14 @@ function fuenteAgua(
     instalar.push({
       texto: `${estanque.modelo} + bomba ${bomba.modelo}`,
       detalle: `no hay agua en planta: almacenar y presurizar a ${setAgua} bar · ${spec} · ${estanque.medidas}`,
+      cajaTags: ["W0"],
     })
   } else {
     // Hay agua pero con presión insuficiente: bomba booster en línea (sin estanque).
     instalar.push({
       texto: `Bomba booster ${bomba.modelo}`,
       detalle: `presión de agua insuficiente (${presionAgua} < ${setAgua} bar): eleva la presión desde la matriz a ${setAgua} bar · ${spec}`,
+      cajaTags: ["WB"],
     })
   }
   if (!ok) advertencias.push(`La bomba ${bomba.modelo} (${bomba.caudalMaxLmin} L/min · ${bomba.presionMaxBar} bar) queda corta para ${caudalLmin.toFixed(1)} L/min a ${setAgua} bar. Elige otra bomba del catálogo.`)
@@ -270,22 +274,22 @@ function reguladorAgua(presionDisp: number, set: number, instalar: ItemReco[]) {
   if (presionDisp <= set + 0.05) return
   const ratio = presionDisp / set
   if (ratio > RBM_RATIO_MAX) {
-    instalar.push({ texto: `2x ${COMPONENTES.regulador} en serie`, detalle: `relación ${presionDisp}/${set} = ${ratio.toFixed(1)} > 2,5: se reparte en dos reductores para evitar cavitación` })
+    instalar.push({ texto: `2x ${COMPONENTES.regulador} en serie`, detalle: `relación ${presionDisp}/${set} = ${ratio.toFixed(1)} > 2,5: se reparte en dos reductores para evitar cavitación`, cajaTags: ["W4"] })
   } else {
-    instalar.push({ texto: COMPONENTES.regulador, detalle: `ajustar a ${set} bar (disponible ${presionDisp} bar)` })
+    instalar.push({ texto: COMPONENTES.regulador, detalle: `ajustar a ${set} bar (disponible ${presionDisp} bar)`, cajaTags: ["W4"] })
   }
 }
 
 // ── Energía, controlador e instrumentación (común a ambos sistemas). ──
 function energiaYControl(energiaEnPlanta: boolean, cargaKw: number, hayBomba: boolean, instalar: ItemReco[], noInstalar: ItemReco[]) {
   if (!energiaEnPlanta) {
-    instalar.push({ texto: COMPONENTES.generador, detalle: `no hay energía en planta: alimenta bombas/compresor y control (carga estimada ~${cargaKw.toFixed(1)} kW)` })
+    instalar.push({ texto: COMPONENTES.generador, detalle: `no hay energía en planta: alimenta bombas/compresor y control (carga estimada ~${cargaKw.toFixed(1)} kW)`, cajaTags: ["GENERADOR"] })
   } else {
     noInstalar.push({ texto: "Generador", detalle: "hay energía eléctrica en planta" })
   }
-  instalar.push({ texto: COMPONENTES.controlador, detalle: "comanda las electroválvulas y reporta estado (RS232)" })
-  instalar.push({ texto: COMPONENTES.sensorPresion, detalle: "monitorea la presión de línea" })
-  if (hayBomba) instalar.push({ texto: COMPONENTES.interruptorNivel, detalle: "protege la bomba de operar en vacío (nivel de estanque)" })
+  instalar.push({ texto: COMPONENTES.controlador, detalle: "comanda las electroválvulas y reporta estado (RS232)", cajaTags: ["CONTROLADOR"] })
+  instalar.push({ texto: COMPONENTES.sensorPresion, detalle: "monitorea la presión de línea", cajaTags: ["INSTRUMENTACION"] })
+  if (hayBomba) instalar.push({ texto: COMPONENTES.interruptorNivel, detalle: "protege la bomba de operar en vacío (nivel de estanque)", cajaTags: ["INSTRUMENTACION"] })
 }
 
 interface Ctx { aireEnPlanta: boolean; aguaEnPlanta: boolean; energiaEnPlanta: boolean; estanque: Estanque; bombaForzada: Bomba | null }
@@ -343,25 +347,25 @@ function recomendarTurbofog(e: EntradaInstalacion, ctx: Ctx): Recomendacion {
   const aireTotalLmin = aireTotalM3h * 1000 / 60
   const aporteFrioTotal = Math.round(n * fila.aguaLh * 539)
 
-  instalar.push({ texto: `${n} boquilla(s) Turbofog Ø${tipo}mm con válvula antigoteo`, detalle: `consumo total ${aguaTotalLmin} L/min de agua y ${aireTotalM3h} m³/h de aire` })
+  instalar.push({ texto: `${n} boquilla(s) Turbofog Ø${tipo}mm con válvula antigoteo`, detalle: `consumo total ${aguaTotalLmin} L/min de agua y ${aireTotalM3h} m³/h de aire`, cajaTags: ["NOZZLES"] })
 
   if (aguaEnPlanta) reguladorAgua(e.presionAgua, fila.pAgua, instalar)
 
   if (!aireEnPlanta) {
-    instalar.push({ texto: COMPONENTES.compresor, detalle: `no hay aire en planta: entrega ${COMPONENTES.compresorPresion} y ~${aireTotalM3h} m³/h (ajustar a ${fila.pAire} bar)` })
+    instalar.push({ texto: COMPONENTES.compresor, detalle: `no hay aire en planta: entrega ${COMPONENTES.compresorPresion} y ~${aireTotalM3h} m³/h (ajustar a ${fila.pAire} bar)`, cajaTags: ["A0"] })
   } else if (e.presionAire > fila.pAire + 0.05) {
-    instalar.push({ texto: `${COMPONENTES.regulador.replace("RBM Rinox", "de aire")} `.trim(), detalle: `ajustar a ${fila.pAire} bar (disponible ${e.presionAire} bar)` })
+    instalar.push({ texto: `${COMPONENTES.regulador.replace("RBM Rinox", "de aire")} `.trim(), detalle: `ajustar a ${fila.pAire} bar (disponible ${e.presionAire} bar)`, cajaTags: ["A4"] })
   }
 
-  instalar.push({ texto: COMPONENTES.filtroAire, detalle: "protege boquillas y válvula en la línea de aire" })
-  instalar.push({ texto: COMPONENTES.filtroAgua, detalle: "la válvula solenoide trae además filtro interno de 20 µm" })
+  instalar.push({ texto: COMPONENTES.filtroAire, detalle: "protege boquillas y válvula en la línea de aire", cajaTags: ["A3"] })
+  instalar.push({ texto: COMPONENTES.filtroAgua, detalle: "la válvula solenoide trae además filtro interno de 20 µm", cajaTags: ["W3"] })
 
   const evAgua = elegirEV(aguaTotalLmin)
   const evAire = elegirEV(aireTotalLmin)
-  instalar.push(valvulaPara("agua", aguaTotalLmin, evAgua))
-  instalar.push(valvulaPara("aire", aireTotalLmin, evAire))
+  instalar.push(valvulaPara("agua", aguaTotalLmin, evAgua, ["W5"]))
+  instalar.push(valvulaPara("aire", aireTotalLmin, evAire, ["A5"]))
 
-  instalar.push({ texto: `Manifold de mezcla aire/agua con ${Math.max(1, n)} salida(s)` })
+  instalar.push({ texto: `Manifold de mezcla aire/agua con ${Math.max(1, n)} salida(s)`, cajaTags: ["MANIFOLD"] })
 
   const bomba = fuenteAgua({ aguaEnPlanta, presionAgua: e.presionAgua, setAgua: fila.pAgua, estanque, bombaForzada, caudalLmin: aguaTotalLmin }, instalar, noInstalar, advertencias)
   if (aireEnPlanta && e.presionAire >= fila.pAire) {
@@ -410,12 +414,12 @@ function recomendarMHKY(e: EntradaInstalacion, ctx: Ctx): Recomendacion {
     advertencias.push(`Presión de agua insuficiente para MHKY: se necesita al menos 1 bar (disponible ${e.presionAgua} bar). Requiere bomba.`)
   }
 
-  instalar.push({ texto: `${n} boquilla(s) MHKY ${fila.codigo} (cono 65°, solo agua)`, detalle: `${perNozzle} L/min c/u a ${setAgua} bar · paso libre ${fila.pasoMm} mm · total ${aguaTotalLmin} L/min` })
-  instalar.push({ texto: COMPONENTES.filtroAgua, detalle: "protege las boquillas MHKY (paso libre pequeño)" })
+  instalar.push({ texto: `${n} boquilla(s) MHKY ${fila.codigo} (cono 65°, solo agua)`, detalle: `${perNozzle} L/min c/u a ${setAgua} bar · paso libre ${fila.pasoMm} mm · total ${aguaTotalLmin} L/min`, cajaTags: ["NOZZLES"] })
+  instalar.push({ texto: COMPONENTES.filtroAgua, detalle: "protege las boquillas MHKY (paso libre pequeño)", cajaTags: ["W3"] })
 
   const evAgua = elegirEV(aguaTotalLmin)
-  instalar.push(valvulaPara("agua", aguaTotalLmin, evAgua))
-  instalar.push({ texto: `Manifold de agua con ${Math.max(1, n)} salida(s)` })
+  instalar.push(valvulaPara("agua", aguaTotalLmin, evAgua, ["W5"]))
+  instalar.push({ texto: `Manifold de agua con ${Math.max(1, n)} salida(s)`, cajaTags: ["MANIFOLD"] })
 
   const bomba = fuenteAgua({ aguaEnPlanta, presionAgua: e.presionAgua, setAgua, estanque, bombaForzada, caudalLmin: aguaTotalLmin }, instalar, noInstalar, advertencias)
   noInstalar.push({ texto: "Línea de aire / compresor", detalle: "el sistema MHKY es solo agua (no usa aire comprimido)" })
