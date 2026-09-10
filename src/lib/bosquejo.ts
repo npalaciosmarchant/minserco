@@ -31,6 +31,13 @@ export const STOCK_LABEL: Record<EstadoStock, string> = {
   "no-encontrado": "No encontrado",
 }
 
+// Dimensiones base compartidas por el render (bosquejoSVG) y el cálculo de tamaño
+// (dimensionesBosquejo), para que nunca queden desincronizadas.
+const W = 1200
+const MANIFOLD_Y = 150, MANIFOLD_H = 120
+const CTRL_Y = 352, CTRL_H = 44
+const BASE_H = 500
+
 function escAttr(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 }
@@ -58,12 +65,10 @@ function caja(x: number, y: number, w: number, h: number, c: Caja, ctx?: Bosquej
   return envolver(c.tag, rect, ctx)
 }
 
-
-export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion, ctx?: BosquejoCtx): string {
-  const W = 1200
-  const boxW = 116, boxH = 56, pitch = 150, x0 = 16
-  const yAire = 96, yAgua = 250
-
+// Construye las cajas de la línea de aire y de agua (izq → der) a partir de la
+// entrada/recomendación. Compartido entre el render (bosquejoSVG) y el orden de
+// pasos del modo "paso a paso" (ordenTags), para que nunca queden desincronizados.
+function construirLineas(e: EntradaInstalacion, r: Recomendacion): { aire: Caja[]; agua: Caja[]; mhky: boolean; sinEnergia: boolean } {
   const mhky = r.sistema === "mhky"
   const sinAire = e.aireEnPlanta === false
   const sinAgua = e.aguaEnPlanta === false
@@ -96,11 +101,66 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion, ctx?: Bosqu
   if (regAgua) agua.push({ tag: "W4", label: "Regulador", sub: `ajustar ${r.setAgua} bar`, tipo: "linea" })
   agua.push({ tag: "W5", label: "Válv. solen.", sub: "230V · a nodo", tipo: "linea" })
 
+  return { aire, agua, mhky, sinEnergia }
+}
+
+// Orden de presentación de los componentes del bosquejo, usado por el modo
+// "paso a paso" (resalta secuencialmente cada caja como en una presentación).
+export function ordenTags(e: EntradaInstalacion, r: Recomendacion): { tag: string; titulo: string }[] {
+  const { aire, agua, sinEnergia } = construirLineas(e, r)
+  const pasos: { tag: string; titulo: string }[] = []
+  for (const c of aire) pasos.push({ tag: c.tag, titulo: c.label })
+  for (const c of agua) pasos.push({ tag: c.tag, titulo: c.label })
+  pasos.push({ tag: "MANIFOLD", titulo: "Manifold" })
+  pasos.push({ tag: "NOZZLES", titulo: "Boquillas" })
+  pasos.push({ tag: "CONTROLADOR", titulo: "Controlador · nodo de monitoreo" })
+  if (sinEnergia) pasos.push({ tag: "GENERADOR", titulo: "Generador (sin energía en planta)" })
+  pasos.push({ tag: "INSTRUMENTACION", titulo: "Instrumentación" })
+  return pasos
+}
+
+// Layout de la columna de boquillas: hasta 5 quedan centradas junto al manifold
+// (comportamiento histórico); más de 5 pasan a una columna que crece hacia abajo
+// desde arriba del manifold, ya que con zoom/pan en la página ya no hace falta
+// resumir con "+N boquillas más".
+function layoutBoquillas(n: number) {
+  const nzW = 108, nzH = 40, nzGap = 14
+  const totalNzH = n * nzH + Math.max(0, n - 1) * nzGap
+  const topAnchored = n > 5
+  const nzY0 = topAnchored
+    ? MANIFOLD_Y - 10
+    : MANIFOLD_Y + MANIFOLD_H / 2 - totalNzH / 2
+  return { nzW, nzH, nzGap, totalNzH, nzY0, topAnchored }
+}
+
+// Alto total del SVG: el layout base necesita BASE_H; si la columna de boquillas
+// (sin cap) crece más que eso, el lienzo crece para que nada quede cortado.
+function alturaTotal(n: number): number {
+  const { nzY0, totalNzH } = layoutBoquillas(n)
+  return Math.max(BASE_H, nzY0 + totalNzH + 90)
+}
+
+// Tamaño natural del SVG para una entrada dada (sin renderizarlo) — usado por la
+// página para calcular un zoom "ajustar a la ventana".
+export function dimensionesBosquejo(e: EntradaInstalacion): { width: number; height: number } {
+  const n = Math.max(1, Math.floor(e.nBoquillas || 1))
+  return { width: W, height: alturaTotal(n) }
+}
+
+export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion, ctx?: BosquejoCtx): string {
+  const boxW = 116, boxH = 56, pitch = 150, x0 = 16
+  const yAire = 96, yAgua = 250
+  const manifoldY = MANIFOLD_Y, manifoldH = MANIFOLD_H
+  const ctrlY = CTRL_Y, ctrlH = CTRL_H
+
+  const { aire, agua, mhky, sinEnergia } = construirLineas(e, r)
+
   const nCols = Math.max(aire.length, agua.length)
   const manifoldX = x0 + nCols * pitch + 6
   const manifoldW = 120
 
-  // Marcadores de flecha
+  // Marcadores de flecha + animación sutil de flujo (dash-offset) y pulso de las
+  // electroválvulas — desactivada si el usuario prefiere menos movimiento.
   const defs = `<defs>
     <marker id="arrAire" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0ea5e9"/></marker>
     <marker id="arrAgua" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2563eb"/></marker>
@@ -110,29 +170,37 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion, ctx?: Bosqu
     .ins-caja a, .ins-caja a text { cursor: pointer; }
     .ins-caja.ins-hover rect, .ins-caja.ins-active rect { stroke-width: 3; }
     .ins-caja.ins-hover, .ins-caja.ins-active { filter: drop-shadow(0 0 5px rgba(37,99,235,.6)); }
+    @keyframes insFlowAire { to { stroke-dashoffset: -22; } }
+    @keyframes insFlowAgua { to { stroke-dashoffset: -28; } }
+    @keyframes insPulseWire { 0%, 100% { opacity: 1; } 50% { opacity: .32; } }
+    .flow-aire { animation: insFlowAire 1s linear infinite; }
+    .flow-agua { animation: insFlowAgua 1.3s linear infinite; }
+    .wire-elec { animation: insPulseWire 1.6s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) {
+      .flow-aire, .flow-agua, .wire-elec { animation: none; }
+    }
   </style>`
 
-  function linea(items: Caja[], y: number, color: string, dash: string, marker: string): string {
+  function linea(items: Caja[], y: number, color: string, dash: string, marker: string, flowClass: string): string {
     let out = ""
     let prevRight = -1
     items.forEach((c, i) => {
       const x = x0 + i * pitch
       if (prevRight >= 0) {
-        out += `<line x1="${prevRight}" y1="${y + boxH / 2}" x2="${x}" y2="${y + boxH / 2}" stroke="${color}" stroke-width="2.5" ${dash} marker-end="url(#${marker})"/>`
+        out += `<line x1="${prevRight}" y1="${y + boxH / 2}" x2="${x}" y2="${y + boxH / 2}" stroke="${color}" stroke-width="2.5" ${dash} class="${flowClass}" marker-end="url(#${marker})"/>`
       }
       out += caja(x, y, boxW, boxH, c, ctx)
       prevRight = x + boxW
     })
     // hacia el manifold
-    out += `<line x1="${prevRight}" y1="${y + boxH / 2}" x2="${manifoldX}" y2="${y + boxH / 2}" stroke="${color}" stroke-width="2.5" ${dash} marker-end="url(#${marker})"/>`
+    out += `<line x1="${prevRight}" y1="${y + boxH / 2}" x2="${manifoldX}" y2="${y + boxH / 2}" stroke="${color}" stroke-width="2.5" ${dash} class="${flowClass}" marker-end="url(#${marker})"/>`
     return out
   }
 
-  const svgAire = mhky ? "" : linea(aire, yAire, "#0ea5e9", 'stroke-dasharray="7 4"', "arrAire")
-  const svgAgua = linea(agua, yAgua, "#2563eb", "", "arrAgua")
+  const svgAire = mhky ? "" : linea(aire, yAire, "#0ea5e9", 'stroke-dasharray="7 4"', "arrAire", "flow-aire")
+  const svgAgua = linea(agua, yAgua, "#2563eb", 'stroke-dasharray="9 5"', "arrAgua", "flow-agua")
 
   // Manifold
-  const manifoldY = 150, manifoldH = 120
   const manifoldInner = `<rect x="${manifoldX}" y="${manifoldY}" width="${manifoldW}" height="${manifoldH}" rx="10" fill="#0f172a"/>
     <text x="${manifoldX + manifoldW / 2}" y="${manifoldY + 46}" font-size="13" font-weight="800" fill="#ffffff" text-anchor="middle">MANIFOLD</text>
     <text x="${manifoldX + manifoldW / 2}" y="${manifoldY + 66}" font-size="10.5" fill="#fbbf24" text-anchor="middle">${mhky ? "distribución agua" : "mezcla aire/agua"}</text>
@@ -140,15 +208,13 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion, ctx?: Bosqu
     ${badgeCircle(manifoldX, manifoldY, manifoldW, "MANIFOLD", ctx)}`
   const manifold = envolver("MANIFOLD", manifoldInner, ctx)
 
-  // Boquillas (máx 5 visibles + resto)
+  // Boquillas — sin cap: se dibujan todas (n≤5 centradas junto al manifold como
+  // antes; n>5 en columna creciente, navegable con el zoom/pan de la página).
   const n = Math.max(1, Math.floor(e.nBoquillas || 1))
-  const visibles = Math.min(n, 5)
+  const { nzW, nzH, nzGap, nzY0 } = layoutBoquillas(n)
   const nzX = manifoldX + manifoldW + 40
-  const nzW = 108, nzH = 40, nzGap = 14
-  const totalNzH = visibles * nzH + (visibles - 1) * nzGap
-  const nzY0 = manifoldY + manifoldH / 2 - totalNzH / 2
   let boquillasCajas = ""
-  for (let i = 0; i < visibles; i++) {
+  for (let i = 0; i < n; i++) {
     const y = nzY0 + i * (nzH + nzGap)
     const nTag = `N${i + 1}`
     boquillasCajas += `<line x1="${manifoldX + manifoldW}" y1="${manifoldY + manifoldH / 2}" x2="${nzX}" y2="${y + nzH / 2}" stroke="#0f172a" stroke-width="2"/>`
@@ -157,13 +223,10 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion, ctx?: Bosqu
       <text x="${nzX + nzW / 2}" y="${y + 32}" font-size="9.5" fill="#b45309" text-anchor="middle">boq. neblina</text>`
     boquillasCajas += envolver(nTag, nzInner, ctx)
   }
-  if (n > visibles) {
-    boquillasCajas += `<text x="${nzX + nzW / 2}" y="${nzY0 + totalNzH + 16}" font-size="10.5" font-weight="600" fill="#92400e" text-anchor="middle">+${n - visibles} boquilla(s) más</text>`
-  }
   const boquillas = envolver("NOZZLES", boquillasCajas, ctx)
 
   // Controlador + señales eléctricas a las electroválvulas
-  const ctrlY = 352, ctrlW = 300, ctrlH = 44
+  const ctrlW = 300
   const ctrlX = manifoldX - ctrlW - 20
   const idxA5 = aire.length - 1, idxW5 = agua.length - 1
   const a5cx = x0 + idxA5 * pitch + boxW / 2
@@ -171,8 +234,8 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion, ctx?: Bosqu
   const bandaY = (yAire + boxH + yAgua) / 2                 // banda vacía entre aire y agua
   const gapX = x0 + (nCols - 1) * pitch - (pitch - boxW) / 2 // hueco entre columnas (sin cajas)
   // La línea de aire baja por el hueco entre columnas para no cruzar la caja de agua.
-  const wireA = mhky ? "" : `<polyline points="${a5cx},${yAire + boxH} ${a5cx},${bandaY} ${gapX},${bandaY} ${gapX},${ctrlY}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3"/>`
-  const wireW = `<line x1="${w5cx}" y1="${yAgua + boxH}" x2="${w5cx}" y2="${ctrlY}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3"/>`
+  const wireA = mhky ? "" : `<polyline points="${a5cx},${yAire + boxH} ${a5cx},${bandaY} ${gapX},${bandaY} ${gapX},${ctrlY}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3" class="wire-elec"/>`
+  const wireW = `<line x1="${w5cx}" y1="${yAgua + boxH}" x2="${w5cx}" y2="${ctrlY}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3" class="wire-elec"/>`
   const ctrlInner = `<rect x="${ctrlX}" y="${ctrlY}" width="${ctrlW}" height="${ctrlH}" rx="9" fill="#f3e8ff" stroke="#a855f7" stroke-width="1.5"/>
     <text x="${ctrlX + ctrlW / 2}" y="${ctrlY + 27}" font-size="12" font-weight="700" fill="#6b21a8" text-anchor="middle">CONTROLADOR · nodo de monitoreo</text>
     ${badgeCircle(ctrlX, ctrlY, ctrlW, "CONTROLADOR", ctx)}`
@@ -194,9 +257,11 @@ export function bosquejoSVG(e: EntradaInstalacion, r: Recomendacion, ctx?: Bosqu
   const genNote = sinEnergia
     ? envolver("GENERADOR", `<rect x="${ctrlX}" y="${ctrlY + ctrlH + 8}" width="${ctrlW}" height="30" rx="7" fill="#fff7ed" stroke="#f97316" stroke-width="1.3"/><text x="${ctrlX + ctrlW / 2}" y="${ctrlY + ctrlH + 27}" font-size="10.5" font-weight="700" fill="#c2410c" text-anchor="middle">+ GENERADOR 14 kVA (sin energía en planta)</text>${badgeCircle(ctrlX, ctrlY + ctrlH + 8, ctrlW, "GENERADOR", ctx)}`, ctx)
     : ""
-  const instrNote = envolver("INSTRUMENTACION", `<text x="${x0}" y="466" font-size="9.5" fill="#64748b">Instrumentación: sensor de presión HK1100C + interruptor de nivel Exceline GFE-MV</text>`, ctx)
 
-  const H = 500
+  const H = alturaTotal(n)
+  const instrY = H - 34
+  const instrNote = envolver("INSTRUMENTACION", `<text x="${x0}" y="${instrY}" font-size="9.5" fill="#64748b">Instrumentación: sensor de presión HK1100C + interruptor de nivel Exceline GFE-MV</text>`, ctx)
+
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;font-family:system-ui,Segoe UI,Arial,sans-serif">
     ${defs}
     <rect x="0" y="0" width="${W}" height="${H}" rx="12" fill="#f8fafc"/>
