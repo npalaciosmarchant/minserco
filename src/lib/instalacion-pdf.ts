@@ -45,7 +45,7 @@ export function imprimirInstalacionPDF(e: EntradaInstalacion, r: Recomendacion, 
     ? `<div class="adv"><h3>Advertencias</h3><ul>${r.advertencias.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div>`
     : ""
 
-  const ctxBosquejo = construirCtxBosquejo(bodega.getAll(), equipos.getAll(), window.location.origin)
+  const ctxBosquejo = construirCtxBosquejo(bodega.getAll(), equipos.getAll(), window.location.origin, r.medida ?? undefined)
   const svg = bosquejoSVG(e, r, ctxBosquejo)
 
   const html = `<!DOCTYPE html>
