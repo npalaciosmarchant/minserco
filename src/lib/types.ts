@@ -443,8 +443,12 @@ export interface Asistencia {
   usuarioNombre: string
   fecha: string               // YYYY-MM-DD
   horaEntrada?: string        // HH:MM
+  horaSalidaColacion?: string // HH:MM
+  horaEntradaColacion?: string // HH:MM
   horaSalida?: string         // HH:MM
   ubicacionEntrada?: UbicacionAsistencia
+  ubicacionSalidaColacion?: UbicacionAsistencia
+  ubicacionEntradaColacion?: UbicacionAsistencia
   ubicacionSalida?: UbicacionAsistencia
   tarde: boolean              // true si horaEntrada > horaIngreso configurada
   creadoEn: string
@@ -454,6 +458,16 @@ export interface Asistencia {
   geoEntradaPrecision?: number   // metros de precisión (solo fuente "gps")
   geoEntradaLugar?: string       // ciudad/sector (solo fuente "ip")
   geoEntradaFuente?: FuenteGeo
+  geoSalidaColacionLat?: number
+  geoSalidaColacionLng?: number
+  geoSalidaColacionPrecision?: number
+  geoSalidaColacionLugar?: string
+  geoSalidaColacionFuente?: FuenteGeo
+  geoEntradaColacionLat?: number
+  geoEntradaColacionLng?: number
+  geoEntradaColacionPrecision?: number
+  geoEntradaColacionLugar?: string
+  geoEntradaColacionFuente?: FuenteGeo
   geoSalidaLat?: number
   geoSalidaLng?: number
   geoSalidaPrecision?: number
