@@ -16,6 +16,11 @@ const UBICACION_LABEL: Record<UbicacionAsistencia, string> = {
   oficina: "Oficina", terreno: "Visita a Terreno", viaje: "Viaje",
 }
 
+// Editar/eliminar una marcación es una acción sensible (podría usarse para
+// falsear asistencia). Se restringe explícitamente a estas dos personas,
+// independiente de quién más tenga rol "admin" a futuro.
+const ADMINS_EDICION_ASISTENCIA = ["n.palacios.marchant@gmail.com", "sergioalbornoz@minserco.cl"]
+
 function hoyISO() {
   return new Date().toISOString().slice(0, 10)
 }
@@ -77,9 +82,7 @@ export default function AsistenciaAdminPage() {
   const [editHoraSalida, setEditHoraSalida] = useState("")
   const [descargando, setDescargando] = useState(false)
 
-  // Editar/eliminar una marcación es una acción sensible (podría usarse para
-  // falsear asistencia); se permite a cualquier usuario con rol "admin".
-  const puedeEditar = user?.rol === "admin"
+  const puedeEditar = !!user?.email && ADMINS_EDICION_ASISTENCIA.includes(user.email)
 
   useEffect(() => {
     if (user && user.rol !== "admin") { router.push("/"); return }
@@ -579,7 +582,7 @@ export default function AsistenciaAdminPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Modal: modificar/eliminar hora de una marcación (solo administradores) ── */}
+      {/* ── Modal: modificar/eliminar hora de una marcación (solo Nicolas/Sergio) ── */}
       <Dialog open={!!editando} onOpenChange={o => !o && setEditando(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
