@@ -16,18 +16,13 @@ const UBICACION_LABEL: Record<UbicacionAsistencia, string> = {
   oficina: "Oficina", terreno: "Visita a Terreno", viaje: "Viaje",
 }
 
-// Editar/eliminar una marcación es una acción sensible (podría usarse para
-// falsear asistencia). Se restringe explícitamente a estas dos personas,
-// independiente de quién más tenga rol "admin" a futuro.
-const ADMINS_EDICION_ASISTENCIA = ["n.palacios.marchant@gmail.com", "sergioalbornoz@minserco.cl"]
-
 function hoyISO() {
   return new Date().toISOString().slice(0, 10)
 }
 
 interface GeoModalData {
   usuario: string
-  tipo: "Entrada" | "Salida"
+  tipo: "Entrada" | "Salida colación" | "Regreso colación" | "Salida"
   hora: string
   lat: number
   lng: number
@@ -77,10 +72,14 @@ export default function AsistenciaAdminPage() {
   const [lugarCache, setLugarCache] = useState<Record<string, string>>({})
   const [editando, setEditando] = useState<Asistencia | null>(null)
   const [editHoraEntrada, setEditHoraEntrada] = useState("")
+  const [editHoraSalidaColacion, setEditHoraSalidaColacion] = useState("")
+  const [editHoraEntradaColacion, setEditHoraEntradaColacion] = useState("")
   const [editHoraSalida, setEditHoraSalida] = useState("")
   const [descargando, setDescargando] = useState(false)
 
-  const puedeEditar = !!user?.email && ADMINS_EDICION_ASISTENCIA.includes(user.email)
+  // Editar/eliminar una marcación es una acción sensible (podría usarse para
+  // falsear asistencia); se permite a cualquier usuario con rol "admin".
+  const puedeEditar = user?.rol === "admin"
 
   useEffect(() => {
     if (user && user.rol !== "admin") { router.push("/"); return }
@@ -93,7 +92,7 @@ export default function AsistenciaAdminPage() {
   }
   useEffect(() => { cargar() }, [])
 
-  function abrirGeo(usuario: string, tipo: "Entrada" | "Salida", hora: string, lat?: number, lng?: number, precision?: number, lugar?: string, fuente?: "gps" | "ip") {
+  function abrirGeo(usuario: string, tipo: GeoModalData["tipo"], hora: string, lat?: number, lng?: number, precision?: number, lugar?: string, fuente?: "gps" | "ip") {
     if (lat == null || lng == null) return
     setGeoModal({ usuario, tipo, hora, lat, lng, precision, lugar, fuente })
     const key = `${lat},${lng}`
@@ -114,6 +113,8 @@ export default function AsistenciaAdminPage() {
     if (!puedeEditar) return
     setEditando(a)
     setEditHoraEntrada(a.horaEntrada ?? "")
+    setEditHoraSalidaColacion(a.horaSalidaColacion ?? "")
+    setEditHoraEntradaColacion(a.horaEntradaColacion ?? "")
     setEditHoraSalida(a.horaSalida ?? "")
   }
 
@@ -122,6 +123,8 @@ export default function AsistenciaAdminPage() {
     const tarde = editHoraEntrada ? editHoraEntrada > horaIngreso : false
     asistencias.update(editando.id, {
       horaEntrada: editHoraEntrada,
+      horaSalidaColacion: editHoraSalidaColacion,
+      horaEntradaColacion: editHoraEntradaColacion,
       horaSalida: editHoraSalida,
       tarde,
     })
@@ -164,6 +167,8 @@ export default function AsistenciaAdminPage() {
       const filas = await Promise.all(
         filtrada.map(async (a, i) => {
           const lugarEntrada = a.horaEntrada ? await lugarDe(a.geoEntradaLat, a.geoEntradaLng, a.geoEntradaLugar) : ""
+          const lugarSalidaColacion = a.horaSalidaColacion ? await lugarDe(a.geoSalidaColacionLat, a.geoSalidaColacionLng, a.geoSalidaColacionLugar) : ""
+          const lugarEntradaColacion = a.horaEntradaColacion ? await lugarDe(a.geoEntradaColacionLat, a.geoEntradaColacionLng, a.geoEntradaColacionLugar) : ""
           const lugarSalida = a.horaSalida ? await lugarDe(a.geoSalidaLat, a.geoSalidaLng, a.geoSalidaLugar) : ""
           return [
             i + 1,
@@ -173,6 +178,14 @@ export default function AsistenciaAdminPage() {
             a.horaEntrada ? UBICACION_LABEL[a.ubicacionEntrada!] : "",
             lugarEntrada,
             a.geoEntradaFuente === "ip" ? "Aprox. por IP" : a.geoEntradaFuente === "gps" ? "GPS" : "",
+            a.horaSalidaColacion ?? "",
+            a.horaSalidaColacion ? UBICACION_LABEL[a.ubicacionSalidaColacion!] : "",
+            lugarSalidaColacion,
+            a.geoSalidaColacionFuente === "ip" ? "Aprox. por IP" : a.geoSalidaColacionFuente === "gps" ? "GPS" : "",
+            a.horaEntradaColacion ?? "",
+            a.horaEntradaColacion ? UBICACION_LABEL[a.ubicacionEntradaColacion!] : "",
+            lugarEntradaColacion,
+            a.geoEntradaColacionFuente === "ip" ? "Aprox. por IP" : a.geoEntradaColacionFuente === "gps" ? "GPS" : "",
             a.horaSalida ?? "",
             a.horaSalida ? UBICACION_LABEL[a.ubicacionSalida!] : "",
             lugarSalida,
@@ -187,6 +200,8 @@ export default function AsistenciaAdminPage() {
       const cols = [
         { h: "N°", w: 5 }, { h: "Trabajador", w: 24 }, { h: "Fecha", w: 12 },
         { h: "Hora entrada", w: 12 }, { h: "Ubicación declarada", w: 16 }, { h: "Lugar de marca (entrada)", w: 30 }, { h: "Fuente (entrada)", w: 13 },
+        { h: "Hora salida colación", w: 14 }, { h: "Ubicación declarada", w: 16 }, { h: "Lugar de marca (salida colación)", w: 30 }, { h: "Fuente (salida colación)", w: 16 },
+        { h: "Hora regreso colación", w: 14 }, { h: "Ubicación declarada", w: 16 }, { h: "Lugar de marca (regreso colación)", w: 30 }, { h: "Fuente (regreso colación)", w: 16 },
         { h: "Hora salida", w: 12 }, { h: "Ubicación declarada", w: 16 }, { h: "Lugar de marca (salida)", w: 30 }, { h: "Fuente (salida)", w: 13 },
         { h: "Estado", w: 12 },
       ]
@@ -220,7 +235,10 @@ export default function AsistenciaAdminPage() {
       const rRow = ws.addRow(["RESUMEN"])
       rRow.getCell(1).font = { bold: true, color: { argb: AZUL } }
       const conTardanza = filtrada.filter(a => a.tarde).length
-      const sinGps = filtrada.filter(a => a.geoEntradaFuente === "ip" || a.geoSalidaFuente === "ip").length
+      const sinGps = filtrada.filter(a =>
+        a.geoEntradaFuente === "ip" || a.geoSalidaColacionFuente === "ip" ||
+        a.geoEntradaColacionFuente === "ip" || a.geoSalidaFuente === "ip"
+      ).length
       ;[
         ["Total registros", filtrada.length],
         ["Tardanzas", conTardanza],
@@ -240,7 +258,10 @@ export default function AsistenciaAdminPage() {
   const hoy = hoyISO()
   const registrosHoy = lista.filter(a => a.fecha === hoy)
   const tardanzasHoy = registrosHoy.filter(a => a.tarde).length
-  const sinGpsHoy = registrosHoy.filter(a => a.geoEntradaFuente === "ip" || a.geoSalidaFuente === "ip").length
+  const sinGpsHoy = registrosHoy.filter(a =>
+    a.geoEntradaFuente === "ip" || a.geoSalidaColacionFuente === "ip" ||
+    a.geoEntradaColacionFuente === "ip" || a.geoSalidaFuente === "ip"
+  ).length
 
   const stats = [
     { label: "Marcaciones hoy", value: registrosHoy.length },
@@ -372,6 +393,8 @@ export default function AsistenciaAdminPage() {
                     <th className="text-left py-2.5 px-4 font-medium" style={{ color: "var(--ds-fg-subtle)" }}>Usuario</th>
                     <th className="text-left py-2.5 px-4 font-medium" style={{ color: "var(--ds-fg-subtle)" }}>Fecha</th>
                     <th className="text-left py-2.5 px-4 font-medium" style={{ color: "var(--ds-fg-subtle)" }}>Entrada</th>
+                    <th className="text-left py-2.5 px-4 font-medium" style={{ color: "var(--ds-fg-subtle)" }}>Salida colación</th>
+                    <th className="text-left py-2.5 px-4 font-medium" style={{ color: "var(--ds-fg-subtle)" }}>Regreso colación</th>
                     <th className="text-left py-2.5 px-4 font-medium" style={{ color: "var(--ds-fg-subtle)" }}>Salida</th>
                     <th className="text-left py-2.5 px-4 font-medium" style={{ color: "var(--ds-fg-subtle)" }}>Estado</th>
                     {puedeEditar && (
@@ -394,6 +417,40 @@ export default function AsistenciaAdminPage() {
                                 onClick={() => abrirGeo(a.usuarioNombre, "Entrada", a.horaEntrada!, a.geoEntradaLat, a.geoEntradaLng, a.geoEntradaPrecision, a.geoEntradaLugar, a.geoEntradaFuente)}
                                 className="inline-flex items-center justify-center w-5 h-5 rounded-md shrink-0"
                                 style={{ background: a.geoEntradaFuente === "ip" ? "#FEE2E2" : "#DBEAFE", color: a.geoEntradaFuente === "ip" ? "#dc2626" : "#0369A1" }}
+                              >
+                                <MapPin size={11} />
+                              </button>
+                            )}
+                          </span>
+                        ) : "—"}
+                      </td>
+                      <td className="py-2.5 px-4" style={{ color: "var(--ds-fg-subtle)" }}>
+                        {a.horaSalidaColacion ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            {a.horaSalidaColacion} · {UBICACION_LABEL[a.ubicacionSalidaColacion!]}
+                            {a.geoSalidaColacionLat != null && (
+                              <button
+                                title={a.geoSalidaColacionFuente === "ip" ? "Ubicación aproximada (IP)" : "Ver ubicación GPS"}
+                                onClick={() => abrirGeo(a.usuarioNombre, "Salida colación", a.horaSalidaColacion!, a.geoSalidaColacionLat, a.geoSalidaColacionLng, a.geoSalidaColacionPrecision, a.geoSalidaColacionLugar, a.geoSalidaColacionFuente)}
+                                className="inline-flex items-center justify-center w-5 h-5 rounded-md shrink-0"
+                                style={{ background: a.geoSalidaColacionFuente === "ip" ? "#FEE2E2" : "#DBEAFE", color: a.geoSalidaColacionFuente === "ip" ? "#dc2626" : "#0369A1" }}
+                              >
+                                <MapPin size={11} />
+                              </button>
+                            )}
+                          </span>
+                        ) : "—"}
+                      </td>
+                      <td className="py-2.5 px-4" style={{ color: "var(--ds-fg-subtle)" }}>
+                        {a.horaEntradaColacion ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            {a.horaEntradaColacion} · {UBICACION_LABEL[a.ubicacionEntradaColacion!]}
+                            {a.geoEntradaColacionLat != null && (
+                              <button
+                                title={a.geoEntradaColacionFuente === "ip" ? "Ubicación aproximada (IP)" : "Ver ubicación GPS"}
+                                onClick={() => abrirGeo(a.usuarioNombre, "Regreso colación", a.horaEntradaColacion!, a.geoEntradaColacionLat, a.geoEntradaColacionLng, a.geoEntradaColacionPrecision, a.geoEntradaColacionLugar, a.geoEntradaColacionFuente)}
+                                className="inline-flex items-center justify-center w-5 h-5 rounded-md shrink-0"
+                                style={{ background: a.geoEntradaColacionFuente === "ip" ? "#FEE2E2" : "#DBEAFE", color: a.geoEntradaColacionFuente === "ip" ? "#dc2626" : "#0369A1" }}
                               >
                                 <MapPin size={11} />
                               </button>
@@ -522,7 +579,7 @@ export default function AsistenciaAdminPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Modal: modificar/eliminar hora de una marcación (solo Nicolas/Sergio) ── */}
+      {/* ── Modal: modificar/eliminar hora de una marcación (solo administradores) ── */}
       <Dialog open={!!editando} onOpenChange={o => !o && setEditando(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -543,6 +600,26 @@ export default function AsistenciaAdminPage() {
                     type="time"
                     value={editHoraEntrada}
                     onChange={e => setEditHoraEntrada(e.target.value)}
+                    className="h-9 px-3 rounded-lg text-[13px] border w-full"
+                    style={{ border: "1px solid var(--ds-border)", color: "var(--ds-fg)", background: "var(--ds-surface)", fontFamily: "Fira Code, monospace" }}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[12px] font-medium" style={{ color: "var(--ds-fg-muted)" }}>Hora salida colación</label>
+                  <input
+                    type="time"
+                    value={editHoraSalidaColacion}
+                    onChange={e => setEditHoraSalidaColacion(e.target.value)}
+                    className="h-9 px-3 rounded-lg text-[13px] border w-full"
+                    style={{ border: "1px solid var(--ds-border)", color: "var(--ds-fg)", background: "var(--ds-surface)", fontFamily: "Fira Code, monospace" }}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[12px] font-medium" style={{ color: "var(--ds-fg-muted)" }}>Hora regreso colación</label>
+                  <input
+                    type="time"
+                    value={editHoraEntradaColacion}
+                    onChange={e => setEditHoraEntradaColacion(e.target.value)}
                     className="h-9 px-3 rounded-lg text-[13px] border w-full"
                     style={{ border: "1px solid var(--ds-border)", color: "var(--ds-fg)", background: "var(--ds-surface)", fontFamily: "Fira Code, monospace" }}
                   />
