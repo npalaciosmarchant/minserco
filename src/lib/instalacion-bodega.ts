@@ -86,10 +86,11 @@ export function buscarComponente(
   const kws = (KEYWORDS[tag] ?? []).map(norm)
   if (kws.length === 0) return { bodega: null, bodegaOtraMedida: null, equipo: null, estado: "no-encontrado" }
 
-  const candidatos = bodegaItems.filter(i => {
-    const txt = norm(`${i.nombre} ${i.descripcion ?? ""} ${i.codigo ?? ""}`)
-    return kws.some(k => txt.includes(k))
-  })
+  // Se matchea solo por el NOMBRE del ítem (el componente en sí, p.ej. "Boquilla
+  // Turbofog Ø0.8mm"), nunca por la descripción o el código. Un repuesto/accesorio
+  // cuya descripción solo MENCIONA la palabra clave (p.ej. un oring "para boquillas
+  // Turbofog") no debe colarse como si fuera el componente principal.
+  const candidatos = bodegaItems.filter(i => kws.some(k => norm(i.nombre).includes(k)))
 
   const medidaObjetivo = TAGS_CON_MEDIDA.has(tag) ? medidaInstalacion : undefined
   let bMatch: ItemBodega | undefined
