@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { instalaciones, bodega, equipos } from "@/lib/store"
 import { Instalacion, ItemBodega, Equipo } from "@/lib/types"
-import { recomendar, EntradaInstalacion, BoquillaTipo, Objetivo, SistemaBoquilla, ESTANQUES, BOMBAS, MHKY, ItemReco } from "@/lib/instalacion-utils"
+import { recomendar, EntradaInstalacion, BoquillaTipo, Objetivo, SistemaBoquilla, ESTANQUES, BOMBAS, MHKY, MEDIDAS_CANIERIA, ItemReco } from "@/lib/instalacion-utils"
 import { bosquejoSVG, dimensionesBosquejo, ordenTags, STOCK_COLOR, STOCK_LABEL } from "@/lib/bosquejo"
 import { construirCtxBosquejo, buscarComponente, normalizarCajaTag } from "@/lib/instalacion-bodega"
 import { imprimirInstalacionPDF } from "@/lib/instalacion-pdf"
@@ -46,7 +46,7 @@ interface FormState {
   boquillaTipo: BoquillaTipo; objetivo: Objetivo
   sistema: SistemaBoquilla; mhkyCodigo: string
   aireEnPlanta: "si" | "no"; aguaEnPlanta: "si" | "no"; energiaEnPlanta: "si" | "no"
-  estanqueLitros: string; bombaModelo: string
+  estanqueLitros: string; bombaModelo: string; medidaCanieria: string
   largoCorrea: string; espaciamiento: string; observaciones: string
 }
 
@@ -57,7 +57,7 @@ function emptyForm(): FormState {
     boquillaTipo: "auto", objetivo: "alcance",
     sistema: "turbofog", mhkyCodigo: "auto",
     aireEnPlanta: "si", aguaEnPlanta: "si", energiaEnPlanta: "si",
-    estanqueLitros: "1100", bombaModelo: "auto",
+    estanqueLitros: "1100", bombaModelo: "auto", medidaCanieria: "auto",
     largoCorrea: "", espaciamiento: "", observaciones: "",
   }
 }
@@ -109,6 +109,7 @@ export default function InstalacionPage() {
     energiaEnPlanta: form.energiaEnPlanta === "si",
     estanqueLitros: Number(form.estanqueLitros) || 1100,
     bombaModelo: form.bombaModelo,
+    medidaCanieria: form.medidaCanieria === "auto" ? undefined : form.medidaCanieria,
     largoCorrea: form.largoCorrea ? Number(form.largoCorrea) : undefined,
     espaciamiento: form.espaciamiento ? Number(form.espaciamiento) : undefined,
   }), [form])
@@ -348,7 +349,7 @@ export default function InstalacionPage() {
       sistema: (i.resultado as { sistema?: string } | undefined)?.sistema === "mhky" ? "mhky" : "turbofog",
       mhkyCodigo: "auto",
       estanqueLitros: (i.resultado as { estanque?: { litros?: number } } | undefined)?.estanque?.litros != null ? String((i.resultado as { estanque?: { litros?: number } }).estanque!.litros) : "1100",
-      bombaModelo: "auto",
+      bombaModelo: "auto", medidaCanieria: "auto",
       largoCorrea: i.largoCorrea != null ? String(i.largoCorrea) : "",
       espaciamiento: i.espaciamiento != null ? String(i.espaciamiento) : "",
       observaciones: i.observaciones ?? "",
@@ -418,6 +419,17 @@ export default function InstalacionPage() {
               <option value="auto">Automática (según caudal/presión)</option>
               {BOMBAS.map(b => <option key={b.modelo} value={b.modelo}>{b.modelo}</option>)}
             </select>
+          </div>
+          <div className="space-y-1"><Label>Medida de cañería</Label>
+            <select className={selCls} value={form.medidaCanieria} onChange={e => set("medidaCanieria", e.target.value)}>
+              <option value="auto">Automática (según caudal)</option>
+              {MEDIDAS_CANIERIA.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+            {reco.medida && (
+              <div className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                Toda la instalación (aire y agua) queda en {reco.medida}.
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1"><Label>Presión aire (bar)</Label><Input type="number" step="0.1" min="0" value={form.presionAire} disabled={form.aireEnPlanta === "no" || form.sistema === "mhky"} onChange={e => set("presionAire", e.target.value)} /></div>
