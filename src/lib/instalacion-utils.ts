@@ -167,6 +167,30 @@ function elegirEV(flujoLmin: number): FilaEV {
   return ev ?? TABLA_EV[TABLA_EV.length - 1]
 }
 
+// Medidas de cañería seleccionables por el técnico (se excluyen 1/4" y 3/8": son
+// solo de instrumentación/piloto, no cañería de instalación).
+export const MEDIDAS_CANIERIA = TABLA_EV.filter(e => !["EV04", "EV06"].includes(e.codigo)).map(e => e.medida)
+
+// Unifica la medida de cañería/electroválvula para TODA la instalación (aire y agua),
+// para que el técnico use un único diámetro y no queden secciones con medidas distintas.
+// Si el técnico fuerza una medida, se respeta esa (advirtiendo si queda corta para el
+// caudal calculado); si no, se elige automáticamente la mayor entre lo que pediría cada
+// línea por separado, y esa MISMA medida se aplica a todo.
+function unificarMedida(caudalesLmin: number[], forzada: string | undefined, advertencias: string[]): FilaEV {
+  let autoEv = TABLA_EV[0]
+  for (const flujo of caudalesLmin) {
+    const ev = elegirEV(flujo)
+    if (TABLA_EV.indexOf(ev) > TABLA_EV.indexOf(autoEv)) autoEv = ev
+  }
+  if (!forzada || forzada === "auto") return autoEv
+  const forzadaEv = TABLA_EV.find(ev => ev.medida === forzada)
+  if (!forzadaEv) return autoEv
+  if (TABLA_EV.indexOf(forzadaEv) < TABLA_EV.indexOf(autoEv)) {
+    advertencias.push(`La cañería de ${forzadaEv.medida} queda justa para el caudal calculado (se recomienda ${autoEv.medida} o mayor); se usará ${forzadaEv.medida} según lo indicado.`)
+  }
+  return forzadaEv
+}
+
 export interface EntradaInstalacion {
   presionAire: number      // bar disponible en terreno
   presionAgua: number      // bar disponible en terreno
@@ -182,6 +206,7 @@ export interface EntradaInstalacion {
   bombaModelo?: string        // bomba forzada por el técnico ("auto" = automática)
   largoCorrea?: number        // m (opcional, para sugerir N)
   espaciamiento?: number      // m entre boquillas (opcional)
+  medidaCanieria?: string     // medida de cañería forzada por el técnico (ej. '3/4"'). "auto" o vacío = automática
 }
 
 // cajaTags: tags de las cajas del bosquejo (bosquejo.ts) a las que corresponde este ítem,
@@ -200,6 +225,7 @@ export interface Recomendacion {
   setAire: number | null    // presión de aire a ajustar en boquilla (bar)
   evAgua: FilaEV | null
   evAire: FilaEV | null
+  medida: string | null       // medida de cañería unificada para toda la instalación (ej. '3/4"')
   instalar: ItemReco[]
   noInstalar: ItemReco[]
   advertencias: string[]
@@ -270,13 +296,13 @@ function fuenteAgua(
 }
 
 // ── Regulador de agua con regla RBM Rinox (ratio entrada/salida <= 2,5). ──
-function reguladorAgua(presionDisp: number, set: number, instalar: ItemReco[]) {
+function reguladorAgua(presionDisp: number, set: number, medida: string, instalar: ItemReco[]) {
   if (presionDisp <= set + 0.05) return
   const ratio = presionDisp / set
   if (ratio > RBM_RATIO_MAX) {
-    instalar.push({ texto: `2x ${COMPONENTES.regulador} en serie`, detalle: `relación ${presionDisp}/${set} = ${ratio.toFixed(1)} > 2,5: se reparte en dos reductores para evitar cavitación`, cajaTags: ["W4"] })
+    instalar.push({ texto: `2x ${COMPONENTES.regulador} (${medida}) en serie`, detalle: `relación ${presionDisp}/${set} = ${ratio.toFixed(1)} > 2,5: se reparte en dos reductores para evitar cavitación`, cajaTags: ["W4"] })
   } else {
-    instalar.push({ texto: COMPONENTES.regulador, detalle: `ajustar a ${set} bar (disponible ${presionDisp} bar)`, cajaTags: ["W4"] })
+    instalar.push({ texto: `${COMPONENTES.regulador} (${medida})`, detalle: `ajustar a ${set} bar (disponible ${presionDisp} bar)`, cajaTags: ["W4"] })
   }
 }
 
@@ -335,7 +361,7 @@ function recomendarTurbofog(e: EntradaInstalacion, ctx: Ctx): Recomendacion {
     return {
       ok: false, boquillaElegida: tipo, fila: null,
       aguaTotalLmin: 0, aireTotalM3h: 0, aporteFrioTotal: 0,
-      nSugerido, setAgua: null, setAire: null, evAgua: null, evAire: null,
+      nSugerido, setAgua: null, setAire: null, evAgua: null, evAire: null, medida: null,
       instalar, noInstalar, advertencias,
       aireEnPlanta, aguaEnPlanta, energiaEnPlanta, sistema: "turbofog",
       boquillaModelo, estanque, bomba: null,
@@ -349,19 +375,22 @@ function recomendarTurbofog(e: EntradaInstalacion, ctx: Ctx): Recomendacion {
 
   instalar.push({ texto: `${n} boquilla(s) Turbofog Ø${tipo}mm con válvula antigoteo`, detalle: `consumo total ${aguaTotalLmin} L/min de agua y ${aireTotalM3h} m³/h de aire`, cajaTags: ["NOZZLES"] })
 
-  if (aguaEnPlanta) reguladorAgua(e.presionAgua, fila.pAgua, instalar)
+  // Una sola medida de cañería/electroválvula para toda la instalación (aire + agua).
+  const ev = unificarMedida([aguaTotalLmin, aireTotalLmin], e.medidaCanieria, advertencias)
+  const evAgua = ev
+  const evAire = ev
+
+  if (aguaEnPlanta) reguladorAgua(e.presionAgua, fila.pAgua, ev.medida, instalar)
 
   if (!aireEnPlanta) {
     instalar.push({ texto: COMPONENTES.compresor, detalle: `no hay aire en planta: entrega ${COMPONENTES.compresorPresion} y ~${aireTotalM3h} m³/h (ajustar a ${fila.pAire} bar)`, cajaTags: ["A0"] })
   } else if (e.presionAire > fila.pAire + 0.05) {
-    instalar.push({ texto: `${COMPONENTES.regulador.replace("RBM Rinox", "de aire")} `.trim(), detalle: `ajustar a ${fila.pAire} bar (disponible ${e.presionAire} bar)`, cajaTags: ["A4"] })
+    instalar.push({ texto: `${COMPONENTES.regulador.replace("RBM Rinox", "de aire")} (${ev.medida})`.trim(), detalle: `ajustar a ${fila.pAire} bar (disponible ${e.presionAire} bar)`, cajaTags: ["A4"] })
   }
 
-  instalar.push({ texto: COMPONENTES.filtroAire, detalle: "protege boquillas y válvula en la línea de aire", cajaTags: ["A3"] })
-  instalar.push({ texto: COMPONENTES.filtroAgua, detalle: "la válvula solenoide trae además filtro interno de 20 µm", cajaTags: ["W3"] })
+  instalar.push({ texto: `${COMPONENTES.filtroAire} (${ev.medida})`, detalle: "protege boquillas y válvula en la línea de aire", cajaTags: ["A3"] })
+  instalar.push({ texto: `${COMPONENTES.filtroAgua} (${ev.medida})`, detalle: "la válvula solenoide trae además filtro interno de 20 µm", cajaTags: ["W3"] })
 
-  const evAgua = elegirEV(aguaTotalLmin)
-  const evAire = elegirEV(aireTotalLmin)
   instalar.push(valvulaPara("agua", aguaTotalLmin, evAgua, ["W5"]))
   instalar.push(valvulaPara("aire", aireTotalLmin, evAire, ["A5"]))
 
@@ -378,7 +407,7 @@ function recomendarTurbofog(e: EntradaInstalacion, ctx: Ctx): Recomendacion {
   return {
     ok: true, boquillaElegida: tipo, fila,
     aguaTotalLmin, aireTotalM3h, aporteFrioTotal,
-    nSugerido, setAgua: fila.pAgua, setAire: fila.pAire, evAgua, evAire,
+    nSugerido, setAgua: fila.pAgua, setAire: fila.pAire, evAgua, evAire, medida: ev.medida,
     instalar, noInstalar, advertencias,
     aireEnPlanta, aguaEnPlanta, energiaEnPlanta, sistema: "turbofog",
     boquillaModelo, estanque, bomba,
@@ -414,10 +443,12 @@ function recomendarMHKY(e: EntradaInstalacion, ctx: Ctx): Recomendacion {
     advertencias.push(`Presión de agua insuficiente para MHKY: se necesita al menos 1 bar (disponible ${e.presionAgua} bar). Requiere bomba.`)
   }
 
-  instalar.push({ texto: `${n} boquilla(s) MHKY ${fila.codigo} (cono 65°, solo agua)`, detalle: `${perNozzle} L/min c/u a ${setAgua} bar · paso libre ${fila.pasoMm} mm · total ${aguaTotalLmin} L/min`, cajaTags: ["NOZZLES"] })
-  instalar.push({ texto: COMPONENTES.filtroAgua, detalle: "protege las boquillas MHKY (paso libre pequeño)", cajaTags: ["W3"] })
+  const ev = unificarMedida([aguaTotalLmin], e.medidaCanieria, advertencias)
+  const evAgua = ev
 
-  const evAgua = elegirEV(aguaTotalLmin)
+  instalar.push({ texto: `${n} boquilla(s) MHKY ${fila.codigo} (cono 65°, solo agua)`, detalle: `${perNozzle} L/min c/u a ${setAgua} bar · paso libre ${fila.pasoMm} mm · total ${aguaTotalLmin} L/min`, cajaTags: ["NOZZLES"] })
+  instalar.push({ texto: `${COMPONENTES.filtroAgua} (${ev.medida})`, detalle: "protege las boquillas MHKY (paso libre pequeño)", cajaTags: ["W3"] })
+
   instalar.push(valvulaPara("agua", aguaTotalLmin, evAgua, ["W5"]))
   instalar.push({ texto: `Manifold de agua con ${Math.max(1, n)} salida(s)`, cajaTags: ["MANIFOLD"] })
 
@@ -431,7 +462,7 @@ function recomendarMHKY(e: EntradaInstalacion, ctx: Ctx): Recomendacion {
   return {
     ok, boquillaElegida: "0.8", fila: null,
     aguaTotalLmin, aireTotalM3h: 0, aporteFrioTotal,
-    nSugerido, setAgua, setAire: null, evAgua, evAire: null,
+    nSugerido, setAgua, setAire: null, evAgua, evAire: null, medida: ev.medida,
     instalar, noInstalar, advertencias,
     aireEnPlanta: false, aguaEnPlanta, energiaEnPlanta, sistema: "mhky",
     boquillaModelo, estanque, bomba,
