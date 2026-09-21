@@ -84,14 +84,23 @@ function obtenerUbicacion(): Promise<GeoResultado> {
   })
 }
 
-function notificarAdminSinGPS(nombre: string, tipoMarca: "entrada" | "salida", lugar?: string, motivoFallo?: string) {
+type ModoMarca = "entrada" | "salida_colacion" | "entrada_colacion" | "salida"
+
+const MARCA_LABEL: Record<ModoMarca, string> = {
+  entrada: "Entrada",
+  salida_colacion: "Salida a Colación",
+  entrada_colacion: "Regreso de Colación",
+  salida: "Salida",
+}
+
+function notificarAdminSinGPS(nombre: string, tipoMarca: ModoMarca, lugar?: string, motivoFallo?: string) {
   const partes = [
     motivoFallo ? `Motivo: ${motivoFallo}.` : null,
     lugar ? `Ubicación aproximada por IP: ${lugar}.` : "No fue posible determinar una ubicación aproximada.",
   ].filter(Boolean)
   notificaciones.add({
     tipo: "asistencia_sin_gps",
-    titulo: `${nombre} marcó ${tipoMarca === "entrada" ? "entrada" : "salida"} sin permiso de GPS`,
+    titulo: `${nombre} marcó ${MARCA_LABEL[tipoMarca].toLowerCase()} sin permiso de GPS`,
     mensaje: partes.join(" "),
     leida: false,
   })
@@ -102,7 +111,7 @@ export function MarcarAsistencia() {
   const [registro, setRegistro] = useState<Asistencia | undefined>(undefined)
   const [horaIngreso, setHoraIngreso] = useState("08:00")
   const [open, setOpen] = useState(false)
-  const [modo, setModo] = useState<"entrada" | "salida">("entrada")
+  const [modo, setModo] = useState<ModoMarca>("entrada")
   const [ubicacion, setUbicacion] = useState<UbicacionAsistencia>("oficina")
   const [aviso, setAviso] = useState<string | null>(null)
   const [hora, setHora] = useState(horaActual())
@@ -119,9 +128,15 @@ export function MarcarAsistencia() {
 
   if (!user) return null
 
-  function abrir(m: "entrada" | "salida") {
+  function abrir(m: ModoMarca) {
     setModo(m)
-    setUbicacion((m === "entrada" ? registro?.ubicacionEntrada : registro?.ubicacionSalida) ?? "oficina")
+    const ubicacionPrevia = {
+      entrada: registro?.ubicacionEntrada,
+      salida_colacion: registro?.ubicacionSalidaColacion,
+      entrada_colacion: registro?.ubicacionEntradaColacion,
+      salida: registro?.ubicacionSalida,
+    }[m]
+    setUbicacion(ubicacionPrevia ?? "oficina")
     setAviso(null)
     setHora(horaActual())
     // Se solicita/obtiene la ubicación apenas se abre el diálogo (con gesto del
@@ -138,55 +153,74 @@ export function MarcarAsistencia() {
     const geo = (await geoPendiente.current) ?? {}
     setGuardando(false)
 
-    const geoFields = modo === "entrada"
-      ? {
-          geoEntradaLat: geo.lat,
-          geoEntradaLng: geo.lng,
-          geoEntradaPrecision: geo.precision,
-          geoEntradaLugar: geo.lugar,
-          geoEntradaFuente: geo.fuente,
-        }
-      : {
-          geoSalidaLat: geo.lat,
-          geoSalidaLng: geo.lng,
-          geoSalidaPrecision: geo.precision,
-          geoSalidaLugar: geo.lugar,
-          geoSalidaFuente: geo.fuente,
-        }
+    const geoFields = {
+      entrada: {
+        geoEntradaLat: geo.lat, geoEntradaLng: geo.lng,
+        geoEntradaPrecision: geo.precision, geoEntradaLugar: geo.lugar, geoEntradaFuente: geo.fuente,
+      },
+      salida_colacion: {
+        geoSalidaColacionLat: geo.lat, geoSalidaColacionLng: geo.lng,
+        geoSalidaColacionPrecision: geo.precision, geoSalidaColacionLugar: geo.lugar, geoSalidaColacionFuente: geo.fuente,
+      },
+      entrada_colacion: {
+        geoEntradaColacionLat: geo.lat, geoEntradaColacionLng: geo.lng,
+        geoEntradaColacionPrecision: geo.precision, geoEntradaColacionLugar: geo.lugar, geoEntradaColacionFuente: geo.fuente,
+      },
+      salida: {
+        geoSalidaLat: geo.lat, geoSalidaLng: geo.lng,
+        geoSalidaPrecision: geo.precision, geoSalidaLugar: geo.lugar, geoSalidaFuente: geo.fuente,
+      },
+    }[modo]
 
-    if (modo === "entrada") {
-      const tarde = horaMarcada > horaIngreso
-      if (registro) {
-        asistencias.update(registro.id, { horaEntrada: horaMarcada, ubicacionEntrada: ubicacion, tarde, ...geoFields })
-      } else {
-        asistencias.add({
-          usuarioId: user.id,
-          usuarioNombre: user.nombre,
-          fecha: hoyISO(),
-          horaEntrada: horaMarcada,
-          ubicacionEntrada: ubicacion,
-          tarde,
-          ...geoFields,
-        })
-      }
-      cargar()
-      if (geo.fuente === "ip") notificarAdminSinGPS(user.nombre, "entrada", geo.lugar, geo.motivoFallo)
-      if (tarde) {
-        setAviso(`Marcaste tu entrada a las ${horaMarcada}, después de las ${horaIngreso} definidas por el administrador.`)
-      } else {
-        setOpen(false)
-      }
+    const tarde = modo === "entrada" ? horaMarcada > horaIngreso : registro?.tarde ?? false
+
+    const cambios: Partial<Asistencia> = {
+      ...(modo === "entrada" && { horaEntrada: horaMarcada, ubicacionEntrada: ubicacion, tarde }),
+      ...(modo === "salida_colacion" && { horaSalidaColacion: horaMarcada, ubicacionSalidaColacion: ubicacion }),
+      ...(modo === "entrada_colacion" && { horaEntradaColacion: horaMarcada, ubicacionEntradaColacion: ubicacion }),
+      ...(modo === "salida" && { horaSalida: horaMarcada, ubicacionSalida: ubicacion }),
+      ...geoFields,
+    }
+
+    if (registro) {
+      asistencias.update(registro.id, cambios)
+    } else if (modo === "entrada") {
+      asistencias.add({
+        usuarioId: user.id,
+        usuarioNombre: user.nombre,
+        fecha: hoyISO(),
+        tarde,
+        ...cambios,
+      })
+    }
+    cargar()
+    if (geo.fuente === "ip") notificarAdminSinGPS(user.nombre, modo, geo.lugar, geo.motivoFallo)
+    if (modo === "entrada" && tarde) {
+      setAviso(`Marcaste tu entrada a las ${horaMarcada}, después de las ${horaIngreso} definidas por el administrador.`)
     } else {
-      if (registro) asistencias.update(registro.id, { horaSalida: horaMarcada, ubicacionSalida: ubicacion, ...geoFields })
-      cargar()
-      if (geo.fuente === "ip") notificarAdminSinGPS(user.nombre, "salida", geo.lugar, geo.motivoFallo)
       setOpen(false)
     }
   }
 
   const yaEntrada = !!registro?.horaEntrada
+  const yaSalidaColacion = !!registro?.horaSalidaColacion
+  const yaEntradaColacion = !!registro?.horaEntradaColacion
   const yaSalida = !!registro?.horaSalida
-  const completo = yaEntrada && yaSalida
+  const completo = yaEntrada && yaSalidaColacion && yaEntradaColacion && yaSalida
+
+  const siguienteModo: ModoMarca | null = !yaEntrada
+    ? "entrada"
+    : !yaSalidaColacion
+      ? "salida_colacion"
+      : !yaEntradaColacion
+        ? "entrada_colacion"
+        : !yaSalida
+          ? "salida"
+          : null
+
+  const ICONO_MODO: Record<ModoMarca, typeof LogIn> = {
+    entrada: LogIn, salida_colacion: LogOut, entrada_colacion: LogIn, salida: LogOut,
+  }
 
   return (
     <div
@@ -219,16 +253,18 @@ export function MarcarAsistencia() {
                   <AlertTriangle size={10} /> Tarde
                 </span>
               )}
+              {yaSalidaColacion && <span>· Salida colación {registro!.horaSalidaColacion} · {UBICACION_LABEL[registro!.ubicacionSalidaColacion!]}</span>}
+              {yaEntradaColacion && <span>· Regreso colación {registro!.horaEntradaColacion} · {UBICACION_LABEL[registro!.ubicacionEntradaColacion!]}</span>}
               {yaSalida && <span>· Salida {registro!.horaSalida} · {UBICACION_LABEL[registro!.ubicacionSalida!]}</span>}
             </div>
           )}
         </div>
       </div>
 
-      {!completo && (
-        <Button onClick={() => abrir(yaEntrada ? "salida" : "entrada")}>
-          {yaEntrada ? <LogOut size={14} /> : <LogIn size={14} />}
-          {yaEntrada ? "Marcar Salida" : "Marcar Entrada"}
+      {siguienteModo && (
+        <Button onClick={() => abrir(siguienteModo)}>
+          {(() => { const Icono = ICONO_MODO[siguienteModo]; return <Icono size={14} /> })()}
+          Marcar {MARCA_LABEL[siguienteModo]}
         </Button>
       )}
       {completo && (
@@ -240,7 +276,7 @@ export function MarcarAsistencia() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>{modo === "entrada" ? "Marcar Entrada" : "Marcar Salida"}</DialogTitle>
+            <DialogTitle>Marcar {MARCA_LABEL[modo]}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="text-center py-2">
@@ -278,7 +314,7 @@ export function MarcarAsistencia() {
                 ? "Entendido"
                 : guardando
                   ? "Guardando..."
-                  : (modo === "entrada" ? "Confirmar Entrada" : "Confirmar Salida")}
+                  : `Confirmar ${MARCA_LABEL[modo]}`}
             </Button>
           </div>
         </DialogContent>
