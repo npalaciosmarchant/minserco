@@ -116,8 +116,8 @@ export default function InstalacionPage() {
 
   const reco = useMemo(() => recomendar(entrada), [entrada])
   const ctxBosquejo = useMemo(
-    () => construirCtxBosquejo(bodegaItems, equiposItems, typeof window !== "undefined" ? window.location.origin : ""),
-    [bodegaItems, equiposItems],
+    () => construirCtxBosquejo(bodegaItems, equiposItems, typeof window !== "undefined" ? window.location.origin : "", reco.medida ?? undefined),
+    [bodegaItems, equiposItems, reco.medida],
   )
   const svg = useMemo(() => bosquejoSVG(entrada, reco, ctxBosquejo), [entrada, reco, ctxBosquejo])
   const pasos = useMemo(() => ordenTags(entrada, reco), [entrada, reco])
@@ -317,8 +317,8 @@ export default function InstalacionPage() {
     [detalleKey, reco],
   )
   const detalleMatch = useMemo(
-    () => detalleKey ? buscarComponente(detalleKey, bodegaItems, equiposItems) : null,
-    [detalleKey, bodegaItems, equiposItems],
+    () => detalleKey ? buscarComponente(detalleKey, bodegaItems, equiposItems, reco.medida ?? undefined) : null,
+    [detalleKey, bodegaItems, equiposItems, reco.medida],
   )
 
   function nuevo() { setEditando(null); setForm(emptyForm()) }
@@ -668,6 +668,30 @@ export default function InstalacionPage() {
                     </a>
                   </div>
                 </div>
+              ) : detalleMatch?.bodegaOtraMedida ? (
+                <div className="space-y-2">
+                  <div className="text-xs px-2 py-1.5 rounded-md" style={{ background: "#fef2f2", color: "#b91c1c" }}>
+                    No hay {detalleMatch.medidaObjetivo} en bodega (la medida requerida para esta instalación).
+                  </div>
+                  <div className="flex gap-3 opacity-70">
+                    {detalleMatch.bodegaOtraMedida.item.foto ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={fotoSrc(detalleMatch.bodegaOtraMedida.item.foto)} alt={detalleMatch.bodegaOtraMedida.item.nombre} className="w-16 h-16 rounded-lg object-cover border shrink-0" style={{ borderColor: "var(--border)" }} />
+                    ) : null}
+                    <div className="text-xs space-y-1 min-w-0">
+                      <div className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{detalleMatch.bodegaOtraMedida.item.nombre}</div>
+                      <div style={{ color: "var(--muted-foreground)" }}>
+                        Código {detalleMatch.bodegaOtraMedida.item.codigo} · {detalleMatch.bodegaOtraMedida.item.cantidad} {detalleMatch.bodegaOtraMedida.item.unidad} en {detalleMatch.bodegaOtraMedida.item.ubicacion || "bodega"}
+                      </div>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: "#94a3b822", color: "#64748b" }}>
+                        ⚠ Otra medida, no coincide
+                      </span>
+                      <a href={`/bodega?buscar=${encodeURIComponent(detalleMatch.bodegaOtraMedida.item.codigo || detalleMatch.bodegaOtraMedida.item.nombre)}`} target="_blank" rel="noopener noreferrer" className="block underline text-[11px]" style={{ color: "#1d4ed8" }}>
+                        Ver en bodega →
+                      </a>
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <div className="text-xs" style={{ color: "var(--muted-foreground)" }}>
                   No se encontró un ítem coincidente en bodega.
@@ -708,7 +732,7 @@ export default function InstalacionPage() {
               </div>
             )}
 
-            {!detalleMatch?.bodega && !detalleMatch?.equipo && (
+            {!detalleMatch?.bodega && !detalleMatch?.bodegaOtraMedida && !detalleMatch?.equipo && (
               <div className="text-[11px] mt-2" style={{ color: "var(--muted-foreground)" }}>
                 Ficha técnica y foto no disponibles aún.
               </div>
