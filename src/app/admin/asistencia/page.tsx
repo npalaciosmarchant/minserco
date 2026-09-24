@@ -49,6 +49,27 @@ async function reverseGeocode(lat: number, lng: number): Promise<string | undefi
 
 const AZUL = "FF1A3673"
 
+// Hora fija de término de jornada usada solo para calcular horas extra en la
+// bitácora exportada (la hora de ingreso sí es configurable por el admin,
+// pero no existe aún una configuración equivalente para el término).
+const HORA_FIN_JORNADA = "18:00"
+
+function horaAMinutos(hhmm?: string | null): number | null {
+  if (!hhmm) return null
+  const [h, m] = hhmm.split(":").map(Number)
+  if (Number.isNaN(h) || Number.isNaN(m)) return null
+  return h * 60 + m
+}
+
+function formatoMinutos(min: number): string {
+  if (min <= 0) return "—"
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  if (h > 0 && m > 0) return `${h}h ${m}min`
+  if (h > 0) return `${h}h`
+  return `${m}min`
+}
+
 async function descargarXlsx(wb: ExcelJS.Workbook, nombre: string) {
   const buf = await wb.xlsx.writeBuffer()
   const blob = new Blob([buf as BlobPart], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
@@ -160,16 +181,31 @@ export default function AsistenciaAdminPage() {
     return res ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`
   }
 
-  async function descargarVitacora() {
+  async function descargarBitacora() {
     if (descargando) return
     setDescargando(true)
     try {
+      const minIngresoConfig = horaAMinutos(horaIngreso)
+      const minFinJornada = horaAMinutos(HORA_FIN_JORNADA)
+
+      const calculos = filtrada.map(a => {
+        const minEntrada = horaAMinutos(a.horaEntrada)
+        const atrasoMin = (minEntrada != null && minIngresoConfig != null && minEntrada > minIngresoConfig)
+          ? minEntrada - minIngresoConfig : 0
+        const minSalida = horaAMinutos(a.horaSalida)
+        const extraMin = (minSalida != null && minFinJornada != null && minSalida > minFinJornada)
+          ? minSalida - minFinJornada : 0
+        const balanceMin = extraMin - atrasoMin
+        return { atrasoMin, extraMin, balanceMin }
+      })
+
       const filas = await Promise.all(
         filtrada.map(async (a, i) => {
           const lugarEntrada = a.horaEntrada ? await lugarDe(a.geoEntradaLat, a.geoEntradaLng, a.geoEntradaLugar) : ""
           const lugarSalidaColacion = a.horaSalidaColacion ? await lugarDe(a.geoSalidaColacionLat, a.geoSalidaColacionLng, a.geoSalidaColacionLugar) : ""
           const lugarEntradaColacion = a.horaEntradaColacion ? await lugarDe(a.geoEntradaColacionLat, a.geoEntradaColacionLng, a.geoEntradaColacionLugar) : ""
           const lugarSalida = a.horaSalida ? await lugarDe(a.geoSalidaLat, a.geoSalidaLng, a.geoSalidaLugar) : ""
+          const { atrasoMin, extraMin, balanceMin } = calculos[i]
           return [
             i + 1,
             a.usuarioNombre,
@@ -191,12 +227,15 @@ export default function AsistenciaAdminPage() {
             lugarSalida,
             a.geoSalidaFuente === "ip" ? "Aprox. por IP" : a.geoSalidaFuente === "gps" ? "GPS" : "",
             a.tarde ? "Tarde" : "A tiempo",
+            formatoMinutos(atrasoMin),
+            formatoMinutos(extraMin),
+            balanceMin === 0 ? "—" : balanceMin > 0 ? `+${formatoMinutos(balanceMin)}` : `-${formatoMinutos(Math.abs(balanceMin))}`,
           ]
         })
       )
 
       const wb = new ExcelJS.Workbook()
-      const ws = wb.addWorksheet("Vitácora")
+      const ws = wb.addWorksheet("Bitácora")
       const cols = [
         { h: "N°", w: 5 }, { h: "Trabajador", w: 24 }, { h: "Fecha", w: 12 },
         { h: "Hora entrada", w: 12 }, { h: "Ubicación declarada", w: 16 }, { h: "Lugar de marca (entrada)", w: 30 }, { h: "Fuente (entrada)", w: 13 },
@@ -204,6 +243,7 @@ export default function AsistenciaAdminPage() {
         { h: "Hora regreso colación", w: 14 }, { h: "Ubicación declarada", w: 16 }, { h: "Lugar de marca (regreso colación)", w: 30 }, { h: "Fuente (regreso colación)", w: 16 },
         { h: "Hora salida", w: 12 }, { h: "Ubicación declarada", w: 16 }, { h: "Lugar de marca (salida)", w: 30 }, { h: "Fuente (salida)", w: 13 },
         { h: "Estado", w: 12 },
+        { h: "Atraso", w: 12 }, { h: `Extra post-${HORA_FIN_JORNADA}`, w: 16 }, { h: "Balance atraso/extra", w: 18 },
       ]
       ws.columns = cols.map(c => ({ width: c.w }))
 
@@ -211,7 +251,7 @@ export default function AsistenciaAdminPage() {
         ? filtroFecha
         : "Todas las fechas"
       const usuarioTitulo = filtroUsuario === "todos" ? "Todo el personal" : usuariosList.find(u => u.id === filtroUsuario)?.nombre ?? "Todo el personal"
-      const tRow = ws.addRow([`VITÁCORA DE ASISTENCIA — ${rango} — ${usuarioTitulo}`])
+      const tRow = ws.addRow([`BITÁCORA DE ASISTENCIA — ${rango} — ${usuarioTitulo}`])
       ws.mergeCells(1, 1, 1, cols.length)
       tRow.getCell(1).font = { bold: true, size: 13, color: { argb: AZUL } }
       tRow.height = 20
@@ -239,16 +279,20 @@ export default function AsistenciaAdminPage() {
         a.geoEntradaFuente === "ip" || a.geoSalidaColacionFuente === "ip" ||
         a.geoEntradaColacionFuente === "ip" || a.geoSalidaFuente === "ip"
       ).length
+      const totalAtrasoMin = calculos.reduce((s, c) => s + c.atrasoMin, 0)
+      const totalExtraMin = calculos.reduce((s, c) => s + c.extraMin, 0)
       ;[
         ["Total registros", filtrada.length],
         ["Tardanzas", conTardanza],
         ["Marcaciones sin GPS (aprox. por IP)", sinGps],
+        ["Total minutos de atraso", totalAtrasoMin],
+        [`Total minutos trabajados después de las ${HORA_FIN_JORNADA}`, totalExtraMin],
       ].forEach(([k, v]) => {
         const row = ws.addRow([k, v])
         row.getCell(1).font = { bold: true }
       })
 
-      const nombreArchivo = `Vitacora_Asistencia_${filtroFecha || "todas"}${filtroUsuario !== "todos" ? "_" + usuarioTitulo.replace(/\s+/g, "") : ""}.xlsx`
+      const nombreArchivo = `Bitacora_Asistencia_${filtroFecha || "todas"}${filtroUsuario !== "todos" ? "_" + usuarioTitulo.replace(/\s+/g, "") : ""}.xlsx`
       await descargarXlsx(wb, nombreArchivo)
     } finally {
       setDescargando(false)
@@ -371,13 +415,13 @@ export default function AsistenciaAdminPage() {
             </Select>
           </div>
           <button
-            onClick={descargarVitacora}
+            onClick={descargarBitacora}
             disabled={descargando || filtrada.length === 0}
             className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12px] font-semibold disabled:opacity-50"
             style={{ background: "#1a3673", color: "#ffffff" }}
           >
             <Download size={13} />
-            {descargando ? "Generando..." : "Descargar vitácora (Excel)"}
+            {descargando ? "Generando..." : "Descargar bitácora (Excel)"}
           </button>
         </div>
 
