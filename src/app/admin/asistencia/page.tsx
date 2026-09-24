@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import ExcelJS from "exceljs"
 import { useAuth } from "@/lib/auth"
-import { asistencias, asistenciaConfig, usuarios, notificaciones } from "@/lib/store"
+import { asistencias, asistenciaConfig, usuarios, notificaciones, fechaHoyLocal } from "@/lib/store"
 import { Asistencia, Notificacion, UbicacionAsistencia } from "@/lib/types"
 import PageShell from "@/components/layout/PageShell"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -21,9 +21,6 @@ const UBICACION_LABEL: Record<UbicacionAsistencia, string> = {
 // independiente de quién más tenga rol "admin" a futuro.
 const ADMINS_EDICION_ASISTENCIA = ["n.palacios.marchant@gmail.com", "sergioalbornoz@minserco.cl"]
 
-function hoyISO() {
-  return new Date().toISOString().slice(0, 10)
-}
 
 interface GeoModalData {
   usuario: string
@@ -70,7 +67,7 @@ export default function AsistenciaAdminPage() {
   const [lista, setLista] = useState<Asistencia[]>([])
   const [horaIngreso, setHoraIngreso] = useState("08:00")
   const [guardado, setGuardado] = useState(false)
-  const [filtroFecha, setFiltroFecha] = useState(hoyISO())
+  const [filtroFecha, setFiltroFecha] = useState(fechaHoyLocal())
   const [filtroUsuario, setFiltroUsuario] = useState("todos")
   const [notifs, setNotifs] = useState<Notificacion[]>([])
   const [geoModal, setGeoModal] = useState<GeoModalData | null>(null)
@@ -258,7 +255,7 @@ export default function AsistenciaAdminPage() {
     }
   }
 
-  const hoy = hoyISO()
+  const hoy = fechaHoyLocal()
   const registrosHoy = lista.filter(a => a.fecha === hoy)
   const tardanzasHoy = registrosHoy.filter(a => a.tarde).length
   const sinGpsHoy = registrosHoy.filter(a =>
