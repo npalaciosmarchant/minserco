@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { asistencias, asistenciaConfig, notificaciones } from "@/lib/store"
+import { asistencias, asistenciaConfig, notificaciones, fechaHoyLocal } from "@/lib/store"
 import { Asistencia, FuenteGeo, UbicacionAsistencia } from "@/lib/types"
 import { useAuth } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
@@ -21,9 +21,6 @@ const UBICACION_LABEL: Record<UbicacionAsistencia, string> = {
 
 function horaActual() {
   return new Date().toTimeString().slice(0, 5)
-}
-function hoyISO() {
-  return new Date().toISOString().slice(0, 10)
 }
 
 // ── Geolocalización silenciosa (nunca se muestra al usuario que marca) ──────
@@ -118,10 +115,16 @@ export function MarcarAsistencia() {
   const [guardando, setGuardando] = useState(false)
   const geoPendiente = useRef<Promise<GeoResultado> | null>(null)
 
-  const cargar = () => {
+  const cargar = async () => {
     if (!user) return
+    // Muestra de inmediato lo que haya en caché local (puede estar desactualizado)
+    // y lo reemplaza apenas responde Supabase, que es la fuente de verdad real.
     setRegistro(asistencias.getHoy(user.id))
     setHoraIngreso(asistenciaConfig.get().horaIngreso)
+    const remoto = await asistencias.getHoyRemoto(user.id)
+    // null = la consulta falló (p.ej. sin red): se mantiene lo que ya había en
+    // caché en vez de borrarlo. undefined = Supabase confirmó que no hay marca.
+    if (remoto !== null) setRegistro(remoto)
   }
 
   useEffect(() => { cargar() }, [user?.id])
@@ -150,7 +153,15 @@ export function MarcarAsistencia() {
     if (!user) return
     setGuardando(true)
     const horaMarcada = horaActual()
-    const geo = (await geoPendiente.current) ?? {}
+    // Se reconfirma con el servidor justo antes de guardar (en paralelo con la
+    // geolocalización, que igual demora unos segundos): si el diálogo estuvo
+    // abierto un rato o hay otra sesión/dispositivo de por medio, evita crear
+    // una entrada duplicada en vez de continuar la secuencia del día.
+    const [geo, remoto] = await Promise.all([
+      geoPendiente.current ?? Promise.resolve({} as GeoResultado),
+      asistencias.getHoyRemoto(user.id),
+    ])
+    const registroActual = remoto !== null ? remoto : registro
     setGuardando(false)
 
     const geoFields = {
@@ -172,7 +183,7 @@ export function MarcarAsistencia() {
       },
     }[modo]
 
-    const tarde = modo === "entrada" ? horaMarcada > horaIngreso : registro?.tarde ?? false
+    const tarde = modo === "entrada" ? horaMarcada > horaIngreso : registroActual?.tarde ?? false
 
     const cambios: Partial<Asistencia> = {
       ...(modo === "entrada" && { horaEntrada: horaMarcada, ubicacionEntrada: ubicacion, tarde }),
@@ -182,13 +193,13 @@ export function MarcarAsistencia() {
       ...geoFields,
     }
 
-    if (registro) {
-      asistencias.update(registro.id, cambios)
+    if (registroActual) {
+      asistencias.update(registroActual.id, cambios)
     } else if (modo === "entrada") {
       asistencias.add({
         usuarioId: user.id,
         usuarioNombre: user.nombre,
-        fecha: hoyISO(),
+        fecha: fechaHoyLocal(),
         tarde,
         ...cambios,
       })
