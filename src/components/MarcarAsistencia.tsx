@@ -219,15 +219,29 @@ export function MarcarAsistencia() {
   const yaSalida = !!registro?.horaSalida
   const completo = yaEntrada && yaSalidaColacion && yaEntradaColacion && yaSalida
 
-  const siguienteModo: ModoMarca | null = !yaEntrada
+  // Dos secuencias independientes en vez de una sola: así marcar la colación
+  // nunca puede terminar escribiendo por error en la salida de la jornada (o
+  // viceversa) — cada botón corresponde siempre al mismo campo, sin inferir
+  // "el siguiente paso" a partir de un estado que puede llegar desactualizado.
+  const siguienteJornada: "entrada" | "salida" | null = !yaEntrada
     ? "entrada"
-    : !yaSalidaColacion
-      ? "salida_colacion"
-      : !yaEntradaColacion
-        ? "entrada_colacion"
-        : !yaSalida
-          ? "salida"
+    : !yaSalida
+      ? "salida"
+      : null
+
+  const siguienteColacion: "salida_colacion" | "entrada_colacion" | null =
+    !yaEntrada || yaSalida
+      ? null
+      : !yaSalidaColacion
+        ? "salida_colacion"
+        : !yaEntradaColacion
+          ? "entrada_colacion"
           : null
+
+  // Aviso no bloqueante: si marcan la salida de jornada sin haber completado
+  // la colación (o directamente sin haberla marcado), se les advierte pero se
+  // les deja continuar — puede ser un día sin colación registrada.
+  const colacionIncompleta = yaEntrada && !yaSalida && !(yaSalidaColacion && yaEntradaColacion)
 
   const ICONO_MODO: Record<ModoMarca, typeof LogIn> = {
     entrada: LogIn, salida_colacion: LogOut, entrada_colacion: LogIn, salida: LogOut,
@@ -272,17 +286,25 @@ export function MarcarAsistencia() {
         </div>
       </div>
 
-      {siguienteModo && (
-        <Button onClick={() => abrir(siguienteModo)}>
-          {(() => { const Icono = ICONO_MODO[siguienteModo]; return <Icono size={14} /> })()}
-          Marcar {MARCA_LABEL[siguienteModo]}
-        </Button>
-      )}
-      {completo && (
-        <span className="text-[12px] font-medium" style={{ color: "var(--ds-success)" }}>
-          Registro completo del día
-        </span>
-      )}
+      <div className="flex items-center gap-2 flex-wrap">
+        {siguienteJornada && (
+          <Button onClick={() => abrir(siguienteJornada)}>
+            {(() => { const Icono = ICONO_MODO[siguienteJornada]; return <Icono size={14} /> })()}
+            Marcar {MARCA_LABEL[siguienteJornada]}
+          </Button>
+        )}
+        {siguienteColacion && (
+          <Button variant="outline" onClick={() => abrir(siguienteColacion)}>
+            {(() => { const Icono = ICONO_MODO[siguienteColacion]; return <Icono size={14} /> })()}
+            Marcar {MARCA_LABEL[siguienteColacion]}
+          </Button>
+        )}
+        {completo && (
+          <span className="text-[12px] font-medium" style={{ color: "var(--ds-success)" }}>
+            Registro completo del día
+          </span>
+        )}
+      </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-sm">
@@ -298,6 +320,13 @@ export function MarcarAsistencia() {
                 {new Date().toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })}
               </div>
             </div>
+
+            {!aviso && modo === "salida" && colacionIncompleta && (
+              <div className="flex items-start gap-2 p-3 rounded-lg text-[12px]" style={{ background: "#FFFBEB", color: "#92400E" }}>
+                <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                <span>Aún no tienes marcada tu colación completa hoy (salida y regreso). Si continúas, tu salida de jornada quedará marcada igual.</span>
+              </div>
+            )}
 
             {!aviso && (
               <div className="space-y-1">
