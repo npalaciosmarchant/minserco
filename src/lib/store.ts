@@ -857,11 +857,56 @@ export const instalaciones = {
 
 // ── RELOJ DE ASISTENCIA ───────────────────────────────────────────────────────
 
+// Fecha de "hoy" en la zona horaria LOCAL del dispositivo (nunca UTC): con
+// Chile en UTC-3/UTC-4, usar toISOString().slice(0,10) hace que el día
+// cambie varias horas antes de la medianoche local, lo que puede asignar
+// marcaciones de la tarde/noche a la fecha equivocada.
+export function fechaHoyLocal(): string {
+  const d = new Date()
+  const mm = String(d.getMonth() + 1).padStart(2, "0")
+  const dd = String(d.getDate()).padStart(2, "0")
+  return `${d.getFullYear()}-${mm}-${dd}`
+}
+
 export const asistencias = {
   getAll: (): Asistencia[] => lsGet("asistencias"),
   getHoy: (usuarioId: string): Asistencia | undefined => {
-    const hoy = new Date().toISOString().slice(0, 10)
+    const hoy = fechaHoyLocal()
     return asistencias.getAll().find(a => a.usuarioId === usuarioId && a.fecha === hoy)
+  },
+  // Fuente de verdad para saber si ya existe la marcación de hoy: consulta
+  // Supabase directo en vez de confiar en el caché local. El caché local se
+  // llena en segundo plano (syncFromSupabase, no esperado) al iniciar sesión,
+  // así que justo después de abrir la app (u otro dispositivo/sesión) puede
+  // no reflejar aún una entrada ya marcada — eso hacía que el botón creara una
+  // fila de "entrada" duplicada en vez de avanzar a la siguiente marca.
+  // Retorna `null` si la consulta a Supabase falló (p.ej. sin red): en ese caso
+  // el llamador debe conservar lo que ya tenía en caché en vez de confiar en
+  // este resultado. `undefined` significa que Supabase respondió y confirmó
+  // que no hay marcación de hoy.
+  getHoyRemoto: async (usuarioId: string): Promise<Asistencia | undefined | null> => {
+    try {
+      const sb = getSupabase()
+      const hoy = fechaHoyLocal()
+      const { data, error } = await sb
+        .from("asistencias")
+        .select("*")
+        .eq("usuario_id", usuarioId)
+        .eq("fecha", hoy)
+        .order("creado_en", { ascending: true })
+        .limit(1)
+        .maybeSingle()
+      if (error) throw error
+      if (!data) return undefined
+      const reg = toCamel(data as Record<string, unknown>) as unknown as Asistencia
+      // Reconcilia el caché local con la fila autoritativa del servidor.
+      const otras = asistencias.getAll().filter(a => !(a.usuarioId === usuarioId && a.fecha === hoy))
+      lsSet("asistencias", [...otras, reg])
+      return reg
+    } catch (e) {
+      console.warn("[store] getHoyRemoto:", e)
+      return null
+    }
   },
   add: (a: Omit<Asistencia, "id" | "creadoEn">): Asistencia => {
     const item: Asistencia = { ...a, id: getId(), creadoEn: new Date().toISOString() }
