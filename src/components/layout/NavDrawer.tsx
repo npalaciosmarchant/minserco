@@ -6,7 +6,7 @@ import {
   Wrench, Factory, Settings, Package, Ship,
   LayoutDashboard, KeyRound, Activity, Users,
   FileText, ClipboardList, Calendar,
-  BarChart3, ShieldCheck, LogOut, HardHat,
+  ShieldCheck, LogOut, HardHat,
   Building2, ChevronRight, Receipt, ClipboardCheck, Wallet,
   FolderOpen, CalendarClock, MapPin, Gavel, Radio, ListTodo, Droplets, Clock,
 } from "lucide-react"
@@ -37,7 +37,6 @@ const nav: NavItem[] = [
   { href: "/arriendo",    label: "Arriendo",           icon: KeyRound,  group: "Comercial",  desc: "Contratos y vencimientos" },
   { href: "/bodega",      label: "Control Bodega",     icon: Package,   group: "Logística",  desc: "Inventario y stock" },
   { href: "/importacion", label: "Importación",  icon: Ship,          group: "Logística",  desc: "Despachos y estado" },
-  { href: "/reportes",    label: "Reportes",           icon: BarChart3, group: "Logística",  desc: "KPIs y análisis" },
   { href: "/calendario",  label: "Calendario",         icon: Calendar,  group: "Logística",  desc: "Planificación" },
   { href: "/proveedores", label: "Proveedores",        icon: Building2, group: "Logística",  desc: "Gestión de proveedores" },
   { href: "/gastos",           label: "Rendición de Gastos",  icon: Receipt,       group: "Documentos", desc: "Gastos y aprobaciones" },
