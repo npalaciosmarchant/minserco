@@ -44,7 +44,18 @@ function normalize(s: string) { return s.toLowerCase().replace(/[\s\-_.]+/g, "")
 export default function EquipoHistorialPage() {
   const params = useParams()
   const router = useRouter()
-  const query = decodeURIComponent((params?.id as string) ?? "")
+  // useParams() ya entrega el segmento decodificado por Next.js — volver a hacer
+  // decodeURIComponent() sobre un valor que contenga un "%" suelto (ej. un equipo
+  // llamado "Compresor 50%") lanza "URI malformed" y deja la página en blanco
+  // ("This page couldn't load"). Por eso NO se vuelve a decodificar acá.
+  const raw = (params?.id as string) ?? ""
+  let query = raw
+  try {
+    // Por compatibilidad con enlaces antiguos que sí llegaban doble-codificados.
+    if (/%[0-9A-Fa-f]{2}/.test(raw)) query = decodeURIComponent(raw)
+  } catch {
+    query = raw
+  }
 
   const [eventos, setEventos] = useState<EventoHistorial[]>([])
   const [equipoInfo, setEquipoInfo] = useState<{
