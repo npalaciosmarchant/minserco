@@ -75,6 +75,7 @@ export interface Proyecto {
   responsables?: string[]
   progreso: number
   notas?: string
+  fotos?: string[]          // fotos del proceso de fabricación (Supabase Storage)
   creadoEn: string
 }
 
@@ -195,7 +196,11 @@ export interface Importacion {
 }
 
 // Clientes y Equipos en Terreno
-export type CiudadOficina = "Copiapó" | "La Serena" | "Viña del Mar" | "Otra"
+export type CiudadOficina =
+  | "Arica" | "Iquique" | "Antofagasta" | "Calama" | "Copiapó"
+  | "La Serena" | "Coquimbo" | "Valparaíso" | "Viña del Mar" | "Santiago"
+  | "Rancagua" | "Talca" | "Concepción" | "Los Ángeles" | "Temuco"
+  | "Valdivia" | "Puerto Montt" | "Coyhaique" | "Punta Arenas" | "Otra"
 export type EstadoEquipoTerreno = "activo" | "inactivo" | "en_servicio"
 export type TipoEquipoTerreno = "supresor_polvo" | "nebulizador" | "bomba" | "compresor" | "electrovalvula" | "filtro" | "otro"
 
