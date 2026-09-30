@@ -16,7 +16,12 @@ import PageShell from "@/components/layout/PageShell"
 import { ImportarExcel, campo, pareceDescripcion } from "@/components/ui/ImportarExcel"
 import Link from "next/link"
 
-const ciudades: CiudadOficina[] = ["Copiapó", "La Serena", "Viña del Mar", "Otra"]
+const ciudades: CiudadOficina[] = [
+  "Arica", "Iquique", "Antofagasta", "Calama", "Copiapó",
+  "La Serena", "Coquimbo", "Valparaíso", "Viña del Mar", "Santiago",
+  "Rancagua", "Talca", "Concepción", "Los Ángeles", "Temuco",
+  "Valdivia", "Puerto Montt", "Coyhaique", "Punta Arenas", "Otra",
+]
 const tiposEquipo: { value: TipoEquipoTerreno; label: string }[] = [
   { value: "supresor_polvo", label: "Supresor de Polvo" },
   { value: "nebulizador", label: "Nebulizador" },
@@ -178,9 +183,15 @@ function EquipoCard({ c, onEdit, onDelete, onHistorial }: { c: ClienteEquipo; on
             </span>
             <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
               <Button variant="ghost" size="icon" className="h-6 w-6" title="Historial OTs" onClick={onHistorial}><ClipboardList size={11} /></Button>
-              <Link href={`/equipos/${encodeURIComponent(c.equipo)}`} title="Ver historial completo">
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-indigo-500"><History size={11} /></Button>
-              </Link>
+              {c.equipo.trim() ? (
+                <Link href={`/equipos/${encodeURIComponent(c.equipo.trim())}`} title="Ver historial completo">
+                  <Button variant="ghost" size="icon" className="h-6 w-6 text-indigo-500"><History size={11} /></Button>
+                </Link>
+              ) : (
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-300 cursor-not-allowed" disabled title="Asigna un nombre de equipo para ver su historial">
+                  <History size={11} />
+                </Button>
+              )}
               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onEdit}><Pencil size={11} /></Button>
               <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400" onClick={onDelete}><Trash2 size={11} /></Button>
             </div>
