@@ -10,8 +10,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Pencil, Trash2, LayoutGrid, List, Factory, Calendar, User, TrendingUp, X } from "lucide-react"
+import { Plus, Pencil, Trash2, LayoutGrid, List, Factory, Calendar, User, TrendingUp, X, Camera } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
+import { FotoGaleria } from "@/components/ui/FotoGaleria"
 
 const estados: { value: EstadoProyecto; label: string; color: string; bg: string; border: string }[] = [
   { value: "planificacion",   label: "Planificación",   color: "#64748b", bg: "#f8fafc", border: "#e2e8f0" },
@@ -25,7 +26,7 @@ const estadoMap = Object.fromEntries(estados.map(e => [e.value, e]))
 const empty = (): Omit<Proyecto, "id" | "creadoEn"> => ({
   nombre: "", cliente: "", descripcion: "", estado: "planificacion",
   fechaInicio: new Date().toISOString().slice(0, 10),
-  fechaEntrega: "", responsable: "", responsables: [], progreso: 0, notas: "",
+  fechaEntrega: "", responsable: "", responsables: [], progreso: 0, notas: "", fotos: [],
 })
 
 function ProyectoCard({ p, onEdit, onDelete }: { p: Proyecto; onEdit: () => void; onDelete: () => void }) {
@@ -62,6 +63,11 @@ function ProyectoCard({ p, onEdit, onDelete }: { p: Proyecto; onEdit: () => void
               style={{ background: urgente ? "rgba(249,115,22,0.15)" : "var(--accent)", color: urgente ? "#f97316" : "var(--muted-foreground)" }}>
               <Calendar size={10} />
               {urgente && diasRestantes! <= 0 ? `Vencido` : diasRestantes !== null ? `${diasRestantes}d` : p.fechaEntrega}
+            </span>
+          )}
+          {p.fotos && p.fotos.length > 0 && (
+            <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md" style={{ background: "var(--accent)", color: "var(--muted-foreground)" }}>
+              <Camera size={10} />{p.fotos.length}
             </span>
           )}
         </div>
@@ -199,6 +205,9 @@ export default function FabricacionPage() {
               <div className="space-y-1"><Label>Fecha entrega</Label><Input type="date" value={form.fechaEntrega} onChange={e => setS("fechaEntrega", e.target.value)} /></div>
             </div>
             <div className="space-y-1"><Label>Notas</Label><Textarea value={form.notas ?? ""} onChange={e => setS("notas", e.target.value)} rows={2} /></div>
+            <div className="space-y-1.5"><Label className="flex items-center gap-1.5"><Camera size={13} />Fotos del proceso ({(form.fotos ?? []).length})</Label>
+              <FotoGaleria fotos={form.fotos ?? []} onChange={fotos => setForm(f => ({ ...f, fotos }))} />
+            </div>
             <Button className="w-full" onClick={guardar}>{editando ? "Guardar cambios" : "Crear proyecto"}</Button>
           </div>
         </DialogContent>
