@@ -131,7 +131,7 @@ export default function GastosPage() {
   const [formTipo, setFormTipo] = useState({ nombre: "", descripcion: "" })
 
   const cargar = () => {
-    setLista(gastos.getAll().slice().reverse())
+    setLista(gastos.getAll().slice().sort((a, b) => b.fecha.localeCompare(a.fecha) || b.creadoEn.localeCompare(a.creadoEn)))
     setTiposList(tiposGasto.getAll())
   }
   useEffect(() => { cargar() }, [])
