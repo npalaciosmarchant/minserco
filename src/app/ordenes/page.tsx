@@ -17,7 +17,12 @@ import DateFilter, { filterByDate, DateRange } from "@/components/ui/DateFilter"
 import Pagination from "@/components/ui/Pagination"
 import { usePagination } from "@/lib/usePagination"
 
-const ciudades: CiudadOficina[] = ["Copiapó", "La Serena", "Viña del Mar", "Otra"]
+const ciudades: CiudadOficina[] = [
+  "Arica", "Iquique", "Antofagasta", "Calama", "Copiapó",
+  "La Serena", "Coquimbo", "Valparaíso", "Viña del Mar", "Santiago",
+  "Rancagua", "Talca", "Concepción", "Los Ángeles", "Temuco",
+  "Valdivia", "Puerto Montt", "Coyhaique", "Punta Arenas", "Otra",
+]
 
 const tiposOT: { value: TipoOT; label: string }[] = [
   { value: "instalacion", label: "Instalación" },
