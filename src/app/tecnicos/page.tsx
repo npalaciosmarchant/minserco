@@ -12,7 +12,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, Users, Calendar, ChevronLeft, ChevronRight, Clock, Play, CheckCircle2, XCircle } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
 
-const ciudades: CiudadOficina[] = ["Copiapó", "La Serena", "Viña del Mar", "Otra"]
+const ciudades: CiudadOficina[] = [
+  "Arica", "Iquique", "Antofagasta", "Calama", "Copiapó",
+  "La Serena", "Coquimbo", "Valparaíso", "Viña del Mar", "Santiago",
+  "Rancagua", "Talca", "Concepción", "Los Ángeles", "Temuco",
+  "Valdivia", "Puerto Montt", "Coyhaique", "Punta Arenas", "Otra",
+]
 const tiposOT: { value: TipoOT; label: string }[] = [
   { value: "instalacion", label: "Instalación" },
   { value: "mantencion_terreno", label: "Mantención en Terreno" },
