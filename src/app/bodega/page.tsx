@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Pencil, Trash2, ArrowDown, ArrowUp, Package, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react"
+import { Plus, Pencil, Trash2, ArrowDown, ArrowUp, Package, AlertTriangle, ChevronDown, ChevronRight, ArrowDownAZ, Clock3 } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
 import { FotoGaleria } from "@/components/ui/FotoGaleria"
 import { fotoSrc } from "@/lib/upload-foto"
@@ -47,6 +47,7 @@ export default function BodegaPage() {
   const [busqueda, setBusqueda] = useState("")
   const [stockAbierto, setStockAbierto] = useState(false)
   const [bodegasList, setBodegasList] = useState<Bodega[]>([])
+  const [orden, setOrden] = useState<"nombre" | "reciente">("nombre")
 
   // Deep-link ?buscar=... (ej. desde el bosquejo de instalación / informe PDF).
   useEffect(() => {
@@ -161,7 +162,9 @@ export default function BodegaPage() {
     const matchTexto = (i.nombre ?? "").toLowerCase().includes(q) || (i.codigo ?? "").toLowerCase().includes(q)
     const matchBodega = filtroBodega === "todas" ? true : filtroBodega === "__sin" ? !i.bodega : i.bodega === filtroBodega
     return matchTexto && matchBodega
-  })
+  }).slice().sort((a, b) => orden === "nombre"
+    ? a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })
+    : b.creadoEn.localeCompare(a.creadoEn))
   const stockBajo = items.filter(i => i.cantidad <= i.cantidadMinima)
   const nombreItem = (id: string) => items.find(i => i.id === id)?.nombre ?? "(Producto eliminado)"
 
@@ -260,13 +263,25 @@ export default function BodegaPage() {
               {items.some(i => !i.bodega) && <button onClick={() => setFiltroBodega("__sin")} className={`filter-pill${filtroBodega === "__sin" ? " active" : ""}`}>Sin bodega ({items.filter(i => !i.bodega).length})</button>}
             </div>
           )}
-          <div className="mb-4">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
             <Input
               placeholder="Buscar por nombre o código..."
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
               className="max-w-sm"
             />
+            <div className="flex rounded-lg overflow-hidden ml-auto" style={{ border: "1px solid var(--border)" }}>
+              <button
+                className="px-2.5 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-colors"
+                style={orden === "nombre" ? { background: "var(--primary)", color: "var(--primary-foreground)" } : { background: "transparent", color: "var(--muted-foreground)" }}
+                onClick={() => setOrden("nombre")}
+              ><ArrowDownAZ size={13} /> A-Z</button>
+              <button
+                className="px-2.5 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-colors"
+                style={orden === "reciente" ? { background: "var(--primary)", color: "var(--primary-foreground)" } : { background: "transparent", color: "var(--muted-foreground)" }}
+                onClick={() => setOrden("reciente")}
+              ><Clock3 size={13} /> Reciente</button>
+            </div>
           </div>
           <div className="space-y-2">
             {filtrados.length === 0 && (
