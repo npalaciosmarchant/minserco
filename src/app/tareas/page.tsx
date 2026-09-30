@@ -69,7 +69,9 @@ export default function TareasPage() {
   }
   function eliminar(id: string) { if (confirm("¿Eliminar esta tarea?")) { tareas.delete(id); cargar() } }
 
-  const visibles = user?.rol === "tecnico"
+  // El admin ve todas las tareas (para asignar y supervisar); el resto de los
+  // roles solo ve las tareas donde aparece como responsable.
+  const visibles = user && user.rol !== "admin"
     ? lista.filter(t => {
         const rs = t.responsables && t.responsables.length ? t.responsables : (t.responsable ? t.responsable.split(",").map(x => x.trim()) : [])
         return rs.includes(user.nombre)
