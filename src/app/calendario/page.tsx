@@ -1,15 +1,15 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
-import { mantenciones, ordenesTrabajo, contratos, asignaciones, tecnicos } from "@/lib/store"
-import { Mantencion, OrdenTrabajo, ContratoArriendo, AsignacionTecnico, Tecnico } from "@/lib/types"
-import { ChevronLeft, ChevronRight, Wrench, ClipboardList, KeyRound, CalendarDays } from "lucide-react"
+import { mantenciones, ordenesTrabajo, contratos, asignaciones, tecnicos, tareas, proyectos, reparaciones } from "@/lib/store"
+import { Mantencion, OrdenTrabajo, ContratoArriendo, AsignacionTecnico, Tecnico, Tarea, Proyecto, Reparacion } from "@/lib/types"
+import { ChevronLeft, ChevronRight, Wrench, ClipboardList, KeyRound, CalendarDays, ListTodo, Factory, Settings } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
 
 type EventoCalendario = {
   id: string
   fecha: string // YYYY-MM-DD
-  tipo: "mantencion" | "orden" | "arriendo_vence" | "asignacion"
+  tipo: "mantencion" | "orden" | "arriendo_vence" | "asignacion" | "tarea" | "fabricacion" | "reparacion"
   titulo: string
   subtitulo?: string
   color: string
@@ -20,6 +20,9 @@ const COLORES = {
   orden: "#60a5fa",
   arriendo_vence: "#f87171",
   asignacion: "#a78bfa",
+  tarea: "#4F46E5",
+  fabricacion: "#7c3aed",
+  reparacion: "#0369a1",
 }
 
 const ICONOS = {
@@ -27,6 +30,19 @@ const ICONOS = {
   orden: ClipboardList,
   arriendo_vence: KeyRound,
   asignacion: CalendarDays,
+  tarea: ListTodo,
+  fabricacion: Factory,
+  reparacion: Settings,
+}
+
+const TIPO_LABEL: Record<keyof typeof COLORES, string> = {
+  mantencion: "Mantención",
+  orden: "Orden de Trabajo",
+  arriendo_vence: "Vence arriendo",
+  asignacion: "Asignación",
+  tarea: "Tarea",
+  fabricacion: "Fabricación",
+  reparacion: "Reparación",
 }
 
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
@@ -51,6 +67,9 @@ export default function CalendarioPage() {
   const [cs, setCs] = useState<ContratoArriendo[]>([])
   const [asigs, setAsigs] = useState<AsignacionTecnico[]>([])
   const [tecs, setTecs] = useState<Tecnico[]>([])
+  const [tas, setTas] = useState<Tarea[]>([])
+  const [proys, setProys] = useState<Proyecto[]>([])
+  const [reps, setReps] = useState<Reparacion[]>([])
 
   useEffect(() => {
     setMs(mantenciones.getAll())
@@ -58,6 +77,9 @@ export default function CalendarioPage() {
     setCs(contratos.getAll())
     setAsigs(asignaciones.getAll())
     setTecs(tecnicos.getAll())
+    setTas(tareas.getAll())
+    setProys(proyectos.getAll())
+    setReps(reparaciones.getAll())
   }, [])
 
   const eventos = useMemo((): EventoCalendario[] => {
@@ -117,8 +139,62 @@ export default function CalendarioPage() {
       })
     })
 
+    // Tareas: por fecha asignada (y por fecha límite si es distinta)
+    tas.forEach(t => {
+      const resp = t.responsables && t.responsables.length ? t.responsables.join(", ") : t.responsable
+      if (t.fecha) {
+        evs.push({
+          id: `tarea-${t.id}`,
+          fecha: t.fecha,
+          tipo: "tarea",
+          titulo: t.titulo,
+          subtitulo: [resp, t.estado].filter(Boolean).join(" — "),
+          color: COLORES.tarea,
+        })
+      }
+      if (t.fechaLimite && t.fechaLimite !== t.fecha) {
+        evs.push({
+          id: `tarea-plazo-${t.id}`,
+          fecha: t.fechaLimite,
+          tipo: "tarea",
+          titulo: `Plazo: ${t.titulo}`,
+          subtitulo: [resp, t.estado].filter(Boolean).join(" — "),
+          color: COLORES.tarea,
+        })
+      }
+    })
+
+    // Fabricación: por fecha de entrega del proyecto
+    proys.forEach(p => {
+      if (p.fechaEntrega) {
+        evs.push({
+          id: `proy-${p.id}`,
+          fecha: p.fechaEntrega,
+          tipo: "fabricacion",
+          titulo: p.nombre,
+          subtitulo: `${p.cliente} — ${p.estado.replace(/_/g, " ")}`,
+          color: COLORES.fabricacion,
+        })
+      }
+    })
+
+    // Reparaciones: por fecha estimada o de entrega
+    reps.forEach(r => {
+      const fecha = r.fechaEstimada || r.fechaEntrega
+      if (fecha) {
+        evs.push({
+          id: `rep-${r.id}`,
+          fecha,
+          tipo: "reparacion",
+          titulo: r.equipo,
+          subtitulo: `${r.cliente} — ${r.estado.replace(/_/g, " ")}`,
+          color: COLORES.reparacion,
+        })
+      }
+    })
+
     return evs
-  }, [ms, ots, cs, asigs, tecs])
+  }, [ms, ots, cs, asigs, tecs, tas, proys, reps])
 
   // Build calendar grid for current month
   const { dias, primerDiaSemana, totalDias } = useMemo(() => {
@@ -168,7 +244,7 @@ export default function CalendarioPage() {
             <div key={tipo} className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full" style={{ background: color }} />
               <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-                {tipo === "mantencion" ? "Mantención" : tipo === "orden" ? "OT" : tipo === "arriendo_vence" ? "Arriendo" : "Técnico"}
+                {TIPO_LABEL[tipo as keyof typeof COLORES]}
               </span>
             </div>
           ))}
@@ -269,7 +345,7 @@ export default function CalendarioPage() {
                         <div className="flex items-center gap-2 mb-1">
                           <Icon size={12} style={{ color: ev.color }} />
                           <span className="text-xs font-semibold" style={{ color: ev.color }}>
-                            {ev.tipo === "mantencion" ? "Mantención" : ev.tipo === "orden" ? "Orden de Trabajo" : ev.tipo === "arriendo_vence" ? "Vence arriendo" : "Asignación"}
+                            {TIPO_LABEL[ev.tipo]}
                           </span>
                         </div>
                         <p className="text-xs font-medium" style={{ color: "var(--foreground)" }}>{ev.titulo}</p>
@@ -287,7 +363,7 @@ export default function CalendarioPage() {
                 {Object.entries(COLORES).map(([tipo, color]) => {
                   const count = eventos.filter(e => e.tipo === tipo && e.fecha.startsWith(`${año}-${String(mes + 1).padStart(2, "0")}`)).length
                   const Icon = ICONOS[tipo as keyof typeof ICONOS]
-                  const label = tipo === "mantencion" ? "Mantenciones" : tipo === "orden" ? "Órdenes de Trabajo" : tipo === "arriendo_vence" ? "Arriendos vencen" : "Asignaciones"
+                  const label = TIPO_LABEL[tipo as keyof typeof COLORES]
                   return (
                     <div key={tipo} className="flex items-center gap-2 rounded-lg p-2"
                       style={{ background: color + "12" }}>
