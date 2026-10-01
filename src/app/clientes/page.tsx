@@ -41,7 +41,7 @@ const estadoMap = Object.fromEntries(estados.map(e => [e.value, e]))
 const empty = (): Omit<ClienteEquipo, "id" | "creadoEn"> => ({
   cliente: "", empresa: "", rut: "", telefono: "", email: "",
   direccion: "", ciudad: "Copiapó",
-  equipo: "", codigoEquipo: "", tipoEquipo: "supresor_polvo", numeroSerie: "",
+  equipo: "", equipoId: "", codigoEquipo: "", tipoEquipo: "supresor_polvo", numeroSerie: "",
   fechaInstalacion: new Date().toISOString().slice(0, 10),
   garantiaHasta: "", ultimaMantencion: "", proximaMantencion: "",
   tecnicoResponsable: "", estado: "activo", notas: "",
@@ -405,7 +405,7 @@ export default function ClientesPage() {
             </div>
             <div className="text-xs font-semibold uppercase tracking-wider pb-1 pt-2" style={{ color: "var(--muted-foreground)", borderBottom: "1px solid var(--border)" }}>Datos del equipo</div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Nombre del equipo *</Label><SelectEquipo value={form.equipo} onChange={v => setS("equipo", v)} onSelectEquipo={eq => setS("numeroSerie", eq?.numeroSerie ?? "")} /></div>
+              <div className="space-y-1"><Label>Nombre del equipo *</Label><SelectEquipo value={form.equipo} onChange={v => setS("equipo", v)} onSelectEquipo={eq => { setS("numeroSerie", eq?.numeroSerie ?? ""); setS("equipoId", eq?.id ?? "") }} /></div>
               <div className="space-y-1"><Label>Tipo</Label>
                 <Select value={form.tipoEquipo} onValueChange={v => setS("tipoEquipo", v ?? "")}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
