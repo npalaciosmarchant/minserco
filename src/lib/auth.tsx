@@ -47,6 +47,7 @@ export const MODULO_A_RUTA: Record<string, string> = {
   nodos:         "/nodos",
   tareas:        "/tareas",
   pagos:         "/pagos",
+  solicitudes:   "/solicitudes",
 }
 
 async function fetchPerfil(uid: string): Promise<Usuario | null> {
@@ -173,7 +174,7 @@ export function useAuth() {
 }
 
 // Rutas accesibles por técnicos sin permisos asignados (fallback)
-const TECNICO_RUTAS_DEFAULT = ["/", "/mantencion", "/equipos", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega", "/instalacion"]
+const TECNICO_RUTAS_DEFAULT = ["/", "/mantencion", "/equipos", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega", "/instalacion", "/solicitudes"]
 
 export function canAccess(user: Usuario | null, pathname: string): boolean {
   if (!user) return false
