@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react"
 import { clientesEquipos } from "@/lib/store"
 import { ClienteEquipo } from "@/lib/types"
-import { MapPin, Users, Wrench, CheckCircle2, Clock, AlertTriangle } from "lucide-react"
+import { MapPin, Users, Wrench, CheckCircle2, Clock, AlertTriangle, Navigation, ExternalLink } from "lucide-react"
 
 // Ciudad coordinates as % within Chile SVG (approximate positions on a stylized map)
 const CIUDADES_CONFIG: Record<string, {
@@ -75,6 +75,7 @@ export default function MapaPage() {
     const d = diasHasta(e.garantiaHasta ?? "")
     return d !== null && d < 0
   }).length
+  const conGeo = equipos.filter(e => e.geoLat != null && e.geoLng != null)
 
   return (
     <div className="p-6 space-y-5">
@@ -330,6 +331,43 @@ export default function MapaPage() {
             </>
           )}
         </div>
+      </div>
+
+      {/* Equipos con ubicación GPS exacta (capturada en Clientes y Equipos) */}
+      <div className="rounded-xl p-4" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center gap-2 mb-3">
+          <Navigation size={15} style={{ color: "#2dd4bf" }} />
+          <h2 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>Equipos con GPS registrado</h2>
+          <span className="text-xs ml-1 px-1.5 py-0.5 rounded-full font-medium" style={{ background: "#2dd4bf20", color: "#2dd4bf" }}>{conGeo.length}</span>
+        </div>
+        {conGeo.length === 0 ? (
+          <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+            Aún no hay equipos con coordenadas GPS. Captúralas desde la ficha del equipo en &quot;Clientes y Equipos&quot;.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+            {conGeo.map(eq => (
+              <a
+                key={eq.id}
+                href={`https://www.google.com/maps?q=${eq.geoLat},${eq.geoLng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-start gap-2 rounded-lg p-3 transition-colors hover:brightness-110"
+                style={{ background: "var(--accent)", border: "1px solid var(--border)" }}
+              >
+                <MapPin size={14} className="shrink-0 mt-0.5" style={{ color: "#2dd4bf" }} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold truncate" style={{ color: "var(--foreground)" }}>{eq.equipo}</p>
+                  <p className="text-xs truncate" style={{ color: "var(--muted-foreground)" }}>{eq.empresa || eq.cliente} · {eq.ciudad}</p>
+                  <p className="text-xs mt-0.5" style={{ color: "oklch(0.5 0 0)", fontSize: "10px" }}>
+                    {eq.geoLat!.toFixed(5)}, {eq.geoLng!.toFixed(5)}{eq.geoPrecision ? ` · ±${eq.geoPrecision}m` : ""}
+                  </p>
+                </div>
+                <ExternalLink size={11} className="shrink-0 mt-0.5" style={{ color: "var(--muted-foreground)" }} />
+              </a>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
