@@ -39,7 +39,12 @@ function fFecha(s: string) {
   catch { return s }
 }
 
-function normalize(s: string) { return s.toLowerCase().replace(/[\s\-_.]+/g, "") }
+// Defensivo: algunos registros antiguos o importados masivamente pueden tener
+// campos vacíos/nulos pese a que el tipo los declare obligatorios. Sin este
+// resguardo, un solo registro con un campo faltante (en cualquier parte del
+// sistema, no solo del equipo buscado) hace fallar toda la página con
+// "This page couldn't load".
+function normalize(s?: string | null) { return (s ?? "").toLowerCase().replace(/[\s\-_.]+/g, "") }
 
 export default function EquipoHistorialPage() {
   const params = useParams()
@@ -72,40 +77,40 @@ export default function EquipoHistorialPage() {
 
     // Mantenciones
     mantenciones.getAll().filter(m =>
-      normalize(m.equipo).includes(q) || normalize(m.numeroSerie ?? "").includes(q)
+      normalize(m.equipo).includes(q) || normalize(m.numeroSerie).includes(q)
     ).forEach(m => evs.push({
       id: "m" + m.id, fecha: m.fecha || m.creadoEn, tipo: "mantencion",
-      titulo: m.equipo, subtitulo: m.tecnico + " · " + m.tipo,
+      titulo: m.equipo || "Mantención", subtitulo: [m.tecnico, m.tipo].filter(Boolean).join(" · "),
       estado: m.estado, color: TIPO_META.mantencion.color,
       Icon: TIPO_META.mantencion.Icon, href: "/mantencion",
     }))
 
     // Reparaciones
     reparaciones.getAll().filter(r =>
-      normalize(r.equipo).includes(q) || normalize(r.numeroSerie ?? "").includes(q) || normalize(r.cliente).includes(q)
+      normalize(r.equipo).includes(q) || normalize(r.numeroSerie).includes(q) || normalize(r.cliente).includes(q)
     ).forEach(r => evs.push({
       id: "r" + r.id, fecha: r.fechaRecepcion || r.creadoEn, tipo: "reparacion",
-      titulo: r.equipo, subtitulo: r.cliente + " · " + r.falla.slice(0, 50),
+      titulo: r.equipo || "Reparación", subtitulo: [r.cliente, (r.falla ?? "").slice(0, 50)].filter(Boolean).join(" · "),
       estado: r.estado, color: TIPO_META.reparacion.color,
       Icon: TIPO_META.reparacion.Icon, href: "/reparacion",
     }))
 
     // OTs
     ordenesTrabajo.getAll().filter(o =>
-      normalize(o.equipo ?? "").includes(q) || normalize(o.cliente).includes(q)
+      normalize(o.equipo).includes(q) || normalize(o.cliente).includes(q)
     ).forEach(o => evs.push({
       id: "ot" + o.id, fecha: o.fechaProgramada || o.creadoEn, tipo: "ot",
-      titulo: o.numero + " — " + o.cliente, subtitulo: o.tecnico + " · " + o.descripcion.slice(0, 50),
+      titulo: [o.numero, o.cliente].filter(Boolean).join(" — "), subtitulo: [o.tecnico, (o.descripcion ?? "").slice(0, 50)].filter(Boolean).join(" · "),
       estado: o.estado, color: TIPO_META.ot.color,
       Icon: TIPO_META.ot.Icon, href: "/ordenes",
     }))
 
     // Informes de entrega
     informesEntrega.getAll().filter(i =>
-      normalize(i.equipo).includes(q) || normalize(i.cliente).includes(q) || normalize(i.numeroSerie ?? "").includes(q)
+      normalize(i.equipo).includes(q) || normalize(i.cliente).includes(q) || normalize(i.numeroSerie).includes(q)
     ).forEach(i => evs.push({
       id: "ie" + i.id, fecha: i.fechaEntrega || i.creadoEn, tipo: "informe",
-      titulo: i.numero + " — " + i.equipo, subtitulo: i.cliente + " · " + i.tecnico,
+      titulo: [i.numero, i.equipo].filter(Boolean).join(" — "), subtitulo: [i.cliente, i.tecnico].filter(Boolean).join(" · "),
       estado: i.estado, color: TIPO_META.informe.color,
       Icon: TIPO_META.informe.Icon, href: "/informes-entrega",
     }))
@@ -115,7 +120,7 @@ export default function EquipoHistorialPage() {
       normalize(c.equipo).includes(q) || normalize(c.cliente).includes(q)
     ).forEach(c => evs.push({
       id: "c" + c.id, fecha: c.fechaInicio || c.creadoEn, tipo: "arriendo",
-      titulo: c.equipo, subtitulo: c.cliente + " · " + c.fechaInicio + " → " + c.fechaTermino,
+      titulo: c.equipo || "Arriendo", subtitulo: [c.cliente, [c.fechaInicio, c.fechaTermino].filter(Boolean).join(" → ")].filter(Boolean).join(" · "),
       estado: c.estado, color: TIPO_META.arriendo.color,
       Icon: TIPO_META.arriendo.Icon, href: "/arriendo",
     }))
@@ -125,17 +130,17 @@ export default function EquipoHistorialPage() {
       normalize(c.descripcion).includes(q) || normalize(c.cliente).includes(q)
     ).forEach(c => evs.push({
       id: "cot" + c.id, fecha: c.fechaEmision || c.creadoEn, tipo: "cotizacion",
-      titulo: c.numero + " — " + c.cliente, subtitulo: c.descripcion.slice(0, 60),
+      titulo: [c.numero, c.cliente].filter(Boolean).join(" — "), subtitulo: (c.descripcion ?? "").slice(0, 60),
       estado: c.estado, color: TIPO_META.cotizacion.color,
       Icon: TIPO_META.cotizacion.Icon, href: "/cotizaciones",
     }))
 
-    evs.sort((a, b) => b.fecha.localeCompare(a.fecha))
+    evs.sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""))
     setEventos(evs)
 
     // Buscar info del equipo en clientesEquipos
     const ce = clientesEquipos.getAll().find(e =>
-      normalize(e.equipo).includes(q) || normalize(e.codigoEquipo ?? "").includes(q)
+      normalize(e.equipo).includes(q) || normalize(e.codigoEquipo).includes(q)
     )
     if (ce) {
       setEquipoInfo({
