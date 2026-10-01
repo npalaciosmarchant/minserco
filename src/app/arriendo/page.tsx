@@ -50,7 +50,7 @@ function estadoVencimiento(c: ContratoArriendo): {
 // ── Formularios vacíos ────────────────────────────────────────────────────────
 
 const emptyContrato = (): Omit<ContratoArriendo, "id" | "creadoEn"> => ({
-  equipo: "", codigoEquipo: "", cliente: "", telefono: "", email: "",
+  equipo: "", equipoId: "", codigoEquipo: "", cliente: "", telefono: "", email: "",
   fechaInicio: hoy(), fechaTermino: "", diasAviso: 7,
   montoMensual: undefined, estado: "activo", notas: "",
 })
@@ -387,7 +387,7 @@ export default function ArriendoPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Equipo *</Label>
-                <SelectEquipo value={formContrato.equipo} onChange={v => setFC("equipo", v)} />
+                <SelectEquipo value={formContrato.equipo} onChange={v => setFC("equipo", v)} onSelectEquipo={eq => setFC("equipoId", eq?.id ?? "")} />
               </div>
               <div className="space-y-1">
                 <Label>Código</Label>
