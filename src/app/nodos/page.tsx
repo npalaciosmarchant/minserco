@@ -21,7 +21,7 @@ const estadoCfg: Record<EstadoNodo, { label: string; color: string }> = {
 }
 
 function emptyForm(): Omit<Nodo, "id" | "creadoEn"> {
-  return { equipo: "", numeroSerie: "", numeroSim: "", cliente: "", fechaInicio: new Date().toISOString().slice(0, 10), fechaTermino: "", responsable: "", estado: "activo", observaciones: "" }
+  return { equipo: "", equipoId: "", numeroSerie: "", numeroSim: "", cliente: "", fechaInicio: new Date().toISOString().slice(0, 10), fechaTermino: "", responsable: "", estado: "activo", observaciones: "" }
 }
 
 const diasRestantes = (fecha?: string) => fecha ? Math.ceil((new Date(fecha).getTime() - Date.now()) / 86400000) : null
@@ -96,7 +96,7 @@ export default function NodosPage() {
           <DialogHeader><DialogTitle>{editando ? "Editar Nodo" : "Nuevo Nodo"}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2 max-h-[70vh] overflow-y-auto">
             <div className="space-y-1"><Label>Equipo *</Label>
-              <SelectEquipo value={form.equipo} onChange={v => setS("equipo", v)} onSelectEquipo={eq => setS("numeroSerie", eq?.numeroSerie ?? "")} />
+              <SelectEquipo value={form.equipo} onChange={v => setS("equipo", v)} onSelectEquipo={eq => { setS("numeroSerie", eq?.numeroSerie ?? ""); setS("equipoId", eq?.id ?? "") }} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>N° Serie</Label><Input value={form.numeroSerie ?? ""} onChange={e => setS("numeroSerie", e.target.value)} placeholder="Se completa al elegir el equipo" /></div>
