@@ -15,6 +15,7 @@ import PageShell from "@/components/layout/PageShell"
 import { FiltroMes, mesActual, enMes } from "@/components/ui/FiltroMes"
 import { AgendaVista } from "@/components/ui/AgendaVista"
 import { FotoGaleria } from "@/components/ui/FotoGaleria"
+import { SelectEquipo } from "@/components/ui/SelectEquipo"
 import { useAuth } from "@/lib/auth"
 
 const estadoCfg: Record<EstadoTarea, { label: string; color: string }> = {
@@ -30,7 +31,7 @@ function fmtFecha(f?: string): string {
 }
 
 function emptyForm(): Omit<Tarea, "id" | "creadoEn"> {
-  return { titulo: "", tipo: "", fecha: new Date().toISOString().slice(0, 10), hora: "", responsable: "", responsables: [], fechaLimite: "", fotos: [], estado: "pendiente", descripcion: "" }
+  return { titulo: "", tipo: "", fecha: new Date().toISOString().slice(0, 10), hora: "", responsable: "", responsables: [], fechaLimite: "", fotos: [], estado: "pendiente", descripcion: "", equipo: "", equipoId: "" }
 }
 
 export default function TareasPage() {
@@ -108,6 +109,7 @@ export default function TareasPage() {
                 {t.fechaLimite && <div style={{ color: "#dc2626" }}>Plazo: {fmtFecha(t.fechaLimite)}</div>}
                 {t.fotos && t.fotos.length > 0 && <div className="flex items-center gap-1"><Camera size={11} />{t.fotos.length} foto(s)</div>}
                 {t.tipo && <div className="flex items-center gap-1"><Tag size={11} />{t.tipo}</div>}
+                {t.equipo && <div className="flex items-center gap-1"><Tag size={11} />Equipo: {t.equipo}</div>}
                 {(t.responsables && t.responsables.length ? t.responsables.join(", ") : t.responsable) && <div className="flex items-center gap-1"><User size={11} />{t.responsables && t.responsables.length ? t.responsables.join(", ") : t.responsable}</div>}
                 {t.descripcion && <div className="line-clamp-2">{t.descripcion}</div>}
               </div>
@@ -126,6 +128,9 @@ export default function TareasPage() {
           <div className="space-y-4 py-2 max-h-[70vh] overflow-y-auto">
             <div className="space-y-1"><Label>Título *</Label><Input value={form.titulo} onChange={e => setS("titulo", e.target.value)} /></div>
             <div className="space-y-1"><Label>Tipo de tarea</Label><Input value={form.tipo ?? ""} onChange={e => setS("tipo", e.target.value)} placeholder="Ej. Trámite, cobranza, llamada…" /></div>
+            <div className="space-y-1"><Label>Equipo relacionado (opcional)</Label>
+              <SelectEquipo value={form.equipo ?? ""} onChange={v => setS("equipo", v)} onSelectEquipo={eq => setS("equipoId", eq?.id ?? "")} placeholder="Sin equipo asociado" />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>Fecha</Label><Input type="date" value={form.fecha ?? ""} onChange={e => setS("fecha", e.target.value)} /></div>
               <div className="space-y-1"><Label>Hora</Label><Input type="time" value={form.hora ?? ""} onChange={e => setS("hora", e.target.value)} /></div>
