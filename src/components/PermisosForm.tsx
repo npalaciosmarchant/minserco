@@ -32,6 +32,7 @@ const MODULOS = [
   { id: "licitaciones", nombre: "Licitaciones" },
   { id: "nodos", nombre: "Nodos" },
   { id: "tareas", nombre: "Tareas" },
+  { id: "solicitudes", nombre: "Solicitudes" },
 ]
 
 interface PermisoItem {
