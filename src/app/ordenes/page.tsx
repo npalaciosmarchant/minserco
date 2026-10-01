@@ -46,7 +46,7 @@ const estadoMap = Object.fromEntries(estadosOT.map(e => [e.value, e]))
 const empty = (): Omit<OrdenTrabajo, "id" | "creadoEn"> => ({
   numero: "", tipo: "instalacion",
   cliente: "", empresa: "", direccion: "", ciudad: "Copiapó",
-  equipo: "", descripcion: "", tecnico: "", tecnicos: [],
+  equipo: "", equipoId: "", descripcion: "", tecnico: "", tecnicos: [],
   fechaProgramada: new Date().toISOString().slice(0, 10),
   fechaInicio: "", fechaTermino: "", estado: "pendiente",
   observaciones: "", costoManoObra: 0, costoMateriales: 0,
@@ -295,7 +295,7 @@ export default function OrdenesPage() {
                 </Select>
               </div>
             </div>
-            <div className="space-y-1"><Label>Equipo (si aplica)</Label><SelectEquipo value={form.equipo ?? ""} onChange={v => setS("equipo", v)} /></div>
+            <div className="space-y-1"><Label>Equipo (si aplica)</Label><SelectEquipo value={form.equipo ?? ""} onChange={v => setS("equipo", v)} onSelectEquipo={eq => setS("equipoId", eq?.id ?? "")} /></div>
             <div className="space-y-1"><Label>Descripción del trabajo *</Label>
               <Textarea value={form.descripcion} onChange={e => setS("descripcion", e.target.value)} rows={3} /></div>
             <div className="space-y-1.5">
