@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Plus, Pencil, Trash2, ClipboardList, CheckCircle2, Clock, XCircle, AlertTriangle, Package, User, CalendarDays } from "lucide-react"
 import PageShell from "@/components/layout/PageShell"
 import { SelectUsuario } from "@/components/ui/SelectUsuario"
+import { SelectItemBodega } from "@/components/ui/SelectItemBodega"
 
 const CATEGORIAS: { value: CategoriaSolicitud; label: string }[] = [
   { value: "material", label: "Material" },
@@ -85,9 +86,8 @@ export default function SolicitudesPage() {
 
   const setS = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }) as unknown as typeof f)
 
-  function elegirDeBodega(itemId: string) {
-    const it = itemsBodega.find(i => i.id === itemId)
-    setForm(f => ({ ...f, itemBodegaId: itemId, item: it ? it.nombre : f.item, unidad: it?.unidad ?? f.unidad }))
+  function elegirDeBodega(item: ItemBodega | null) {
+    setForm(f => ({ ...f, itemBodegaId: item?.id ?? "", item: item ? item.nombre : f.item, unidad: item?.unidad ?? f.unidad }))
   }
 
   const filtradas = filtro === "todos" ? lista : lista.filter(s => s.estado === filtro)
@@ -206,10 +206,7 @@ export default function SolicitudesPage() {
             </div>
             {itemsBodega.length > 0 && (
               <div className="space-y-1"><Label>Elegir desde Bodega (opcional)</Label>
-                <select value={form.itemBodegaId ?? ""} onChange={e => elegirDeBodega(e.target.value)} className="w-full h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none">
-                  <option value="">Sin vincular a bodega — ítem nuevo/externo</option>
-                  {itemsBodega.map(i => <option key={i.id} value={i.id}>{i.nombre} ({i.cantidad} {i.unidad} disp.)</option>)}
-                </select>
+                <SelectItemBodega items={itemsBodega} value={form.itemBodegaId ?? ""} onPick={elegirDeBodega} />
               </div>
             )}
             <div className="space-y-1"><Label>Ítem solicitado *</Label><Input value={form.item} onChange={e => setS("item", e.target.value)} placeholder="Ej. Guantes de cuero, filtro de aire…" /></div>
