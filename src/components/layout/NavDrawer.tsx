@@ -9,6 +9,7 @@ import {
   ShieldCheck, LogOut, HardHat,
   Building2, ChevronRight, Receipt, ClipboardCheck, Wallet,
   FolderOpen, CalendarClock, MapPin, Gavel, Radio, ListTodo, Droplets, Clock,
+  ShoppingCart,
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { mantenciones, bodega, reparaciones, contratos } from "@/lib/store"
@@ -36,6 +37,7 @@ const nav: NavItem[] = [
   { href: "/cotizaciones",label: "Cotizaciones",      icon: FileText,  group: "Comercial",  desc: "Presupuestos y propuestas" },
   { href: "/arriendo",    label: "Arriendo",           icon: KeyRound,  group: "Comercial",  desc: "Contratos y vencimientos" },
   { href: "/bodega",      label: "Control Bodega",     icon: Package,   group: "Logística",  desc: "Inventario y stock" },
+  { href: "/solicitudes", label: "Solicitudes",        icon: ShoppingCart, group: "Logística", desc: "Materiales, insumos y EPP" },
   { href: "/importacion", label: "Importación",  icon: Ship,          group: "Logística",  desc: "Despachos y estado" },
   { href: "/calendario",  label: "Calendario",         icon: Calendar,  group: "Logística",  desc: "Planificación" },
   { href: "/proveedores", label: "Proveedores",        icon: Building2, group: "Logística",  desc: "Gestión de proveedores" },
@@ -49,7 +51,7 @@ const nav: NavItem[] = [
   { href: "/pagos",        label: "Pagos",              icon: Wallet,        group: "Comercial",     desc: "Pagos y vencimientos" },
 ]
 
-const TECNICO_ROUTES = ["/", "/mantencion", "/equipos", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega"]
+const TECNICO_ROUTES = ["/", "/mantencion", "/equipos", "/reparacion", "/clientes", "/ordenes", "/gastos", "/informes-entrega", "/solicitudes"]
 
 const groups = ["Operaciones", "Terreno", "Comercial", "Logística", "Documentos", "Administrativo"]
 
