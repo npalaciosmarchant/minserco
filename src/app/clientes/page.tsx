@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Pencil, Trash2, MapPin, Users, Wrench, AlertTriangle, CheckCircle2, Clock, ClipboardList, X, History } from "lucide-react"
+import { Plus, Pencil, Trash2, MapPin, Users, Wrench, AlertTriangle, CheckCircle2, Clock, ClipboardList, X, History, Navigation } from "lucide-react"
 import { SelectTecnico } from "@/components/ui/SelectTecnico"
 import { SelectEquipo } from "@/components/ui/SelectEquipo"
 import PageShell from "@/components/layout/PageShell"
@@ -213,6 +213,13 @@ function EquipoCard({ c, onEdit, onDelete, onHistorial }: { c: ClienteEquipo; on
           <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md" style={{ background: "var(--accent)", color: "var(--muted-foreground)" }}>
             <MapPin size={10} />{c.ciudad}
           </span>
+          {c.geoLat != null && c.geoLng != null && (
+            <a href={`https://www.google.com/maps?q=${c.geoLat},${c.geoLng}`} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md" style={{ background: "#2dd4bf20", color: "#2dd4bf" }}
+              onClick={e => e.stopPropagation()} title="Ver ubicación GPS en Google Maps">
+              <Navigation size={10} />GPS
+            </a>
+          )}
           {c.tecnicoResponsable && (
             <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md" style={{ background: "var(--accent)", color: "var(--muted-foreground)" }}>
               <Wrench size={10} />{c.tecnicoResponsable}
@@ -242,6 +249,8 @@ export default function ClientesPage() {
   const [filtroCiudad, setFiltroCiudad] = useState<CiudadOficina | "todas">("todas")
   const [filtroEstado, setFiltroEstado] = useState<EstadoEquipoTerreno | "todos">("todos")
   const [busqueda, setBusqueda] = useState("")
+  const [capturandoGeo, setCapturandoGeo] = useState(false)
+  const [geoError, setGeoError] = useState<string | null>(null)
 
   const cargar = () => setLista(clientesEquipos.getAll().slice().reverse())
   useEffect(() => { cargar() }, [])
@@ -264,6 +273,35 @@ export default function ClientesPage() {
   }
 
   const setS = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  function capturarUbicacion() {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      setGeoError("Este navegador no soporta geolocalización.")
+      return
+    }
+    setCapturandoGeo(true)
+    setGeoError(null)
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setForm(f => ({
+          ...f,
+          geoLat: pos.coords.latitude,
+          geoLng: pos.coords.longitude,
+          geoPrecision: Math.round(pos.coords.accuracy),
+          geoActualizadoEn: new Date().toISOString(),
+        }))
+        setCapturandoGeo(false)
+      },
+      err => {
+        setGeoError(err.code === 1 ? "Permiso de ubicación denegado en el navegador." : err.code === 2 ? "Posición no disponible." : "Se agotó el tiempo de espera obteniendo el GPS.")
+        setCapturandoGeo(false)
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    )
+  }
+  function quitarUbicacion() {
+    setForm(f => ({ ...f, geoLat: undefined, geoLng: undefined, geoPrecision: undefined, geoActualizadoEn: undefined }))
+  }
 
   const filtrada = lista.filter(c => {
     if (filtroCiudad !== "todas" && c.ciudad !== filtroCiudad) return false
@@ -431,6 +469,21 @@ export default function ClientesPage() {
               <div className="space-y-1"><Label>Garantía hasta</Label><Input type="date" value={form.garantiaHasta ?? ""} onChange={e => setS("garantiaHasta", e.target.value)} /></div>
               <div className="space-y-1"><Label>Próx. mantención</Label><Input type="date" value={form.proximaMantencion ?? ""} onChange={e => setS("proximaMantencion", e.target.value)} /></div>
             </div>
+            <div className="text-xs font-semibold uppercase tracking-wider pb-1 pt-2" style={{ color: "var(--muted-foreground)", borderBottom: "1px solid var(--border)" }}>Ubicación GPS en terreno</div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <Button type="button" variant="outline" size="sm" disabled={capturandoGeo} onClick={capturarUbicacion}>
+                <Navigation size={13} /> {capturandoGeo ? "Obteniendo ubicación…" : form.geoLat != null ? "Actualizar ubicación" : "Usar mi ubicación actual"}
+              </Button>
+              {form.geoLat != null && form.geoLng != null && (
+                <>
+                  <span className="text-xs flex items-center gap-1" style={{ color: "var(--muted-foreground)" }}>
+                    <MapPin size={11} />{form.geoLat.toFixed(5)}, {form.geoLng.toFixed(5)}{form.geoPrecision ? ` · ±${form.geoPrecision}m` : ""}
+                  </span>
+                  <button type="button" className="text-xs underline" style={{ color: "var(--muted-foreground)" }} onClick={quitarUbicacion}>Quitar</button>
+                </>
+              )}
+            </div>
+            {geoError && <p className="text-xs" style={{ color: "#dc2626" }}>{geoError}</p>}
             <div className="space-y-1"><Label>Notas</Label><Textarea value={form.notas ?? ""} onChange={e => setS("notas", e.target.value)} rows={2} /></div>
             <Button className="w-full" onClick={guardar}>{editando ? "Guardar cambios" : "Registrar equipo"}</Button>
           </div>
