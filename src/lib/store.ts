@@ -20,7 +20,7 @@ import {
   Equipo, Notificacion,
   DocumentoAdmin, Reunion, VisitaTecnica, Licitacion,
   Nodo, Tarea, Pago, Instalacion,
-  Asistencia, AsistenciaConfig,
+  Asistencia, AsistenciaConfig, Solicitud,
 } from "./types"
 
 // ── localStorage helpers (API pública sin cambios) ────────────────────────────
@@ -74,7 +74,7 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   itemsEntregados:"items_entregados", creadoEn:"creado_en",
   actualizadoEn:"actualizado_en", sitioWeb:"sitio_web",
   tiempoEntrega:"tiempo_entrega", nuevaFechaTermino:"nueva_fecha_termino",
-  contratoId:"contrato_id", itemId:"item_id", nombreItem:"nombre_item",
+  contratoId:"contrato_id", itemId:"item_id", nombreItem:"nombre_item", equipoId:"equipo_id",
   tecnicoId:"tecnico_id", horaInicio:"hora_inicio", horaFin:"hora_fin",
   diasSemana:"dias_semana", ultimaDisparo:"ultima_disparo",
   informeId:"informe_id", completadoEn:"completado_en",
@@ -97,6 +97,9 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   geoEntradaColacionPrecision:"geo_entrada_colacion_precision", geoEntradaColacionLugar:"geo_entrada_colacion_lugar", geoEntradaColacionFuente:"geo_entrada_colacion_fuente",
   geoSalidaLat:"geo_salida_lat", geoSalidaLng:"geo_salida_lng",
   geoSalidaPrecision:"geo_salida_precision", geoSalidaLugar:"geo_salida_lugar", geoSalidaFuente:"geo_salida_fuente",
+  geoLat:"geo_lat", geoLng:"geo_lng", geoPrecision:"geo_precision", geoActualizadoEn:"geo_actualizado_en",
+  itemBodegaId:"item_bodega_id", atendidoPor:"atendido_por", atendidoEn:"atendido_en",
+  equiposIds:"equipos_ids",
 }
 
 const SNAKE_TO_CAMEL = Object.fromEntries(
@@ -215,6 +218,7 @@ export async function syncFromSupabase() {
     { sbTable: "instalaciones",      lsKey: "instalaciones"   },
     { sbTable: "asistencias",        lsKey: "asistencias"     },
     { sbTable: "asistencia_config",  lsKey: "asistenciaConfig"},
+    { sbTable: "solicitudes",        lsKey: "solicitudes"     },
   ]
 
   await Promise.all(tables.map(async ({ sbTable, lsKey }) => {
@@ -347,6 +351,26 @@ export const movimientos = {
     }
     syncUp("movimientos_bodega", item as unknown as Record<string, unknown>, "upsert")
     return item
+  },
+}
+
+// ── SOLICITUDES (materiales, insumos, EPP) ─────────────────────────────────────
+
+export const solicitudes = {
+  getAll: (): Solicitud[] => lsGet("solicitudes"),
+  add: (s: Omit<Solicitud, "id" | "creadoEn">): Solicitud => {
+    const item: Solicitud = { ...s, id: getId(), creadoEn: new Date().toISOString() }
+    lsSet("solicitudes", [...solicitudes.getAll(), item])
+    syncUp("solicitudes", item as unknown as Record<string, unknown>, "upsert")
+    return item
+  },
+  update: (id: string, changes: Partial<Solicitud>) => {
+    lsSet("solicitudes", solicitudes.getAll().map(s => s.id === id ? { ...s, ...changes } : s))
+    syncUp("solicitudes", { id, ...changes } as Record<string, unknown>, "upsert")
+  },
+  delete: (id: string) => {
+    lsSet("solicitudes", solicitudes.getAll().filter(s => s.id !== id))
+    syncUp("solicitudes", { id }, "delete")
   },
 }
 

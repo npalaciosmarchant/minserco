@@ -5,7 +5,9 @@ export type FrecuenciaMantencion = "ninguna" | "mensual" | "trimestral" | "semes
 export interface Mantencion {
   id: string
   equipo: string
+  equipoId?: string           // vínculo al catálogo de Equipos (src/app/equipos)
   equipos?: string[]
+  equiposIds?: string[]       // vínculo por ID de cada equipo en `equipos` (mismo índice; "" si es texto libre)
   numeroSerie: string
   tipo: "preventivo" | "correctivo" | "mensual"
   descripcion: string
@@ -85,6 +87,7 @@ export type EstadoReparacion = "recibido" | "diagnostico" | "en_reparacion" | "e
 export interface Reparacion {
   id: string
   equipo: string
+  equipoId?: string           // vínculo al catálogo de Equipos (src/app/equipos)
   numeroSerie: string
   cliente: string
   telefono?: string
@@ -143,12 +146,36 @@ export interface MovimientoBodega {
   creadoEn: string
 }
 
+// Solicitudes de materiales, insumos y EPP
+export type CategoriaSolicitud = "material" | "insumo" | "epp" | "herramienta" | "otro"
+export type UrgenciaSolicitud = "baja" | "media" | "alta"
+export type EstadoSolicitud = "pendiente" | "atendida" | "rechazada"
+
+export interface Solicitud {
+  id: string
+  fecha: string
+  solicitante: string
+  categoria: CategoriaSolicitud
+  item: string
+  itemBodegaId?: string        // vínculo opcional a un ítem existente de Bodega
+  cantidad: number
+  unidad?: string
+  urgencia: UrgenciaSolicitud
+  motivo?: string
+  estado: EstadoSolicitud
+  observaciones?: string
+  atendidoPor?: string
+  atendidoEn?: string
+  creadoEn: string
+}
+
 // Arriendo
 export type EstadoContrato = "activo" | "vencido" | "finalizado" | "suspendido"
 
 export interface ContratoArriendo {
   id: string
   equipo: string
+  equipoId?: string           // vínculo al catálogo de Equipos (src/app/equipos)
   codigoEquipo?: string
   cliente: string
   telefono?: string
@@ -214,6 +241,7 @@ export interface ClienteEquipo {
   direccion: string
   ciudad: CiudadOficina
   equipo: string
+  equipoId?: string           // vínculo al catálogo de Equipos (src/app/equipos)
   codigoEquipo?: string
   tipoEquipo: TipoEquipoTerreno
   numeroSerie?: string
@@ -224,6 +252,11 @@ export interface ClienteEquipo {
   tecnicoResponsable?: string
   estado: EstadoEquipoTerreno
   notas?: string
+  // Ubicación GPS del equipo en terreno (captura desde el navegador, igual que el reloj de asistencia)
+  geoLat?: number
+  geoLng?: number
+  geoPrecision?: number        // metros de precisión del GPS
+  geoActualizadoEn?: string
   creadoEn: string
 }
 
@@ -271,6 +304,7 @@ export interface OrdenTrabajo {
   direccion: string
   ciudad: CiudadOficina
   equipo?: string
+  equipoId?: string           // vínculo al catálogo de Equipos (src/app/equipos)
   descripcion: string
   tecnico: string
   tecnicos?: string[]
@@ -551,6 +585,7 @@ export type EstadoNodo = "activo" | "suspendido" | "vencido"
 export interface Nodo {
   id: string
   equipo: string
+  equipoId?: string           // vínculo al catálogo de Equipos (src/app/equipos)
   numeroSerie?: string
   numeroSim?: string
   cliente?: string
@@ -572,6 +607,8 @@ export interface Tarea {
   responsable?: string
   responsables?: string[]
   fechaLimite?: string
+  equipo?: string              // equipo asociado a la tarea (opcional)
+  equipoId?: string            // vínculo al catálogo de Equipos (src/app/equipos)
   fotos?: string[]
   estado: EstadoTarea
   descripcion?: string
