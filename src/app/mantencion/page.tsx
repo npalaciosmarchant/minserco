@@ -17,6 +17,8 @@ import DateFilter, { filterByDate, DateRange } from "@/components/ui/DateFilter"
 import Pagination from "@/components/ui/Pagination"
 import { usePagination } from "@/lib/usePagination"
 import { FotoGaleria } from "@/components/ui/FotoGaleria"
+import { SelectEquipoMulti } from "@/components/ui/SelectEquipoMulti"
+import { Miniatura } from "@/components/ui/SelectEquipo"
 
 const estadoCfg: Record<string, { label: string; color: string; bg: string }> = {
   pendiente:  { label: "Pendiente",  color: "#ea580c", bg: "#fff7ed" },
@@ -25,7 +27,7 @@ const estadoCfg: Record<string, { label: string; color: string; bg: string }> = 
 }
 
 const empty = (): Omit<Mantencion, "id" | "creadoEn"> => ({
-  equipo: "", equipos: [], numeroSerie: "", tipo: "preventivo", descripcion: "",
+  equipo: "", equipos: [], equiposIds: [], numeroSerie: "", tipo: "preventivo", descripcion: "",
   tecnico: "", tecnicos: [], supervisor: "", frecuencia: "ninguna",
   fecha: new Date().toISOString().slice(0, 10),
   estado: "pendiente", observaciones: "", proximaMantencion: "", fechaInicio: "", fechaEntrega: "", fotos: [],
@@ -68,7 +70,9 @@ export default function MantencionPage() {
     if (m) {
       setEditando(m)
       const { id, creadoEn, ...r } = m
-      setForm({ ...empty(), ...r, tecnicos: m.tecnicos && m.tecnicos.length ? m.tecnicos : (m.tecnico ? [m.tecnico] : []), equipos: m.equipos && m.equipos.length ? m.equipos : (m.equipo ? m.equipo.split(",").map(x => x.trim()).filter(Boolean) : []) })
+      const equiposCargados = m.equipos && m.equipos.length ? m.equipos : (m.equipo ? m.equipo.split(",").map(x => x.trim()).filter(Boolean) : [])
+      const idsCargados = m.equiposIds && m.equiposIds.length === equiposCargados.length ? m.equiposIds : equiposCargados.map(() => "")
+      setForm({ ...empty(), ...r, tecnicos: m.tecnicos && m.tecnicos.length ? m.tecnicos : (m.tecnico ? [m.tecnico] : []), equipos: equiposCargados, equiposIds: idsCargados })
     } else {
       setEditando(null); setForm(empty())
     }
@@ -93,8 +97,10 @@ export default function MantencionPage() {
     if (datos.estado === "completado") {
       datos.completadoEn = new Date().toISOString()
       // actualizar cada equipo asociado (última y próxima mantención)
-      for (const nombreEq of equiposSel) {
-        const eq = equiposStore.getAll().find(e => e.nombre === nombreEq)
+      const idsSel = form.equiposIds ?? []
+      for (let i = 0; i < equiposSel.length; i++) {
+        const idRef = idsSel[i]
+        const eq = idRef ? equiposStore.getAll().find(e => e.id === idRef) : equiposStore.getAll().find(e => e.nombre === equiposSel[i])
         if (eq) equiposStore.update(eq.id, {
           ultimaMantencion: datos.fecha,
           proximaMantencion: calcularProxima(datos.fecha, datos.frecuencia || eq.frecuencia),
@@ -139,16 +145,30 @@ export default function MantencionPage() {
     })
   }
 
-  // Selección múltiple de equipos (opcional). Autocompleta n° serie y frecuencia del primero.
-  function toggleEquipo(nombre: string) {
+  // Selección múltiple de equipos (opcional), vinculada por ID al catálogo.
+  // Autocompleta n° serie y frecuencia con el primer equipo agregado.
+  function agregarEquipoCatalogo(eq: Equipo) {
     setForm(f => {
-      const cur = f.equipos ?? []
-      const yaEsta = cur.includes(nombre)
-      const nuevo = yaEsta ? cur.filter(x => x !== nombre) : [...cur, nombre]
-      const eq = equipos.find(e => e.nombre === nombre)
-      const numeroSerie = (!yaEsta && !f.numeroSerie && eq?.numeroSerie) ? eq.numeroSerie : f.numeroSerie
-      const frecuencia = (!yaEsta && (!f.frecuencia || f.frecuencia === "ninguna") && eq?.frecuencia) ? eq.frecuencia : f.frecuencia
-      return { ...f, equipos: nuevo, equipo: nuevo.join(", "), numeroSerie, frecuencia, proximaMantencion: calcularProxima(f.fecha, frecuencia) }
+      const nombres = [...(f.equipos ?? []), eq.nombre]
+      const ids = [...(f.equiposIds ?? []), eq.id]
+      const esElPrimero = (f.equipos ?? []).length === 0
+      const numeroSerie = (esElPrimero && !f.numeroSerie && eq.numeroSerie) ? eq.numeroSerie : f.numeroSerie
+      const frecuencia = (esElPrimero && (!f.frecuencia || f.frecuencia === "ninguna") && eq.frecuencia) ? eq.frecuencia : f.frecuencia
+      return { ...f, equipos: nombres, equiposIds: ids, equipo: nombres.join(", "), numeroSerie, frecuencia, proximaMantencion: calcularProxima(f.fecha, frecuencia) }
+    })
+  }
+  function agregarEquipoTextoLibre(nombre: string) {
+    setForm(f => {
+      const nombres = [...(f.equipos ?? []), nombre]
+      const ids = [...(f.equiposIds ?? []), ""]
+      return { ...f, equipos: nombres, equiposIds: ids, equipo: nombres.join(", ") }
+    })
+  }
+  function quitarEquipoEnIndice(idx: number) {
+    setForm(f => {
+      const nombres = (f.equipos ?? []).filter((_, i) => i !== idx)
+      const ids = (f.equiposIds ?? []).filter((_, i) => i !== idx)
+      return { ...f, equipos: nombres, equiposIds: ids, equipo: nombres.join(", ") }
     })
   }
 
@@ -262,20 +282,22 @@ export default function MantencionPage() {
               <Label>Equipos (opcional, puede elegir varios)</Label>
               {(form.equipos ?? []).length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {(form.equipos ?? []).map(eq => (
-                    <span key={eq} className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full" style={{ background: "#eef2ff", color: "#1a3673" }}>
-                      {eq}<button type="button" onClick={() => toggleEquipo(eq)}><X size={11} /></button>
-                    </span>
-                  ))}
+                  {(form.equipos ?? []).map((eq, idx) => {
+                    const id = (form.equiposIds ?? [])[idx]
+                    const eqCatalogo = id ? equipos.find(e => e.id === id) : undefined
+                    return (
+                      <span key={`${eq}-${idx}`} className="flex items-center gap-1.5 text-xs font-medium pl-1 pr-2 py-1 rounded-full" style={{ background: "#eef2ff", color: "#1a3673" }}>
+                        <Miniatura equipo={eqCatalogo} size={18} />
+                        {eq}<button type="button" onClick={() => quitarEquipoEnIndice(idx)}><X size={11} /></button>
+                      </span>
+                    )
+                  })}
                 </div>
               )}
               {equipos.length > 0 ? (
-                <select value="" onChange={e => { if (e.target.value) toggleEquipo(e.target.value) }} className="w-full h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none">
-                  <option value="">Agregar equipo…</option>
-                  {equipos.filter(e => !(form.equipos ?? []).includes(e.nombre)).map(e => <option key={e.id} value={e.nombre}>{e.nombre}</option>)}
-                </select>
+                <SelectEquipoMulti excludeIds={(form.equiposIds ?? []).filter(Boolean)} onPick={agregarEquipoCatalogo} />
               ) : (
-                <Input placeholder="Nombre del equipo y Enter" onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const v = (e.target as HTMLInputElement).value.trim(); if (v) { toggleEquipo(v); (e.target as HTMLInputElement).value = "" } } }} />
+                <Input placeholder="Nombre del equipo y Enter" onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const v = (e.target as HTMLInputElement).value.trim(); if (v) { agregarEquipoTextoLibre(v); (e.target as HTMLInputElement).value = "" } } }} />
               )}
             </div>
             <div className="space-y-1"><Label>N° Serie</Label><Input value={form.numeroSerie} onChange={e => set("numeroSerie", e.target.value)} placeholder="Se completa al elegir el equipo" /></div>
