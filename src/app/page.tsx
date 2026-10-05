@@ -18,6 +18,7 @@ import Link from "next/link"
 import { useAuth } from "@/lib/auth"
 import { StorageMeter } from "@/components/StorageMeter"
 import { MarcarAsistencia } from "@/components/MarcarAsistencia"
+import { SorteoTestSemanal } from "@/components/SorteoTestSemanal"
 
 /* ── Bar Chart SVG ── */
 function BarChartSVG({ data }: { data: { label: string; value: number; color: string }[] }) {
@@ -338,6 +339,9 @@ export default function Dashboard() {
 
       {/* ── Marcación de asistencia ── */}
       <MarcarAsistencia />
+
+      {/* ── Sorteo semanal test de alcohol y drogas ── */}
+      <SorteoTestSemanal />
 
       {/* ── Almacenamiento ── */}
       <StorageMeter />
