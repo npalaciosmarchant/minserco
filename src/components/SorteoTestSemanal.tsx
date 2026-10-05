@@ -16,9 +16,13 @@ function lunesDeEstaSemana(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-function fechaLarga(iso: string) {
+// Número de semana ISO (lunes a domingo; la semana 1 es la que contiene el primer jueves del año).
+function numeroSemana(iso: string) {
   const [y, m, d] = iso.split("-").map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString("es-CL", { day: "numeric", month: "long" })
+  const f = new Date(Date.UTC(y, m - 1, d))
+  f.setUTCDate(f.getUTCDate() + 4 - (f.getUTCDay() || 7))
+  const inicio = new Date(Date.UTC(f.getUTCFullYear(), 0, 1))
+  return Math.ceil(((f.getTime() - inicio.getTime()) / 86400000 + 1) / 7)
 }
 
 export function SorteoTestSemanal() {
@@ -61,7 +65,7 @@ export function SorteoTestSemanal() {
         </div>
         <div>
           <div className="text-[13px] font-semibold" style={{ color: "var(--ds-fg)" }}>
-            Test de alcohol y drogas · semana del {fechaLarga(semana)}
+            Test de alcohol y drogas · semana {numeroSemana(semana)}
           </div>
           <div className="text-[12px] mt-0.5" style={{ color: "var(--ds-fg-subtle)" }}>
             Sorteo aleatorio de 1 persona, se renueva cada lunes
