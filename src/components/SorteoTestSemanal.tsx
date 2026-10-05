@@ -4,38 +4,16 @@ import { useEffect, useState } from "react"
 import { getSupabase } from "@/lib/supabase"
 import { FlaskConical } from "lucide-react"
 
-// Cuántas personas se sortean cada semana para el test de alcohol y drogas.
-const CANTIDAD_SORTEADOS = 2
-
-// Personas que NO participan del sorteo (se comparan por primer nombre, sin
-// tildes ni mayúsculas, para tolerar diferencias de escritura en "usuarios").
-const EXCLUIDOS = ["sergio", "nicolas", "andrea", "dylan"]
-
 interface Seleccionado { id: string; nombre: string }
-
-const sinTildes = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim()
-const primerNombre = (n: string) => sinTildes(n).split(/\s+/)[0] ?? ""
 
 function pad(n: number) { return String(n).padStart(2, "0") }
 
-// Lunes de la semana actual (hora local), formato YYYY-MM-DD. Es la "clave" del
-// sorteo: mientras no cambie de lunes, el resultado se mantiene igual para todos.
+// Lunes de la semana actual (hora local), formato YYYY-MM-DD.
 function lunesDeEstaSemana(): string {
   const hoy = new Date()
   const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7))
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
-
-function mezclar<T>(arr: T[]): T[] {
-  const a = arr.slice()
-  const buf = new Uint32Array(a.length)
-  crypto.getRandomValues(buf)
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = buf[i] % (i + 1)
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
 }
 
 function fechaLarga(iso: string) {
@@ -53,30 +31,19 @@ export function SorteoTestSemanal() {
     async function cargar() {
       const sb = getSupabase()
       try {
-        // 1) ¿Ya se sorteó esta semana? Entonces solo se muestra el resultado.
+        // El sorteo (1 persona al azar, sin Sergio, Nicolas, Andrea ni Dylan) lo
+        // hace la base de datos cada lunes de madrugada, sin depender de quién
+        // abra la app. Si por algún motivo aún no existe el de esta semana, la
+        // función lo genera en ese momento (siempre al azar, y una sola vez).
         const existente = await sb.from("sorteo_test_semanal").select("seleccionados").eq("semana", semana).maybeSingle()
         if (existente.error) throw existente.error
         if (existente.data) {
           if (!cancelado) setSeleccionados(existente.data.seleccionados as Seleccionado[])
           return
         }
-
-        // 2) Si no, se sortea entre los usuarios activos, sin los excluidos.
-        const { data: usuarios, error: errU } = await sb.from("usuarios").select("id, nombre, activo")
-        if (errU) throw errU
-        const elegibles: Seleccionado[] = (usuarios ?? [])
-          .filter(u => u.activo !== false && u.nombre && !EXCLUIDOS.includes(primerNombre(u.nombre)))
-          .map(u => ({ id: u.id as string, nombre: u.nombre as string }))
-        const sorteados = mezclar(elegibles).slice(0, CANTIDAD_SORTEADOS)
-
-        // 3) Se guarda; si otra persona sorteó al mismo tiempo, gana el primero
-        // (ignoreDuplicates) y se vuelve a leer para mostrar el resultado oficial.
-        const ins = await sb.from("sorteo_test_semanal")
-          .upsert({ semana, seleccionados: sorteados }, { onConflict: "semana", ignoreDuplicates: true })
-        if (ins.error) throw ins.error
-        const final = await sb.from("sorteo_test_semanal").select("seleccionados").eq("semana", semana).maybeSingle()
-        if (final.error) throw final.error
-        if (!cancelado) setSeleccionados((final.data?.seleccionados as Seleccionado[] | undefined) ?? sorteados)
+        const { data, error: errRpc } = await sb.rpc("sortear_test_semanal")
+        if (errRpc) throw errRpc
+        if (!cancelado) setSeleccionados((data as Seleccionado[] | null) ?? [])
       } catch (e) {
         console.error("Error en sorteo semanal de test de alcohol y drogas:", e)
         if (!cancelado) setError(true)
@@ -97,7 +64,7 @@ export function SorteoTestSemanal() {
             Test de alcohol y drogas · semana del {fechaLarga(semana)}
           </div>
           <div className="text-[12px] mt-0.5" style={{ color: "var(--ds-fg-subtle)" }}>
-            Sorteo aleatorio que se renueva cada lunes
+            Sorteo aleatorio de 1 persona, se renueva cada lunes
           </div>
         </div>
       </div>
