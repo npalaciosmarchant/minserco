@@ -106,12 +106,6 @@ export default function AdminUsuariosPage() {
       setErrorMsg("La contraseña es obligatoria para nuevos usuarios.")
       return
     }
-    // Supabase Auth rechaza contraseñas de menos de 6 caracteres; se avisa acá
-    // antes de llamar a la función para que el mensaje sea claro.
-    if (form.password.trim() && form.password.trim().length < 6) {
-      setErrorMsg("La contraseña debe tener al menos 6 caracteres.")
-      return
-    }
     const existing = lista.find(u => u.email.toLowerCase() === form.email.trim().toLowerCase())
     if (existing && existing.id !== editando?.id) {
       setErrorMsg("Ya existe un usuario con ese email.")
