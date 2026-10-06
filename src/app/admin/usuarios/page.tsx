@@ -106,6 +106,12 @@ export default function AdminUsuariosPage() {
       setErrorMsg("La contraseña es obligatoria para nuevos usuarios.")
       return
     }
+    // Supabase Auth rechaza contraseñas de menos de 6 caracteres; se avisa acá
+    // antes de llamar a la función para que el mensaje sea claro.
+    if (form.password.trim() && form.password.trim().length < 6) {
+      setErrorMsg("La contraseña debe tener al menos 6 caracteres.")
+      return
+    }
     const existing = lista.find(u => u.email.toLowerCase() === form.email.trim().toLowerCase())
     if (existing && existing.id !== editando?.id) {
       setErrorMsg("Ya existe un usuario con ese email.")
@@ -117,8 +123,25 @@ export default function AdminUsuariosPage() {
         ? { action: "update", id: editando.id, nombre: form.nombre, email: form.email, telefono: form.telefono, supervisorId: form.rol === "tecnico" ? (form.supervisorId ?? "") : "", rol: form.rol, activo: form.activo, password: form.password.trim() || undefined }
         : { action: "create", nombre: form.nombre.trim(), email: form.email.trim(), telefono: (form.telefono ?? "").trim(), supervisorId: form.rol === "tecnico" ? (form.supervisorId ?? "") : "", password: form.password.trim(), rol: form.rol, activo: form.activo, debeChangiar: form.forzarCambio }
       const { data, error } = await sb.functions.invoke("admin-usuarios", { body: payload })
-      const err = (data && (data as { error?: string }).error) || error?.message
-      if (err) { setErrorMsg(err); return }
+      let err = data && (data as { error?: string }).error
+      if (!err && error) {
+        // Cuando la función responde con un error (400/403/500), supabase-js solo
+        // entrega el mensaje genérico "Edge Function returned a non-2xx status
+        // code"; el motivo real viene en el cuerpo de la respuesta.
+        const ctx = (error as { context?: Response }).context
+        if (ctx && typeof ctx.json === "function") {
+          try { err = ((await ctx.json()) as { error?: string })?.error } catch { /* sin cuerpo legible */ }
+        }
+        err = err || error.message
+      }
+      if (err) {
+        setErrorMsg(
+          /at least 6 characters/i.test(err) ? "La contraseña debe tener al menos 6 caracteres."
+          : /already (been )?registered|already exists/i.test(err) ? "Ya existe una cuenta con ese email."
+          : err
+        )
+        return
+      }
       await cargar()
       setOpen(false)
     } catch (e) {
