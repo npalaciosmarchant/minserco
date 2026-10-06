@@ -162,7 +162,6 @@ export function MarcarAsistencia() {
       asistencias.getHoyRemoto(user.id),
     ])
     const registroActual = remoto !== null ? remoto : registro
-    setGuardando(false)
 
     const geoFields = {
       entrada: {
@@ -193,18 +192,28 @@ export function MarcarAsistencia() {
       ...geoFields,
     }
 
+    // Se espera a que la marcación quede realmente guardada en el servidor. Si no
+    // se logra (sin señal, etc.), se avisa en pantalla en vez de dar la marca por
+    // hecha: antes quedaba solo en el celular y luego "desaparecía".
+    let guardado = true
     if (registroActual) {
-      asistencias.update(registroActual.id, cambios)
+      guardado = await asistencias.updateAsync(registroActual.id, cambios)
     } else if (modo === "entrada") {
-      asistencias.add({
+      const res = await asistencias.addAsync({
         usuarioId: user.id,
         usuarioNombre: user.nombre,
         fecha: fechaHoyLocal(),
         tarde,
         ...cambios,
       })
+      guardado = res.ok
     }
-    cargar()
+    setGuardando(false)
+    await cargar()
+    if (!guardado) {
+      setAviso("No se pudo guardar tu marcación en el servidor (revisa tu conexión). No quedó registrada: vuelve a intentarlo.")
+      return
+    }
     if (geo.fuente === "ip") notificarAdminSinGPS(user.nombre, modo, geo.lugar, geo.motivoFallo)
     if (modo === "entrada" && tarde) {
       setAviso(`Marcaste tu entrada a las ${horaMarcada}, después de las ${horaIngreso} definidas por el administrador.`)
