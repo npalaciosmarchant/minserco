@@ -137,18 +137,22 @@ function sbUpdate(changes: Record<string, unknown>) {
 }
 
 // Sincroniza silenciosamente a Supabase sin bloquear la UI
-async function syncUp(table: string, row: Record<string, unknown>, op: "upsert" | "delete") {
+// Devuelve true si el cambio quedó guardado en Supabase y false si falló (los
+// llamadores que no necesitan saberlo pueden ignorar el resultado).
+async function syncUp(table: string, row: Record<string, unknown>, op: "upsert" | "delete"): Promise<boolean> {
   try {
     const sb = getSupabase()
     if (op === "delete") {
-      await sb.from(table).delete().eq("id", row.id as string)
-      return
+      const { error } = await sb.from(table).delete().eq("id", row.id as string)
+      if (error) throw error
+      return true
     }
     const snake = toSnake(row)
     const { id, ...rest } = snake
     if (!id) {
-      await sb.from(table).upsert(snake, { onConflict: "id" })
-      return
+      const { error } = await sb.from(table).upsert(snake, { onConflict: "id" })
+      if (error) throw error
+      return true
     }
     // Los .update(...) del store solo mandan los campos que cambiaron (no la fila
     // completa). Si se hiciera upsert() directo, Postgres intenta un INSERT y
@@ -164,11 +168,25 @@ async function syncUp(table: string, row: Record<string, unknown>, op: "upsert" 
       .select("id")
     if (updErr) throw updErr
     if (!updated || updated.length === 0) {
-      await sb.from(table).upsert(snake, { onConflict: "id" })
+      const { error: upsErr } = await sb.from(table).upsert(snake, { onConflict: "id" })
+      if (upsErr) throw upsErr
     }
+    return true
   } catch (e) {
     console.warn(`[store] Supabase sync error (${table}):`, e)
+    return false
   }
+}
+
+// Igual que syncUp pero reintenta ante fallas de red (p.ej. celular que cambia
+// de señal o Safari que corta la petición). Se usa donde NO se puede perder el
+// dato, como las marcaciones de asistencia.
+async function syncUpConReintentos(table: string, row: Record<string, unknown>, op: "upsert" | "delete", intentos = 3): Promise<boolean> {
+  for (let i = 0; i < intentos; i++) {
+    if (await syncUp(table, row, op)) return true
+    if (i < intentos - 1) await new Promise(r => setTimeout(r, 800 * (i + 1)))
+  }
+  return false
 }
 
 // Elimina TODAS las filas de una tabla (usado por los botones "vaciar").
@@ -941,6 +959,27 @@ export const asistencias = {
   update: (id: string, changes: Partial<Asistencia>) => {
     lsSet("asistencias", asistencias.getAll().map(a => a.id === id ? { ...a, ...changes } : a))
     syncUp("asistencias", { id, ...changes } as Record<string, unknown>, "upsert")
+  },
+  // Versiones que ESPERAN a que la marcación quede guardada en Supabase (con
+  // reintentos) y avisan si no se pudo. Antes la marcación se guardaba solo en
+  // el celular y se enviaba "en segundo plano": si ese envío fallaba, el usuario
+  // veía su entrada marcada pero en el servidor nunca existió, y a la hora de
+  // colación el sistema le pedía marcar entrada de nuevo. Si no se logra
+  // guardar, se deshace el cambio local para no mostrar una marca falsa.
+  addAsync: async (a: Omit<Asistencia, "id" | "creadoEn">): Promise<{ item: Asistencia; ok: boolean }> => {
+    const antes = asistencias.getAll()
+    const item: Asistencia = { ...a, id: getId(), creadoEn: new Date().toISOString() }
+    lsSet("asistencias", [...antes, item])
+    const ok = await syncUpConReintentos("asistencias", item as unknown as Record<string, unknown>, "upsert")
+    if (!ok) lsSet("asistencias", asistencias.getAll().filter(x => x.id !== item.id))
+    return { item, ok }
+  },
+  updateAsync: async (id: string, changes: Partial<Asistencia>): Promise<boolean> => {
+    const previo = asistencias.getAll().find(a => a.id === id)
+    lsSet("asistencias", asistencias.getAll().map(a => a.id === id ? { ...a, ...changes } : a))
+    const ok = await syncUpConReintentos("asistencias", { id, ...changes } as Record<string, unknown>, "upsert")
+    if (!ok && previo) lsSet("asistencias", asistencias.getAll().map(a => a.id === id ? previo : a))
+    return ok
   },
   delete: (id: string) => {
     lsSet("asistencias", asistencias.getAll().filter(a => a.id !== id))
