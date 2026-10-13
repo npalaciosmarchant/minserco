@@ -45,9 +45,9 @@ function ProyectoCard({ p, onEdit, onDelete }: { p: Proyecto; onEdit: () => void
       <div className="p-3.5">
         <div className="flex items-start justify-between gap-2 mb-2">
           <span className="font-semibold text-sm leading-snug" style={{ color: "var(--foreground)" }}>{p.nombre}</span>
-          <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onEdit}><Pencil size={11} /></Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400" onClick={onDelete}><Trash2 size={11} /></Button>
+          <div className="flex gap-0.5 shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="h-8 w-8 md:h-6 md:w-6" onClick={onEdit}><Pencil size={14} /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 md:h-6 md:w-6 text-red-400" onClick={onDelete}><Trash2 size={14} /></Button>
           </div>
         </div>
 
