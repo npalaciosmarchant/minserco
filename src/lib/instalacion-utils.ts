@@ -254,6 +254,21 @@ function mejorFila(tipo: "0.8" | "1", pAire: number, pAgua: number, obj: Objetiv
   return sorted[0]
 }
 
+// Modo "Automática": compara la mejor posición alcanzable de cada boquilla (Ø0,8 y Ø1)
+// con las presiones disponibles y elige la que mejor cumple la prioridad. Si solo una
+// funciona con esas presiones, usa esa. En empate se queda con la Ø0,8 (menor consumo de aire).
+function elegirTipoAuto(pAire: number, pAgua: number, obj: Objetivo): "0.8" | "1" {
+  const f08 = mejorFila("0.8", pAire, pAgua, obj)
+  const f1 = mejorFila("1", pAire, pAgua, obj)
+  if (!f08) return f1 ? "1" : "0.8"
+  if (!f1) return "0.8"
+  const mejorLa1 =
+    obj === "fina" ? f1.gotaUm < f08.gotaUm
+    : obj === "ahorro" ? f1.aguaLh < f08.aguaLh
+    : f1.alcanceM > f08.alcanceM
+  return mejorLa1 ? "1" : "0.8"
+}
+
 function valvulaPara(linea: string, flujoLmin: number, ev: FilaEV, cajaTags: string[]): ItemReco {
   const pequenas = ["EV04", "EV06", "EV08"] // hasta ½" -> válvula solenoide Minserco
   if (pequenas.includes(ev.codigo)) {
@@ -343,9 +358,12 @@ function recomendarTurbofog(e: EntradaInstalacion, ctx: Ctx): Recomendacion {
   const nSugerido = (e.largoCorrea && e.espaciamiento && e.espaciamiento > 0)
     ? Math.max(1, Math.ceil(e.largoCorrea / e.espaciamiento)) : null
 
-  const tipo: "0.8" | "1" = e.boquillaTipo === "1" ? "1" : "0.8"
   const effAire = aireEnPlanta ? e.presionAire : 2.5
   const effAgua = aguaEnPlanta ? e.presionAgua : 6
+  // "0.8" o "1" = elegida a mano por el técnico; cualquier otro valor = automática.
+  const tipo: "0.8" | "1" = e.boquillaTipo === "1" || e.boquillaTipo === "0.8"
+    ? e.boquillaTipo
+    : elegirTipoAuto(effAire, effAgua, e.objetivo)
   const fila = mejorFila(tipo, effAire, effAgua, e.objetivo)
   const boquillaModelo = `Turbofog Ø${tipo}mm`
 
