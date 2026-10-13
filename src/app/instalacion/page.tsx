@@ -453,7 +453,7 @@ export default function InstalacionPage() {
                 </select>
               ) : (
                 <select className={selCls} value={form.boquillaTipo} onChange={e => set("boquillaTipo", e.target.value)}>
-                  <option value="auto">Automática</option>
+                  <option value="auto">Automática (según prioridad y presiones)</option>
                   <option value="0.8">Ø 0,8 mm</option>
                   <option value="1">Ø 1 mm</option>
                 </select>
@@ -615,7 +615,7 @@ export default function InstalacionPage() {
                 </div>
                 <div className="text-xs space-y-0.5" style={{ color: "var(--muted-foreground)" }}>
                   {i.faena && <div>{i.faena}{i.puntoDescarga ? ` · ${i.puntoDescarga}` : ""}</div>}
-                  <div>Aire {i.presionAire} bar · Agua {i.presionAgua} bar · {i.nBoquillas} boq. Ø{i.boquillaTipo}mm</div>
+                  <div>Aire {i.presionAire} bar · Agua {i.presionAgua} bar · {i.nBoquillas} boq. {(i.resultado as { boquillaModelo?: string } | undefined)?.boquillaModelo ?? (i.boquillaTipo === "auto" ? "" : `Ø${i.boquillaTipo}mm`)}</div>
                   <div>{new Date(i.creadoEn).toLocaleDateString("es-CL")}</div>
                 </div>
               </div>
