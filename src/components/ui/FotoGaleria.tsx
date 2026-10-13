@@ -52,7 +52,18 @@ export function FotoGaleria({ fotos = [], onChange, maxFotos = 20, readOnly = fa
               className="w-full h-full object-cover cursor-pointer"
               onClick={() => setVisor(foto)}
             />
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+            {/* Táctil: tocar la foto la abre y la X queda siempre visible (no hay "hover") */}
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => eliminar(idx)}
+                aria-label="Quitar foto"
+                className="solo-tactil absolute top-1 right-1 w-7 h-7 items-center justify-center rounded-full bg-white/90 shadow"
+              >
+                <X size={14} className="text-red-500" />
+              </button>
+            )}
+            <div className="solo-mouse absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
               <button
                 type="button"
                 onClick={() => setVisor(foto)}
