@@ -680,3 +680,17 @@ button[role="combobox"]:focus {
 .table-responsive .glass-table {
   min-width: 600px;
 }
+
+/* ── Acciones (editar/eliminar) que solo aparecen al pasar el mouse ──
+   En pantallas táctiles no existe el "hover", así que ahí quedan siempre
+   visibles (y con un área de toque más grande). Con mouse todo igual. */
+@media (hover: none) {
+  .opacity-0.group-hover\:opacity-100 { opacity: 1 !important; }
+  .opacity-0.group-hover\:opacity-100 > button { min-width: 32px; min-height: 32px; }
+}
+/* Elementos solo para táctil / solo para mouse */
+.solo-tactil { display: none; }
+@media (hover: none) {
+  .solo-tactil { display: flex; }
+  .solo-mouse { display: none !important; }
+}
