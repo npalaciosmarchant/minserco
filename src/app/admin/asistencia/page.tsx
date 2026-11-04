@@ -469,7 +469,11 @@ export default function AsistenciaAdminPage() {
           )}
           <div className="flex items-center gap-1.5">
             <Users size={13} style={{ color: "var(--ds-fg-subtle)" }} />
-            <Select value={filtroUsuario} onValueChange={v => setFiltroUsuario(v ?? "todos")}>
+            <Select
+              value={filtroUsuario}
+              onValueChange={v => setFiltroUsuario(v ?? "todos")}
+              items={{ todos: "Todos los usuarios", ...Object.fromEntries(usuariosList.map(u => [u.id, u.nombre])) }}
+            >
               <SelectTrigger className="h-8 w-48"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los usuarios</SelectItem>
