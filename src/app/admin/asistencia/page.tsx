@@ -70,6 +70,12 @@ function formatoMinutos(min: number): string {
   return `${m}min`
 }
 
+const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+function nombreMes(ym: string): string {
+  const [y, m] = ym.split("-").map(Number)
+  return MESES[m - 1] ? `${MESES[m - 1]} ${y}` : ym
+}
+
 async function descargarXlsx(wb: ExcelJS.Workbook, nombre: string) {
   const buf = await wb.xlsx.writeBuffer()
   const blob = new Blob([buf as BlobPart], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
@@ -89,6 +95,8 @@ export default function AsistenciaAdminPage() {
   const [horaIngreso, setHoraIngreso] = useState("08:00")
   const [guardado, setGuardado] = useState(false)
   const [filtroFecha, setFiltroFecha] = useState(fechaHoyLocal())
+  const [modoFiltro, setModoFiltro] = useState<"dia" | "mes" | "todo">("dia")
+  const [filtroMes, setFiltroMes] = useState(fechaHoyLocal().slice(0, 7))
   const [filtroUsuario, setFiltroUsuario] = useState("todos")
   const [notifs, setNotifs] = useState<Notificacion[]>([])
   const [geoModal, setGeoModal] = useState<GeoModalData | null>(null)
@@ -163,7 +171,8 @@ export default function AsistenciaAdminPage() {
   const usuariosList = usuarios.getAll()
 
   const filtrada = lista.filter(a => {
-    if (filtroFecha && a.fecha !== filtroFecha) return false
+    if (modoFiltro === "dia" && filtroFecha && a.fecha !== filtroFecha) return false
+    if (modoFiltro === "mes" && filtroMes && !a.fecha.startsWith(filtroMes)) return false
     if (filtroUsuario !== "todos" && a.usuarioId !== filtroUsuario) return false
     return true
   })
@@ -185,10 +194,14 @@ export default function AsistenciaAdminPage() {
     if (descargando) return
     setDescargando(true)
     try {
+      // En la bitácora mensual se ordena por trabajador y luego por fecha (de más antigua a más nueva).
+      const datos = modoFiltro === "mes"
+        ? [...filtrada].sort((x, y) => x.usuarioNombre.localeCompare(y.usuarioNombre, "es") || x.fecha.localeCompare(y.fecha))
+        : filtrada
       const minIngresoConfig = horaAMinutos(horaIngreso)
       const minFinJornada = horaAMinutos(HORA_FIN_JORNADA)
 
-      const calculos = filtrada.map(a => {
+      const calculos = datos.map(a => {
         const minEntrada = horaAMinutos(a.horaEntrada)
         const atrasoMin = (minEntrada != null && minIngresoConfig != null && minEntrada > minIngresoConfig)
           ? minEntrada - minIngresoConfig : 0
@@ -200,7 +213,7 @@ export default function AsistenciaAdminPage() {
       })
 
       const filas = await Promise.all(
-        filtrada.map(async (a, i) => {
+        datos.map(async (a, i) => {
           const lugarEntrada = a.horaEntrada ? await lugarDe(a.geoEntradaLat, a.geoEntradaLng, a.geoEntradaLugar) : ""
           const lugarSalidaColacion = a.horaSalidaColacion ? await lugarDe(a.geoSalidaColacionLat, a.geoSalidaColacionLng, a.geoSalidaColacionLugar) : ""
           const lugarEntradaColacion = a.horaEntradaColacion ? await lugarDe(a.geoEntradaColacionLat, a.geoEntradaColacionLng, a.geoEntradaColacionLugar) : ""
@@ -247,8 +260,8 @@ export default function AsistenciaAdminPage() {
       ]
       ws.columns = cols.map(c => ({ width: c.w }))
 
-      const rango = filtroFecha
-        ? filtroFecha
+      const rango = modoFiltro === "mes" && filtroMes ? nombreMes(filtroMes)
+        : modoFiltro === "dia" && filtroFecha ? filtroFecha
         : "Todas las fechas"
       const usuarioTitulo = filtroUsuario === "todos" ? "Todo el personal" : usuariosList.find(u => u.id === filtroUsuario)?.nombre ?? "Todo el personal"
       const tRow = ws.addRow([`BITÁCORA DE ASISTENCIA — ${rango} — ${usuarioTitulo}`])
@@ -274,25 +287,55 @@ export default function AsistenciaAdminPage() {
       ws.addRow([])
       const rRow = ws.addRow(["RESUMEN"])
       rRow.getCell(1).font = { bold: true, color: { argb: AZUL } }
-      const conTardanza = filtrada.filter(a => a.tarde).length
-      const sinGps = filtrada.filter(a =>
+      const conTardanza = datos.filter(a => a.tarde).length
+      const sinGps = datos.filter(a =>
         a.geoEntradaFuente === "ip" || a.geoSalidaColacionFuente === "ip" ||
         a.geoEntradaColacionFuente === "ip" || a.geoSalidaFuente === "ip"
       ).length
       const totalAtrasoMin = calculos.reduce((s, c) => s + c.atrasoMin, 0)
       const totalExtraMin = calculos.reduce((s, c) => s + c.extraMin, 0)
       ;[
-        ["Total registros", filtrada.length],
+        ["Total registros", datos.length],
         ["Tardanzas", conTardanza],
         ["Marcaciones sin GPS (aprox. por IP)", sinGps],
         ["Total minutos de atraso", totalAtrasoMin],
         [`Total minutos trabajados después de las ${HORA_FIN_JORNADA}`, totalExtraMin],
       ].forEach(([k, v]) => {
-        const row = ws.addRow([k, v])
+        const row = ws.addRow([k, "", "", "", v])
+        ws.mergeCells(row.number, 1, row.number, 4)
         row.getCell(1).font = { bold: true }
       })
 
-      const nombreArchivo = `Bitacora_Asistencia_${filtroFecha || "todas"}${filtroUsuario !== "todos" ? "_" + usuarioTitulo.replace(/\s+/g, "") : ""}.xlsx`
+      // Bitácora mensual: resumen por trabajador (días, tardanzas, atraso, extra y balance)
+      if (modoFiltro === "mes" && datos.length > 0) {
+        ws.addRow([])
+        const pRow = ws.addRow(["RESUMEN POR TRABAJADOR"])
+        pRow.getCell(1).font = { bold: true, color: { argb: AZUL } }
+        const phRow = ws.addRow(["", "Trabajador", "Días con marcación", "Tardanzas", "Total atraso", "Total extra", "Balance"])
+        phRow.eachCell((cell, n) => {
+          if (n < 2) return
+          cell.font = { bold: true, color: { argb: "FFFFFFFF" } }
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: AZUL } }
+          cell.alignment = { vertical: "middle", wrapText: true }
+        })
+        const porTrabajador = new Map<string, { dias: number; tardes: number; atraso: number; extra: number }>()
+        datos.forEach((a, i) => {
+          const r = porTrabajador.get(a.usuarioNombre) ?? { dias: 0, tardes: 0, atraso: 0, extra: 0 }
+          r.dias += 1
+          if (a.tarde) r.tardes += 1
+          r.atraso += calculos[i].atrasoMin
+          r.extra += calculos[i].extraMin
+          porTrabajador.set(a.usuarioNombre, r)
+        })
+        porTrabajador.forEach((r, nombre) => {
+          const bal = r.extra - r.atraso
+          ws.addRow(["", nombre, r.dias, r.tardes, formatoMinutos(r.atraso), formatoMinutos(r.extra),
+            bal === 0 ? "—" : bal > 0 ? `+${formatoMinutos(bal)}` : `-${formatoMinutos(Math.abs(bal))}`])
+        })
+      }
+
+      const periodoArchivo = modoFiltro === "mes" && filtroMes ? filtroMes : modoFiltro === "dia" && filtroFecha ? filtroFecha : "todas"
+      const nombreArchivo = `Bitacora_Asistencia_${periodoArchivo}${filtroUsuario !== "todos" ? "_" + usuarioTitulo.replace(/\s+/g, "") : ""}.xlsx`
       await descargarXlsx(wb, nombreArchivo)
     } finally {
       setDescargando(false)
@@ -387,23 +430,43 @@ export default function AsistenciaAdminPage() {
 
         {/* ── Filtros ── */}
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5">
-            <CalendarDays size={13} style={{ color: "var(--ds-fg-subtle)" }} />
-            <input
-              type="date"
-              value={filtroFecha}
-              onChange={e => setFiltroFecha(e.target.value)}
-              className="h-8 px-2 rounded-lg text-[12px] border"
-              style={{ border: "1px solid var(--ds-border)", color: "var(--ds-fg)", background: "var(--ds-surface)", fontFamily: "Fira Code, monospace" }}
-            />
+          <div className="flex items-center rounded-lg overflow-hidden" style={{ border: "1px solid var(--ds-border)" }}>
+            {([["dia", "Día"], ["mes", "Mes"], ["todo", "Todo"]] as const).map(([m, label]) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setModoFiltro(m)}
+                className="h-8 px-3 text-[12px] font-semibold"
+                style={modoFiltro === m ? { background: "#1a3673", color: "#ffffff" } : { background: "var(--ds-surface)", color: "var(--ds-fg-subtle)" }}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          <button
-            onClick={() => setFiltroFecha("")}
-            className="text-[11px] underline"
-            style={{ color: "var(--ds-fg-subtle)" }}
-          >
-            Ver todas las fechas
-          </button>
+          {modoFiltro === "dia" && (
+            <div className="flex items-center gap-1.5">
+              <CalendarDays size={13} style={{ color: "var(--ds-fg-subtle)" }} />
+              <input
+                type="date"
+                value={filtroFecha}
+                onChange={e => setFiltroFecha(e.target.value)}
+                className="h-8 px-2 rounded-lg text-[12px] border"
+                style={{ border: "1px solid var(--ds-border)", color: "var(--ds-fg)", background: "var(--ds-surface)", fontFamily: "Fira Code, monospace" }}
+              />
+            </div>
+          )}
+          {modoFiltro === "mes" && (
+            <div className="flex items-center gap-1.5">
+              <CalendarDays size={13} style={{ color: "var(--ds-fg-subtle)" }} />
+              <input
+                type="month"
+                value={filtroMes}
+                onChange={e => setFiltroMes(e.target.value)}
+                className="h-8 px-2 rounded-lg text-[12px] border"
+                style={{ border: "1px solid var(--ds-border)", color: "var(--ds-fg)", background: "var(--ds-surface)", fontFamily: "Fira Code, monospace" }}
+              />
+            </div>
+          )}
           <div className="flex items-center gap-1.5">
             <Users size={13} style={{ color: "var(--ds-fg-subtle)" }} />
             <Select value={filtroUsuario} onValueChange={v => setFiltroUsuario(v ?? "todos")}>
@@ -421,7 +484,7 @@ export default function AsistenciaAdminPage() {
             style={{ background: "#1a3673", color: "#ffffff" }}
           >
             <Download size={13} />
-            {descargando ? "Generando..." : "Descargar bitácora (Excel)"}
+            {descargando ? "Generando..." : modoFiltro === "mes" ? "Descargar bitácora mensual (Excel)" : "Descargar bitácora (Excel)"}
           </button>
         </div>
 
