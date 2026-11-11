@@ -16,13 +16,20 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [exito, setExito] = useState(false)
   const [sesionLista, setSesionLista] = useState(false)
+  const [enlaceFallido, setEnlaceFallido] = useState(false)
 
   useEffect(() => {
-    // Supabase redirige con #access_token en la URL — el SDK lo procesa automáticamente
+    // Con flujo PKCE el SDK intercambia el code de la URL y emite SIGNED_IN (no PASSWORD_RECOVERY);
+    // antes la página quedaba en "Verificando enlace…" para siempre. Se acepta cualquiera de los dos
+    // eventos y también una sesión ya establecida.
     const sb = getSupabase()
-    sb.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") setSesionLista(true)
+    let activo = true
+    const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" || (session && (event === "SIGNED_IN" || event === "INITIAL_SESSION"))) setSesionLista(true)
     })
+    sb.auth.getSession().then(({ data }) => { if (activo && data.session) setSesionLista(true) })
+    const timer = setTimeout(() => { if (activo) setEnlaceFallido(true) }, 10000)
+    return () => { activo = false; clearTimeout(timer); subscription.unsubscribe() }
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -66,7 +73,9 @@ export default function ResetPasswordPage() {
                     style={{ animation: "pulse 1.4s cubic-bezier(0.16,1,0.3,1) infinite", animationDelay: i * 0.18 + "s" }} />
                 ))}
               </div>
-              <p className="text-[13px] text-gray-500">Verificando enlace…</p>
+              {enlaceFallido
+              ? <p className="text-[13px] text-gray-500">El enlace no es válido o ya venció. <a href="/login" className="text-blue-600 underline">Volver al inicio de sesión</a> y solicitar uno nuevo.</p>
+              : <p className="text-[13px] text-gray-500">Verificando enlace…</p>}
             </div>
           ) : (
             <>
