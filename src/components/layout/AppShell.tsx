@@ -130,6 +130,8 @@ function Guard({ children }: { children: React.ReactNode }) {
       return
     }
     if (pathname === "/login") { router.push("/"); return }
+    // /reset-password: el enlace del correo deja al usuario con sesión; sin esta salida canAccess() lo rebotaba a /mantencion antes de poder crear la contraseña
+    if (pathname === "/reset-password") return
     if (!canAccess(user, pathname)) router.push("/mantencion")
   }, [user, loading, pathname])
 
