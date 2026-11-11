@@ -198,7 +198,10 @@ export function MarcarAsistencia() {
     let guardado = true
     if (registroActual) {
       guardado = await asistencias.updateAsync(registroActual.id, cambios)
-    } else if (modo === "entrada") {
+    } else {
+      // Sin fila de hoy en el servidor: se crea con la marca actual (antes, si no
+      // era "entrada", no se guardaba nada y el diálogo se cerraba como si todo
+      // hubiera salido bien).
       const res = await asistencias.addAsync({
         usuarioId: user.id,
         usuarioNombre: user.nombre,
