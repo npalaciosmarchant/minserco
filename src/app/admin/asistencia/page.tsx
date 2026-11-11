@@ -115,7 +115,8 @@ export default function AsistenciaAdminPage() {
   }, [user])
 
   const cargar = () => {
-    setLista(asistencias.getAll().slice().reverse())
+    // Más reciente primero: el caché local llega en el orden en que respondió Supabase, sin ordenar
+    setLista(asistencias.getAll().slice().sort((a, b) => b.fecha.localeCompare(a.fecha) || a.usuarioNombre.localeCompare(b.usuarioNombre, "es")))
     setHoraIngreso(asistenciaConfig.get().horaIngreso)
     setNotifs(notificaciones.getAll().filter(n => n.tipo === "asistencia_sin_gps" && !n.leida).slice().reverse())
   }
